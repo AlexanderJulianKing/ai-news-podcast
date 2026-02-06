@@ -1,0 +1,17 @@
+keys.txt
+client_secrets.json
+newscaster1-03dc16232821.json
+uploader2-token.json
+token.json
+stories_chosen/
+segment_summaries/
+output_scripts/
+segment_audio/
+output_audio/
+episode_titles/
+logs/
+output_video.mp4
+__pycache__/
+*.pyc
+.DS_Store
+.claude/
