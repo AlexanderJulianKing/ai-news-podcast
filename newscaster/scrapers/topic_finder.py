@@ -1,7 +1,6 @@
 import json
-from datetime import date
+from datetime import date, datetime
 
-from newscaster.config import date_str
 from newscaster.logging import print_and_write
 from newscaster.text_utils import _grounded_response_needs_retry
 from newscaster.prompts import (
@@ -21,6 +20,10 @@ from newscaster.scrapers.calmatters import calmatters_scraper
 from newscaster.scrapers.web import scrape_text
 
 
+def _today_str():
+    return datetime.now().strftime("%B %d, %Y")
+
+
 def headline_extractor(response):
     extraction_prompt = HEADLINE_EXTRACTION_PROMPT + response
     headline = get_llm_response(response, system_prompt=extraction_prompt)
@@ -29,7 +32,7 @@ def headline_extractor(response):
 
 def determine_relevance(topic, result):
     prompt = "Given the search engine headline of '{}' and the search result snippet of '{}', do you think that the given website is a news article AND might be relevant to the topic of '{}'? . Give a yes or no answer.".format(
-        result['headline'], result['snippet'], topic, date_str)
+        result['headline'], result['snippet'], topic, _today_str())
 
     response = get_llm_response(prompt, mode='light')
 
@@ -93,10 +96,10 @@ def summarize_headline_with_grounding(headline: str) -> str:
     if not headline_clean:
         return 'UNVERIFIED: Empty headline received. Please provide a valid headline to summarize.'
 
-    system_prompt = OVERVIEW_SYSTEM_PROMPT_TEMPLATE.format(date=date_str)
+    system_prompt = OVERVIEW_SYSTEM_PROMPT_TEMPLATE.format(date=_today_str())
     base_prompt = (
         f"Headline: {headline_clean}\n"
-        f"Date: {date_str}\n"
+        f"Date: {_today_str()}\n"
         "Instructions:\n"
         "- Use GoogleSearch to pull multiple reputable sources published today or within the past 48 hours.\n"
         "- Summarize the key facts in 3-5 sentences, attributing details to named outlets or officials.\n"

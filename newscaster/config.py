@@ -2,7 +2,6 @@ import sys
 import io
 from typing import Dict
 from pathlib import Path
-from datetime import datetime
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -40,18 +39,29 @@ def require_key(keys: Dict[str, str], name: str) -> str:
     return value
 
 
-KEYS = load_keys()
-GOOGLE_GENAI_API_KEY = require_key(KEYS, "google_genai_api")
-ANTHROPIC_API_KEY = require_key(KEYS, "anthropic_api")
-OPENROUTER_API_KEY = require_key(KEYS, "openrouter_api")
-XI_API_KEY = require_key(KEYS, "XI_API_KEY")
-GOOGLE_SEARCH_API_KEY = require_key(KEYS, "google_search_api")
-OPENWEATHERMAP_API_KEY = require_key(KEYS, "openweathermap_api")
-GOOGLE_CSE_ID = require_key(KEYS, "google_cse_id")
+KEYS = None
+GOOGLE_GENAI_API_KEY = None
+ANTHROPIC_API_KEY = None
+OPENROUTER_API_KEY = None
+XI_API_KEY = None
+GOOGLE_SEARCH_API_KEY = None
+OPENWEATHERMAP_API_KEY = None
+GOOGLE_CSE_ID = None
 
 MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 5
-
-now = datetime.now()
-date_str = now.strftime("%B %d, %Y")
 _SECOND = 1000
+
+
+def init():
+    """Load API keys from keys.txt. Must be called before using any key constants."""
+    global KEYS, GOOGLE_GENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY
+    global XI_API_KEY, GOOGLE_SEARCH_API_KEY, OPENWEATHERMAP_API_KEY, GOOGLE_CSE_ID
+    KEYS = load_keys()
+    GOOGLE_GENAI_API_KEY = require_key(KEYS, "google_genai_api")
+    ANTHROPIC_API_KEY = require_key(KEYS, "anthropic_api")
+    OPENROUTER_API_KEY = require_key(KEYS, "openrouter_api")
+    XI_API_KEY = require_key(KEYS, "XI_API_KEY")
+    GOOGLE_SEARCH_API_KEY = require_key(KEYS, "google_search_api")
+    OPENWEATHERMAP_API_KEY = require_key(KEYS, "openweathermap_api")
+    GOOGLE_CSE_ID = require_key(KEYS, "google_cse_id")
