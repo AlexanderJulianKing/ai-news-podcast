@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any, Tuple, Union
 
 import requests
 
-from newscaster.config import OPENROUTER_API_KEY, MAX_RETRIES, INITIAL_RETRY_DELAY
+import newscaster.config as _config
 
 
 class APIError(Exception):
@@ -86,7 +86,7 @@ def get_openrouter_response(
         payload["reasoning"] = {"effort": "minimal"}
 
     forced_provider = provider_overrides.get(model)
-    delay = INITIAL_RETRY_DELAY
+    delay = _config.INITIAL_RETRY_DELAY
 
     def _summarize_usage(u: Dict[str, Any]) -> Dict[str, Any]:
         comp_details = (u or {}).get("completion_tokens_details") or {}
@@ -105,7 +105,7 @@ def get_openrouter_response(
     with requests.Session() as s:
         s.trust_env = False
         base_headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Authorization": f"Bearer {_config.OPENROUTER_API_KEY}",
             "Content-Type": "application/json",
             "Accept": "application/json",
             "User-Agent": "openbench/1.0",
@@ -114,7 +114,7 @@ def get_openrouter_response(
         }
         s.headers.update(base_headers)
 
-        for attempt in range(MAX_RETRIES):
+        for attempt in range(_config.MAX_RETRIES):
             try:
                 time.sleep(random.uniform(0.02, 0.12))
 
@@ -207,7 +207,7 @@ def get_openrouter_response(
                         if sess is not s:
                             sess.close()
 
-                if attempt == MAX_RETRIES - 1:
+                if attempt == _config.MAX_RETRIES - 1:
                     raise last_exc or APIError("Exhausted attempts")
 
                 sleep_for = delay + random.uniform(0, 1)
@@ -216,7 +216,7 @@ def get_openrouter_response(
                 delay = min(delay * 2, 60)
 
             except requests.RequestException as e:
-                if attempt == MAX_RETRIES - 1:
+                if attempt == _config.MAX_RETRIES - 1:
                     raise APIError(f"Network error: {e}") from e
                 print(f"Retrying after network error: {e}. Waiting {delay:.2f}s...")
                 time.sleep(delay + random.uniform(0, 1))

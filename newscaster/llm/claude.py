@@ -1,12 +1,12 @@
 import anthropic
 import httpx
 
-from newscaster.config import ANTHROPIC_API_KEY
+import newscaster.config as _config
 from newscaster.logging import print_and_write
 
 
 def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='You are an intelligent assistant.'):
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=httpx.Timeout(300.0, connect=5.0))
+    client = anthropic.Anthropic(api_key=_config.ANTHROPIC_API_KEY, timeout=httpx.Timeout(300.0, connect=5.0))
     max_output_tokens = 16000
     thinking = True
     try:

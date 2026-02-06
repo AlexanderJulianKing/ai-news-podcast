@@ -15,7 +15,6 @@ from googleapiclient.http import MediaFileUpload
 import httplib2
 import argparse
 
-from newscaster.config import GOOGLE_GENAI_API_KEY
 from newscaster.llm.gemini import gemini
 from newscaster.logging import print_and_write
 

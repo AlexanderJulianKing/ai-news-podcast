@@ -4,7 +4,7 @@ from google import genai
 from google.genai import types
 from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
 
-from newscaster.config import GOOGLE_GENAI_API_KEY
+import newscaster.config as _config
 from newscaster.logging import print_and_write
 
 
@@ -18,11 +18,11 @@ def gemini(user_prompt, system_prompt='You are an intelligent assistant.', model
     if url_context:
         tools.append(Tool(url_context=types.UrlContext))
 
-    client = genai.Client(api_key=GOOGLE_GENAI_API_KEY)
+    client = genai.Client(api_key=_config.GOOGLE_GENAI_API_KEY)
 
     while completed == False:
         try:
-            client = genai.Client(api_key=GOOGLE_GENAI_API_KEY)
+            client = genai.Client(api_key=_config.GOOGLE_GENAI_API_KEY)
 
             response = client.models.generate_content(
                 model=model,

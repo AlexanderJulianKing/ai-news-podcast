@@ -1,7 +1,7 @@
 import time
 from datetime import datetime, timedelta
 
-from newscaster.config import GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID
+import newscaster.config as _config
 from newscaster.logging import print_and_write
 from newscaster.llm import get_llm_response
 
@@ -15,8 +15,8 @@ def google_official_search(query, num_results=3, days_prior=1):
 
     try:
         for i in range(5):
-            api_key = GOOGLE_SEARCH_API_KEY
-            custom_search_engine_id = GOOGLE_CSE_ID
+            api_key = _config.GOOGLE_SEARCH_API_KEY
+            custom_search_engine_id = _config.GOOGLE_CSE_ID
             print_and_write('query:', query)
 
             service = build("customsearch", "v1", developerKey=api_key)

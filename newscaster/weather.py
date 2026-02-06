@@ -2,11 +2,11 @@ from datetime import datetime
 
 import requests
 
-from newscaster.config import OPENWEATHERMAP_API_KEY
+import newscaster.config as _config
 
 
 def get_daily_temp():
-    url = f"http://api.openweathermap.org/data/2.5/forecast?id=5387877&appid={OPENWEATHERMAP_API_KEY}"
+    url = f"http://api.openweathermap.org/data/2.5/forecast?id=5387877&appid={_config.OPENWEATHERMAP_API_KEY}"
     response = requests.get(url)
 
     if response.status_code == 200:

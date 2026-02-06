@@ -12,8 +12,8 @@ def _mock_cse_response(items):
     return mock_service
 
 
-@patch('newscaster.scrapers.google_search.GOOGLE_CSE_ID', 'fake_cse_id')
-@patch('newscaster.scrapers.google_search.GOOGLE_SEARCH_API_KEY', 'fake_key')
+@patch('newscaster.config.GOOGLE_CSE_ID', 'fake_cse_id')
+@patch('newscaster.config.GOOGLE_SEARCH_API_KEY', 'fake_key')
 class TestGoogleOfficialSearch:
 
     @patch('newscaster.scrapers.google_search.get_llm_response', return_value='rephrased query')
