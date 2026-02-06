@@ -90,7 +90,7 @@ def gather_news(formatted_date, formatted_date2):
         print_and_write('\n\n')
         print_and_write('TOPIC:', topic, '\n')
         summary_prompt = 'Today is {}.'.format(formatted_date)
-        summary_prompt_alpha = "Given the topic of '" + topic + "', and given the summaries below, please create a long synthesis text that holds as much information about the topic as possible. Do not include information irrelevant  to the topic, like side stories or topics that do not have anything to do with the main story. For example, if the main story is about a fire, if the page also includes a mention of abortion, you should remove it. That being said, your job is to synthesize a cohesive text that includes as much information as possible. I want DEPTH. In addition, it is of the utmost importance that you include the news outlets the stories come from, like CNN, the New York Times, ABC News, NPR, etc. Also note that today is " + formatted_date + '.\n\n """'
+        summary_prompt_alpha = "Given the topic of '" + topic + "', and given the summaries below, please create a long synthesis text that holds as much information about the topic as possible. Do not include information irrelevant  to the topic, like side stories or topics that do not have anything to do with the main story. For example, if the main story is about a fire, if the page also includes a mention of abortion, you should remove it. That being said, your job is to synthesize a cohesive text that includes as much information as possible. I want DEPTH. In addition, it is of the utmost importance that you include the news outlets the stories come from, like CNN, the New York Times, ABC News, NPR, etc. The text below includes article summaries as well as follow-up questions and answers that provide additional context and nuance — be sure to incorporate those insights into the synthesis. Also note that today is " + formatted_date + '.\n\n """'
 
         summary_prompt2 = "Given the summary below, please refine the information by eliminating any sentences that aren't relevant to the core narrative. However, it's crucial to keep the majority of the information, including all key aspects, background context, and important details tied to the story. Remove any redundant elements but retain all relevant facts, figures, and potential implications. Aim for a summary that is concise yet comprehensive in preserving the essence of the original text." + '\n\n """'
         irrelevance_prompt = 'Is there any information irrelevant to the main story in the below text, like information about upcoming programming or advertisements? For example, if the main story is about a fire, if the page the story was on also includes a mention of abortion, you should remove it. Give a yes or no answer and explain why: \n\n'
@@ -155,14 +155,14 @@ def gather_news(formatted_date, formatted_date2):
 
             print_and_write('SUPER SUMMARY LENGTH:', len(summary_prompt))
 
-            super_summary = get_llm_response(summary_prompt, system_prompt=summary_prompt_alpha)
+            super_summary = get_llm_response(summary_prompt, system_prompt=summary_prompt_alpha, mode='standard')
             print_and_write('SUPER SUMMARY ITERATION 1:', super_summary, '\n')
             irrelevance_prompt = irrelevance_prompt + super_summary
             irrelevance_answer = get_llm_response(irrelevance_prompt)
             print_and_write('IRRELEVANT INFORMATION?:' + irrelevance_answer)
             if 'yes' in irrelevance_answer.lower():
                 summary_prompt2 = summary_prompt2 + super_summary
-                super_summary = get_llm_response(summary_prompt2)
+                super_summary = get_llm_response(summary_prompt2, mode='standard')
                 print_and_write('SUPER SUMMARY ITERATION 2:', super_summary, '\n')
             stories.append(super_summary)
 

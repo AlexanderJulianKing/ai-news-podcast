@@ -47,7 +47,7 @@ def summarize_text(text, article):
     print_and_write(f"Text length: {text_length} characters")
     prompt = 'Summarize this news article, but be sure to include where the article is from and as many important details as you can.\n\n'
 
-    completion = get_llm_response(prompt + text)
+    completion = get_llm_response(prompt + text, mode='standard')
     return completion
 
 
@@ -75,10 +75,10 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
 
             news_source_response = get_llm_response(news_source_prompt, mode='light')
 
-            summary_prompt = summary_prompt + '\n'
-            summary_prompt = summary_prompt + 'source:' + news_source_response + '\n'
+            summary_prompt = summary_prompt + '\n\n---\nArticle ' + str(successful_summary_counter + 1) + '\n'
+            summary_prompt = summary_prompt + 'Source: ' + news_source_response + '\n'
             summary_prompt = summary_prompt + summary
-            summary_prompt = summary_prompt + '\n'
+            summary_prompt = summary_prompt + '\n---\n'
 
             outfile = open('segment_summaries/{}_segment{}_article{}_summary.txt'.format(formatted_date2, i, successful_summary_counter), 'w', encoding='utf-8')
             outfile.write(summary)
