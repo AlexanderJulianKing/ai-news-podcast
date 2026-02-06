@@ -1,4 +1,5 @@
 from newscaster.llm import get_llm_response
+from newscaster.logging import print_and_write
 from newscaster.prompts import HEADLINE_MAKER_PROMPT
 
 
@@ -8,8 +9,8 @@ def story_gatherer(formatted_date2):
         try:
             with open('segment_summaries/{}_segment{}_summary.txt'.format(formatted_date2, i), encoding='utf-8') as storyfile:
                 stories.append(storyfile.read())
-        except:
-            pass
+        except Exception as e:
+            print_and_write(f'Missing segment summary {i}: {e}')
     return stories
 
 

@@ -97,8 +97,8 @@ def main(fake=False):
                 try:
                     search_results = google_official_search(topic, 9)
                     break
-                except:
-                    print_and_write('failed search :(')
+                except Exception as e:
+                    print_and_write(f'Google search failed: {e}')
 
             print_and_write('\n\n')
             print_and_write('TOPIC:', topic, '\n')
@@ -120,14 +120,14 @@ def main(fake=False):
                     try:
                         search_results = google_official_search(topic, 9, days_prior=3)
                         break
-                    except:
-                        print_and_write('failed search :(')
+                    except Exception as e:
+                        print_and_write(f'Google search failed: {e}')
                 for result in search_results:
                     print_and_write(result)
                     try:
                         summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2)
-                    except:
-                        print_and_write('LOL', summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2)
+                    except Exception as e:
+                        print_and_write(f'result_piper failed for topic {topic}: {e}')
                         pass
                     if successful_summary_counter == 3:
                         break
@@ -143,14 +143,14 @@ def main(fake=False):
                     try:
                         search_results = google_official_search(topic, 9)
                         break
-                    except:
-                        print_and_write('failed search :(')
+                    except Exception as e:
+                        print_and_write(f'Google search failed: {e}')
                 for result in search_results:
                     print_and_write(result)
                     try:
                         summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2)
-                    except:
-                        print_and_write('LOL', summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2)
+                    except Exception as e:
+                        print_and_write(f'result_piper failed for topic {topic}: {e}')
                         pass
                     if successful_summary_counter == 3:
                         break

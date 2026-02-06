@@ -139,8 +139,8 @@ def overview_process(overview):
             story = summarize_headline_with_grounding(headline_n)
             print_and_write(story)
             story_overviews = story_overviews + '\n' + story
-        except:
-            print_and_write('PERPLEXITY FAILURE IN overview_process')
+        except Exception as e:
+            print_and_write(f'Grounding failed in overview: {e}')
 
     return story_overviews
 
@@ -194,10 +194,9 @@ def topic_finder(formatted_date):
         year_page_summary = get_llm_response(
             "Assume I am an LLM who does not know much about current events in United States and I'm trying to get enough context about the United States in order to make a news program for it for this evening. My context window ends December 31, 2025, so I need as much information as possible about the state of the world since then. Give me as much background information as I need about current events in the US. https://en.wikipedia.org/wiki/2026_in_the_United_States#",
             mode="standard", url_context=True)
-    except:
+    except Exception as e:
         year_page_summary = "Context unavailable, proceed with headlines only"
-        for i in range(10):
-            print_and_write('WIKIPEDIA GRAB FAILED')
+        print_and_write(f'Wikipedia context fetch failed: {e}')
 
     main_story_prompt = MAIN_STORY_PROMPT + " For background knowledge to assist your decision, here is a brief summary of current events\":\n" + year_page_summary
 

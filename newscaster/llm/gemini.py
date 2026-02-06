@@ -48,9 +48,9 @@ def gemini(user_prompt, system_prompt='You are an intelligent assistant.', model
                 if i == 5:
                     return 'no response'
 
-        except:
+        except Exception as e:
             if i == 5:
-                print_and_write('lol gemini broke')
+                print_and_write(f'Gemini failed after 5 retries: {e}')
                 print_and_write('system:', system_prompt)
                 print_and_write('user', user_prompt)
                 print_and_write('grounding', grounding)

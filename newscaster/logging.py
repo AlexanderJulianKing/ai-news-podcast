@@ -15,5 +15,5 @@ def print_and_write(*args):
             file.write(log_entry + '\n')
             try:
                 print(log_entry)
-            except:
-                print('looooooooooooooooool i have a hard time printing this line')
+            except Exception as e:
+                print(f'Failed to print log entry: {e}')
