@@ -14,7 +14,6 @@ while true; do
 
     echo "Hello from the Bash script!"
     echo 'Running program!'
-    source ~/newscaster_env/bin/activate
     current_date=$(date +'%Y_%m_%d')
     echo $current_date
     python3 main.py
