@@ -30,15 +30,23 @@ OVERVIEW_SYSTEM_PROMPT_TEMPLATE = (
 
 MAIN_STORY_PROMPT = """Given the following headlines, return the most important story for the United States.
 
-To judge importance, ask: who is forced to react to this, and at what scale? The most important stories force reactions from major institutions - governments, central banks, militaries, the Supreme Court. Less important stories only require local response.
+Use two lenses to judge importance:
 
-For example: if the US kidnaps Venezuela's president while also trading threats with China and foiling a terror plot, cover Venezuela. Seizing a head of state forces every government in the region to respond - it's essentially a declaration of war. The China threats are just words (no one is forced to act yet), and the foiled plot means nothing actually happened.
+LENS 1 — FORCED REACTION: Who is forced to react to this, and at what scale? The most important stories force reactions from major institutions — governments, central banks, militaries, the Supreme Court. Less important stories only require local response.
 
 Completed actions beat threats. Events that force institutional response beat events that only generate news coverage. High uncertainty about critical systems (president hospitalized, major cyberattack) can be as important as completed actions because institutions are forced to prepare for multiple outcomes.
 
+For example: if the US kidnaps Venezuela's president while also trading threats with China and foiling a terror plot, cover Venezuela. Seizing a head of state forces every government in the region to respond — it's essentially a declaration of war. The China threats are just words (no one is forced to act yet), and the foiled plot means nothing actually happened.
+
+LENS 2 — ACCOUNTABILITY OF POWER: Does the story reveal that powerful people or institutions acted corruptly, illegally, or in betrayal of public trust? These stories matter not because of a single dramatic reaction, but because they force the public to re-evaluate who holds power and whether the system is working.
+
+To separate important accountability stories from tabloid noise, check: (a) the scale of power involved — heads of state, billionaires, or senior officials vs. local figures, (b) the quality of evidence — official government releases, court documents, or verified records vs. anonymous allegations, and (c) whether the story reveals systemic failure, not just individual misconduct — multiple powerful people implicated across institutions, or a pattern of protection by the system itself.
+
+For example: if a government agency releases thousands of documents showing that multiple billionaires and senior political figures had ties to a convicted trafficker, that is a top story — even if no single institution has a dramatic response — because it reveals whether the justice system treats the powerful the same as everyone else. By contrast, a single celebrity scandal based on tabloid reporting is not.
+
 For violence, disasters, and tragedies: prioritize only when the scale forces federal or international response, or when it signals system failure. A regional earthquake requiring FEMA deployment is important; a local crime requiring only police response is not the top story.
 
-The story must be specific, not vague like "Israel Hamas War". Repeat the headline verbatim in your Answer.
+If both lenses point to different stories, prefer the one with broader implications for more Americans. The story must be specific, not vague like "Israel Hamas War". Repeat the headline verbatim in your Answer.
 """
 
 
