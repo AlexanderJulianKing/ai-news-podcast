@@ -31,7 +31,7 @@ def headline_extractor(response):
 
 
 def determine_relevance(topic, result):
-    prompt = "Given the search engine headline of '{}' and the search result snippet of '{}', do you think that the given website is a news article AND might be relevant to the topic of '{}'? . Give a yes or no answer.".format(
+    prompt = "Given the search engine headline of '{}' and the search result snippet of '{}', do you think that the given website is a news article AND might be relevant to the topic of '{}'? Today is {}. Give a yes or no answer.".format(
         result['headline'], result['snippet'], topic, _today_str())
 
     response = get_llm_response(prompt, mode='light')
@@ -57,7 +57,7 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
     print_and_write(relevant)
     if relevant == True:
 
-        print_and_write('ARTICLE SEEMS RELEVANT'), '\n'
+        print_and_write('ARTICLE SEEMS RELEVANT', '\n')
         url = result['url']
         text = scrape_text(result['url'])
         if len(text) > 20000:

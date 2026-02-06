@@ -7,7 +7,6 @@ from newscaster.logging import print_and_write
 def assemble_podcast(formatted_date2):
     OUTPUT_PATH = 'segment_audio/' + formatted_date2
 
-    AudioSegment.from_mp3('{}_intro.mp3'.format(OUTPUT_PATH))
     podcast = AudioSegment.from_mp3('{}_intro.mp3'.format(OUTPUT_PATH))
     podcast += AudioSegment.silent(duration=2 * _SECOND)
 
@@ -19,7 +18,7 @@ def assemble_podcast(formatted_date2):
             print_and_write(f'Missing audio segment: {e}')
         if i == 1:
             try:
-                podcast += AudioSegment.from_mp3('{}_overview.wav'.format(OUTPUT_PATH, i))
+                podcast += AudioSegment.from_mp3('{}_overview.wav'.format(OUTPUT_PATH))
                 podcast += AudioSegment.silent(duration=2 * _SECOND)
             except Exception as e:
                 print_and_write(f'Missing audio segment: {e}')

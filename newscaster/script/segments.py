@@ -58,7 +58,7 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date):
         if not text:
             return 0.0
         word_count = len(text.split())
-        length_score = max(0.0, 1 + abs(word_count - 1250) / 1250)
+        length_score = max(0.0, 1 - abs(word_count - 1250) / 1250)
         lines = [line for line in text.splitlines() if ':' in line]
         grace_lines = sum(1 for line in lines if line.startswith('Grace:'))
         reporter_lines = sum(1 for line in lines if line.startswith(f'{reporter_name}:'))

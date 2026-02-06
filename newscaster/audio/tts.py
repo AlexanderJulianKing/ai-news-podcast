@@ -80,7 +80,7 @@ def google_speak(name, text, filename):
 
 
 def text2speech(date_str, voices_list):
-    voices_list.append('Connie')
+    voices_list = list(voices_list) + ['Connie']
     OUTPUT_PATH = 'segment_audio/' + date_str
 
     speaker = 'Grace'

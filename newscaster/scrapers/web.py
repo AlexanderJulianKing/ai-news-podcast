@@ -13,8 +13,6 @@ def scrape_text(url):
         response = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.97 Safari/537.36"}, timeout=10)
     except requests.exceptions.RequestException as e:
         return "Error: " + str(e)
-    except requests.exceptions.Timeout:
-        print_and_write("The request timed out.")
 
     if response.status_code >= 400:
         return "Error: HTTP " + str(response.status_code) + " error"
