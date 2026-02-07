@@ -219,7 +219,18 @@ def generate_audio(formatted_date2, voices_list):
     assemble_podcast(formatted_date2)
 
 
+def _ensure_output_dirs():
+    """Create output directories if they don't exist."""
+    for d in [
+        "segment_summaries", "output_scripts", "output_audio",
+        "segment_audio", "stories_chosen", "episode_titles", "logs",
+    ]:
+        os.makedirs(d, exist_ok=True)
+
+
 def main():
+    _ensure_output_dirs()
+
     today = date.today()
     formatted_date = today.strftime("%B %d, %Y")
     formatted_date2 = today.strftime("%Y_%m_%d")
