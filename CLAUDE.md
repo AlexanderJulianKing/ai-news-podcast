@@ -9,7 +9,7 @@ Newscaster is an automated daily news podcast generation system. It scrapes news
 ## Commands
 
 ```bash
-# Run full pipeline (recommended)
+# Run full pipeline (scheduler with retry logic, triggers at 4 AM)
 ./main2.bash
 
 # Run individual components
@@ -17,8 +17,8 @@ python3 main.py           # Core pipeline: scrape → analyze → script → aud
 python3 moviemaker.py     # Create video from audio + image
 python3 uploader2.py      # Upload to YouTube
 
-# Scheduled execution
-./main2.bash              # Bash scheduler with retry logic
+# Run tests
+python3 -m pytest tests/
 
 # Install dependencies
 pip install -r requirements.txt
@@ -26,85 +26,51 @@ pip install -r requirements.txt
 
 ## Architecture
 
-### Package Structure
-
-```
-newscaster/                # Main package
-├── config.py              # API key loading, constants, PROJECT_ROOT
-├── logging.py             # print_and_write() log function
-├── dates.py               # Date formatting helpers (spoken dates)
-├── text_utils.py          # text_cleaner(), find_quoted_strings(), grounding retry
-├── prompts.py             # All prompt template constants
-├── dedup.py               # Story deduplication against past 7 days
-├── weather.py             # OpenWeatherMap integration
-├── video.py               # MoviePy video creation
-├── upload.py              # YouTube OAuth upload
-├── pipeline.py            # main() and super_main() orchestrators
-├── llm/                   # LLM provider wrappers
-│   ├── router.py          # get_llm_response() — mode-based routing
-│   ├── gemini.py          # Google Gemini with grounding/url_context
-│   ├── claude.py          # Anthropic Claude with thinking
-│   └── openrouter.py      # OpenRouter multi-provider with retries
-├── scrapers/              # News gathering
-│   ├── topic_finder.py    # topic_finder(), headline extraction, overview
-│   ├── calmatters.py      # CalMatters scraper
-│   ├── google_search.py   # Google Custom Search API
-│   └── web.py             # Generic webpage scraper
-├── script/                # Script generation
-│   ├── intro.py           # intro_writer() — titles, intro segments
-│   ├── segments.py        # segments_writer() — dialogue generation
-│   └── headlines.py       # headline_maker(), story_gatherer()
-└── audio/                 # TTS and audio assembly
-    ├── tts.py             # google_speak(), text2speech()
-    ├── overview.py        # Overview audio splitting/merging
-    ├── intro_music.py     # Theme song overlay
-    └── assembly.py        # Final podcast assembly
-```
-
 ### Entry Points
 
-- `main.py` — Thin shim → `newscaster.pipeline.super_main()`
-- `moviemaker.py` — Thin shim → `newscaster.video.create_and_export_video()`
-- `uploader2.py` — Thin shim → `newscaster.upload.main()`
+- `main.py` — Calls `config.init()` then `pipeline.main()`
+- `moviemaker.py` — Calls `config.init()` then `video.create_and_export_video()`
+- `uploader2.py` — Calls `config.init()` then `upload.main()`
+- `main2.bash` — Scheduler: runs all three sequentially at 4 AM with retry logic
 
-### Pipeline Stages
+### Pipeline Stages (pipeline.py)
 
-1. **News Gathering** — Scrapes NPR, AP News, Democracy Now, ProPublica, CalMatters, local Riverside news using LLM grounding and BeautifulSoup
-2. **Story Selection** — Multi-LLM evaluation selects top US story, California-relevant story, and 5 minor stories; deduplicates against past 7 days
-3. **Script Writing** — Generates dialogue scripts between anchor "Grace" and reporters with source attribution
-4. **Audio Synthesis** — Google Cloud TTS with multiple voices (Grace, Ethan, Chloe, Elias); combines segments with PyDub
-5. **Video Creation** — MoviePy combines audio with static image
-6. **Distribution** — YouTube upload with OAuth
+1. **`gather_news()`** — Scrapes NPR, AP News, Democracy Now, ProPublica, CalMatters, City of Riverside using LLM grounding and BeautifulSoup. Runs multi-round follow-up questions across light/standard/heavy LLM modes to build deep summaries. Writes to `segment_summaries/`.
+2. **`write_scripts()`** — Selects stories via `headline_maker()`, generates dialogue scripts between anchor "Grace" and reporters (Ethan, Chloe, Elias). Writes to `output_scripts/`.
+3. **`generate_audio()`** — Google Cloud TTS with multiple voices, intro music overlay via PyDub, final assembly. Writes to `segment_audio/` and `output_audio/`.
+4. **Video** (`moviemaker.py`) — MoviePy combines `output_audio/{date}_HQ.mp3` with `image copy.png`
+5. **Upload** (`uploader2.py`) — YouTube OAuth upload, reads title from `episode_titles/`
 
-### Multi-LLM Orchestration
+Each stage is idempotent: it checks if its output files already exist and skips if so. Output directories are auto-created by `_ensure_output_dirs()` at pipeline start.
 
-- Light mode (fast): Grok via OpenRouter
-- Standard mode: GPT-5 or Gemini Flash
-- Heavy mode: Gemini Pro or Claude Sonnet
-- Routing handled by `get_llm_response()` in `newscaster/llm/router.py`
+### Multi-LLM Routing (llm/router.py)
+
+`get_llm_response(prompt, system_prompt, mode, grounding, url_context)` is the central LLM call. Routing:
+
+| Mode | No grounding | With grounding/url_context |
+|---|---|---|
+| `light` | Grok 4 Fast (OpenRouter) | Gemini 3 Flash (Google) |
+| `standard` | GPT-5.1 (OpenRouter) | Gemini 3 Flash (Google) |
+| `heavy` | Gemini 3 Pro (Google) | Gemini 3 Pro (Google) |
+
+Only Gemini supports `grounding` (Google Search) and `url_context` (page fetching).
+
+### Key Patterns
+
+- **Config init**: `config.init()` must be called before any API key is used. Keys are loaded from `keys.txt` into module-level globals in `config.py`. Other modules access keys via `import newscaster.config as _config` and read `_config.ANTHROPIC_API_KEY` etc. at call time (not import time).
+- **Logging**: `print_and_write()` from `newscaster/logging.py` writes to both console and a daily log file in `logs/`.
+- **Circular dependency**: `dedup.py` uses a lazy import (`from newscaster.llm import get_llm_response`) inside `summarize_story_for_archive()` to avoid circular imports at module load time.
+- **All prompts** are centralized in `newscaster/prompts.py` as template constants.
+- **Deduplication**: `stories_chosen/` stores JSON summaries per day; `load_recent_story_descriptions()` checks the past 7 days to avoid repeating stories.
 
 ## Configuration
 
-API keys are loaded from `keys.txt` (gitignored). See `keys.txt.example` for required entries:
-- `google_genai_api` — Google Gemini
-- `anthropic_api` — Anthropic Claude
-- `openrouter_api` — OpenRouter
-- `XI_API_KEY` — ElevenLabs (legacy)
-- `google_search_api` — Google Custom Search
-- `openweathermap_api` — OpenWeatherMap
-- `google_cse_id` — Google Custom Search Engine ID
+API keys loaded from `keys.txt` (gitignored):
+- `google_genai_api`, `anthropic_api`, `openrouter_api`, `XI_API_KEY`, `google_search_api`, `openweathermap_api`, `google_cse_id`
 
-Also requires:
-- `client_secrets.json` — Google OAuth client (gitignored)
-- `newscaster1-03dc16232821.json` — GCP service account (gitignored)
+Also requires (gitignored): `client_secrets.json` (Google OAuth), `newscaster1-03dc16232821.json` (GCP service account)
 
-## Output Structure
+## Output Directories
 
-All outputs use date format `YYYY_MM_DD`:
-- `stories_chosen/` — JSON files with selected stories and summaries
-- `segment_summaries/` — Individual story summary text files
-- `output_scripts/` — Dialogue scripts (intro, segments, overview, outro)
-- `segment_audio/` — WAV files per segment
-- `output_audio/` — Final MP3 files (standard and HQ)
-- `episode_titles/` — YouTube video titles
-- `logs/` — Daily execution logs
+All auto-created, all gitignored. Files use `YYYY_MM_DD` date format:
+`stories_chosen/`, `segment_summaries/`, `output_scripts/`, `segment_audio/`, `output_audio/`, `episode_titles/`, `logs/`

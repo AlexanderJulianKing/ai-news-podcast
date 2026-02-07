@@ -83,6 +83,7 @@ OVERVIEW_ANCHOR_PROMPT = (
     'in the search results provided. It is recommended to check reputable news outlets, such as BBC News, Al Jazeera, or CNN, '
     'for updates on the incident. " do not include it. Some bits of information might be covered multiple times in this text. '
     'Cover each bit of information only once. Do not repeat yourself. Be sure to include every story. Make it 500 words. '
+    "Numbers should be written in word form, like 'two hundred fifty five'. "
     'Also use wordplay and puns whenever you can'
 )
 
@@ -150,7 +151,7 @@ HEADLINE_MAKER_PROMPT = 'Please make a headline for the given story.'
 
 
 OUTRO_TEMPLATE = (
-    "That's all we have for now. Today's episode was made by Alexander King with GPT five, "
-    "gemini pro three , gemini flash three,  and Google Cloud Text-to-Speech. "
+    "That's all we have for now. Today's episode was made by Alexander King with GPT five point one, "
+    "gemini pro three, gemini flash three, and Google Cloud Text-to-Speech. "
     "I hope you have a great day. I'll see you tomorrow, Alex."
 )
