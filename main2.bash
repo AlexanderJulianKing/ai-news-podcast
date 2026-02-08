@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source "$(dirname "$0")/venv/bin/activate"
+
 while true; do
     # Get the current hour and minute
     current_time=$(date +'%H:%M')
