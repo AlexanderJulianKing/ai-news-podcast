@@ -1,13 +1,13 @@
 from datetime import date
 
-from moviepy.editor import AudioFileClip, ImageClip
+from moviepy import AudioFileClip, ImageClip
 
 
 def create_video_from_audio_and_image(audio_path, image_path, output_path):
     audio = AudioFileClip(audio_path)
     image = ImageClip(image_path)
-    image = image.set_duration(audio.duration)
-    video = image.set_audio(audio)
+    image = image.with_duration(audio.duration)
+    video = image.with_audio(audio)
     video.write_videofile(output_path, fps=24)
 
 

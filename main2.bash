@@ -6,13 +6,15 @@ while true; do
     # Get the current hour and minute
     current_time=$(date +'%H:%M')
 
-    # Wait until it's 4:00 AM
+    # Wait until it's between 4:00 and 5:00 AM, but only run once per day
+    current_hour=$(date +'%H')
+    today=$(date +'%Y_%m_%d')
     echo "Current time: $current_time. Waiting for 4:00 AM..."
-    if [[ "$current_time" != "04:00" ]]; then
-        
+    if [[ "$current_hour" != "04" ]] || [[ "$today" == "$last_ran" ]]; then
         sleep 60  # Check every minute
         continue
     fi
+    last_ran="$today"
 
     echo "Hello from the Bash script!"
     echo 'Running program!'
