@@ -151,7 +151,7 @@ HEADLINE_MAKER_PROMPT = 'Please make a headline for the given story.'
 
 
 OUTRO_TEMPLATE = (
-    "That's all we have for now. Today's episode was made by Alexander King with GPT five point one, "
-    "gemini pro three, gemini flash three, and Google Cloud Text-to-Speech. "
+    "That's all we have for now. Today's episode was made by Alexander King with Claude Opus four point six, "
+    "gemini pro three point one, gemini flash three, and Google Cloud Text-to-Speech. "
     "I hope you have a great day. I'll see you tomorrow, Alex."
 )

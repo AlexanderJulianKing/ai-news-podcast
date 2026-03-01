@@ -101,7 +101,7 @@ def initialize_upload(youtube, options):
         titles_content = infile.read()
 
     real_description = (
-        f"{titles_content}.\nDaily News. Always ad-free. \nMade by Alex using GPT-5, Gemini Pro 3, Gemini Flash 3, and Google Cloud Text to speech. \n\n"
+        f"{titles_content}.\nDaily News. Always ad-free. \nMade by Alex using Claude Opus 4.6, Gemini Pro 3.1, Gemini Flash 3, and Google Cloud Text to speech. \n\n"
         "I made this podcast to give me the news each morning as I get ready for the day. I wanted to stay informed about the world, but there are a lot of stories highlighted by media outlets that aren\'t important to the world, relevant to my life, or interesting. In the interest of making money, these media outlets will sensationalize stories and amplify negativity, which is what keeps eyeballs and therefore ad revenue.\n"
         "So I made a news podcast that circumvents these perverse incentives and distills out the important stories. \n"
         "Every day, an LLM will pick out news stories: one it deems the most important to the american people, and one it deems the most important to the average Californian. Additionally, it briefly goes over other stories that may be of general interest. \n\n"
