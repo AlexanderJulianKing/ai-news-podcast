@@ -134,7 +134,11 @@ def overview_process(overview):
         number = str(i + 1)
         headline_finder_prompt = f'Find story number {number}. Only give the headline of that story.'
 
-        headline_n = get_llm_response(overview, system_prompt=headline_finder_prompt, mode='light')
+        try:
+            headline_n = get_llm_response(overview, system_prompt=headline_finder_prompt, mode='light')
+        except Exception as e:
+            print_and_write(f'Headline extraction failed in overview for story {number}: {e}')
+            continue
 
         story_finder_prompt = "Tell me more about the story behind this headline from today's paper. Include as many details as possible :\n" + headline_n
         try:
