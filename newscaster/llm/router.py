@@ -6,9 +6,8 @@ from newscaster.llm.openrouter import get_openrouter_response
 def get_llm_response(user_prompt, system_prompt='You are an intelligent assistant.',
                      mode="light", grounding=False, url_context=False):
     if mode == 'light' and grounding == False and url_context == False:
-        model = 'x-ai/grok-4-fast'
-        name = 'grok-4-fast'
-        provider = 'openrouter'
+        model = 'gemini-3.1-flash-lite-preview'
+        provider = 'google'
     elif mode == 'light' and (grounding == True or url_context == True):
         model = 'gemini-3-flash-preview'
         provider = 'google'
@@ -28,9 +27,8 @@ def get_llm_response(user_prompt, system_prompt='You are an intelligent assistan
         model = 'gemini-3.1-pro-preview'
         provider = 'google'
     else:
-        model = 'x-ai/grok-4-fast'
-        name = 'grok-4-fast'
-        provider = 'openrouter'
+        model = 'gemini-3.1-flash-lite-preview'
+        provider = 'google'
 
     if provider == 'google':
         return gemini(user_prompt, system_prompt, model, grounding, url_context)
