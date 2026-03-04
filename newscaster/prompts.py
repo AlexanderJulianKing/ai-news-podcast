@@ -147,6 +147,71 @@ SEGMENT_SCRIPT_PROMPT_TEMPLATE = (
 )
 
 
+TIER1_TRIAGE_PROMPT = """Rate each headline below on a scale of 1-10 for newsworthiness using these criteria:
+- Impact scale: How many people are materially affected?
+- Institutional response: Does this force action from governments, courts, or major organizations?
+- Novelty: Is this a new development or a rehash of ongoing coverage?
+- Accountability: Does it reveal corruption, illegality, or betrayal of public trust by powerful actors?
+
+For each headline, output exactly one line in this format:
+SCORE: X | HEADLINE: Y | REASON: Z
+
+Where X is the numeric score (1-10), Y is the headline repeated verbatim, and Z is a one-sentence justification. Sort from highest to lowest score."""
+
+
+TIER2_RESEARCH_PROMPT = """You are a newsroom researcher preparing a background brief on {date}.
+
+Research the following headline and produce a 150-250 word memo covering:
+1. What happened — the core facts
+2. Context and history — what led to this, any relevant background
+3. Impact and scale — who is affected and how broadly
+4. Sources — which major outlets are reporting this and what they emphasize
+
+Headline: {headline}
+
+Use Google Search to pull from multiple reputable sources. Attribute key claims to specific outlets. If you cannot verify the headline, begin your response with 'UNVERIFIED:' and explain what you tried."""
+
+
+TIER3_IMPORTANT_STORY_PROMPT = """Given the following research briefs on today's top candidate stories, select the single most important story for the United States.
+
+Use two lenses to judge importance:
+
+LENS 1 — FORCED REACTION: Who is forced to react to this, and at what scale? The most important stories force reactions from major institutions — governments, central banks, militaries, the Supreme Court. Less important stories only require local response.
+
+Completed actions beat threats. Events that force institutional response beat events that only generate news coverage. High uncertainty about critical systems (president hospitalized, major cyberattack) can be as important as completed actions because institutions are forced to prepare for multiple outcomes.
+
+LENS 2 — ACCOUNTABILITY OF POWER: Does the story reveal that powerful people or institutions acted corruptly, illegally, or in betrayal of public trust? Check: (a) the scale of power involved, (b) the quality of evidence, and (c) whether the story reveals systemic failure, not just individual misconduct.
+
+IMPORTANT: Base your decision on the research briefs provided. Penalize stories where the brief is thin, unverified, or based on a single anonymous source. Stories with strong multi-source verification and concrete details should be preferred over sensational but poorly sourced claims.
+
+For violence, disasters, and tragedies: prioritize only when the scale forces federal or international response, or when it signals system failure.
+
+If both lenses point to different stories, prefer the one with broader implications for more Americans. The story must be specific, not vague like "Israel Hamas War". Repeat the headline verbatim in your Answer."""
+
+
+TIER3_EVERYMAN_STORY_PROMPT = (
+    'Given the following research briefs on today\'s candidate stories, what would you say is the most important news story for the average person in California? '
+    'If there is nothing directly impacting Californians, pick something that would affect the everyday American. '
+    'Do not pick something that is happening in a non-US country. Do not pick something vague like "Israel Hamas War"; '
+    'the news stories must be about a specific event. '
+    'Base your decision on the research briefs — prefer stories with strong sourcing and concrete details over thinly sourced claims. '
+    'Explain why you picked each story, then write down your answer in the format of "Answer:". '
+    'Do not pick a mass shooting. When you list the story in "Answer", you must list the event as specifically as possible; '
+    'repeating the headline verbatim is preferable.\n\n'
+    'Do not pick \'{excluded_headline}\' or any story that sounds like it.'
+)
+
+
+TIER3_OVERVIEW_PICK_PROMPT = (
+    "Given the following research briefs on today's candidate stories, pick the day's 5 most important headlines. "
+    "Only mention the 5 headlines. These will be the \"minor\" stories of the day.\n"
+    "Also, do not pick the major stories of the day, which are: {excluded_headlines}. "
+    "Do not pick any stories related to the major stories. For example, if a story is about how the US is involved in some sort of conflict, "
+    "do not pick another story about that same conflict. Also, do not pick inconsequential sensational stories like local crimes, "
+    "individual tragedies, or puzzle/game segments that are clearly not news stories."
+)
+
+
 HEADLINE_MAKER_PROMPT = 'Please make a headline for the given story.'
 
 

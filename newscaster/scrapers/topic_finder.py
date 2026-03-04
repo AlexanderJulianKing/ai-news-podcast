@@ -13,6 +13,11 @@ from newscaster.prompts import (
     HEADLINE_EXTRACTION_PROMPT,
     OVERVIEW_ANCHOR_PROMPT,
     REPETITION_REMOVER_TEMPLATE,
+    TIER1_TRIAGE_PROMPT,
+    TIER2_RESEARCH_PROMPT,
+    TIER3_IMPORTANT_STORY_PROMPT,
+    TIER3_EVERYMAN_STORY_PROMPT,
+    TIER3_OVERVIEW_PICK_PROMPT,
 )
 from newscaster.llm import get_llm_response
 from newscaster.dedup import load_recent_story_descriptions, summarize_story_for_archive
@@ -152,6 +157,31 @@ def overview_process(overview):
     return story_overviews
 
 
+import re
+
+
+def _parse_tier1_scores(response):
+    """Parse structured SCORE: X | HEADLINE: Y | REASON: Z lines from Tier 1 triage."""
+    results = []
+    for line in response.strip().split('\n'):
+        match = re.match(r'SCORE:\s*(\d+)\s*\|\s*HEADLINE:\s*(.+?)\s*\|\s*REASON:\s*(.+)', line.strip())
+        if match:
+            score = int(match.group(1))
+            headline = match.group(2).strip()
+            reason = match.group(3).strip()
+            results.append({'score': score, 'headline': headline, 'reason': reason})
+    results.sort(key=lambda x: x['score'], reverse=True)
+    return results
+
+
+def _format_research_briefs(briefs):
+    """Assemble individual research memos into a single document."""
+    sections = []
+    for i, (headline, brief) in enumerate(briefs, 1):
+        sections.append(f"--- Brief {i} ---\nHeadline: {headline}\n\n{brief}\n")
+    return '\n'.join(sections)
+
+
 def topic_finder(formatted_date):
     today = date.today()
     recent_story_descriptions, history_found = load_recent_story_descriptions(window_days=7)
@@ -197,20 +227,44 @@ def topic_finder(formatted_date):
         repetition_remover_system_prompt = REPETITION_REMOVER_TEMPLATE.format(recent_stories=recent_story_descriptions)
         all_headlines = get_llm_response(all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard')
 
-    try:
-        year_page_summary = get_llm_response(
-            "Assume I am an LLM who does not know much about current events in United States and I'm trying to get enough context about the United States in order to make a news program for it for this evening. My context window ends December 31, 2025, so I need as much information as possible about the state of the world since then. Give me as much background information as I need about current events in the US. https://en.wikipedia.org/wiki/2026_in_the_United_States#",
-            mode="standard", url_context=True)
-    except Exception as e:
-        year_page_summary = "Context unavailable, proceed with headlines only"
-        print_and_write(f'Wikipedia context fetch failed: {e}')
+    # === TIER 1: Triage — score all headlines ===
+    print_and_write('TIER 1: Triaging headlines')
+    tier1_response = get_llm_response(all_headlines, system_prompt=TIER1_TRIAGE_PROMPT, mode='standard')
+    print_and_write('Tier 1 raw response:', tier1_response)
 
-    main_story_prompt = MAIN_STORY_PROMPT + " For background knowledge to assist your decision, here is a brief summary of current events\":\n" + year_page_summary
+    scored = _parse_tier1_scores(tier1_response)
+    print_and_write(f'Tier 1 parsed {len(scored)} headlines')
 
-    print_and_write('prompt: ' + main_story_prompt + '\n\n' + all_headlines)
+    if len(scored) < 5:
+        print_and_write('Tier 1 parsing returned < 5 results, passing all headlines to Tier 3')
+        shortlisted_headlines = [line.strip() for line in all_headlines.split('\n') if line.strip()]
+    else:
+        shortlisted_headlines = [s['headline'] for s in scored[:10]]
 
-    important_response = get_llm_response(all_headlines, system_prompt=main_story_prompt, mode='heavy')
+    for i, h in enumerate(shortlisted_headlines, 1):
+        print_and_write(f'  Shortlisted {i}: {h}')
 
+    # === TIER 2: Research — grounded briefs per headline ===
+    print_and_write('TIER 2: Researching shortlisted headlines')
+    briefs = []
+    for headline in shortlisted_headlines:
+        print_and_write(f'  Researching: {headline}')
+        research_prompt = TIER2_RESEARCH_PROMPT.format(date=formatted_date, headline=headline)
+        try:
+            brief = get_llm_response(research_prompt, grounding=True, mode='standard')
+            briefs.append((headline, brief))
+            print_and_write(f'  Brief received ({len(brief)} chars)')
+        except Exception as e:
+            print_and_write(f'  Research failed for "{headline}": {e}')
+
+    research_document = _format_research_briefs(briefs)
+    print_and_write(f'TIER 2: Assembled {len(briefs)} research briefs ({len(research_document)} chars)')
+
+    # === TIER 3: Final picks using enriched context ===
+    print_and_write('TIER 3: Selecting stories')
+
+    # Important story (heavy = Claude Opus 4.6)
+    important_response = get_llm_response(research_document, system_prompt=TIER3_IMPORTANT_STORY_PROMPT, mode='heavy')
     important_response = important_response.replace('*', '')
     print_and_write()
     print_and_write(important_response)
@@ -218,19 +272,19 @@ def topic_finder(formatted_date):
     important_headline = headline_extractor(important_response)
     print_and_write(important_headline)
 
-    everyman_string_prompt = EVERYMAN_STORY_PROMPT + '\n' + "also do not pick '{}' or any story that sounds like it.".format(important_headline)
-
-    everyman_topic_response = get_llm_response(all_headlines, system_prompt=everyman_string_prompt, mode='standard')
+    # Everyman story (heavy = Claude Opus 4.6)
+    everyman_prompt = TIER3_EVERYMAN_STORY_PROMPT.format(excluded_headline=important_headline)
+    everyman_topic_response = get_llm_response(research_document, system_prompt=everyman_prompt, mode='heavy')
     print_and_write('\nimportant topic for average person and why:', everyman_topic_response)
     everyman_headline = headline_extractor(everyman_topic_response)
 
-    overview_string_prompt = OVERVIEW_PICK_PROMPT + '\n' + "Also, do not pick the major stories of the day, which are: '{}' or '{}'. Do not pick any stories related to the major stories. For example, if a story is about how the US is involved in some sort of conflict, do not pick another story about that same conflict. Also, do not pick inconsequenntial sensational stories like \"Lucy Letby, a former nurse convicted of murdering seven babies and attempting to murder six others, has lost her appeal bid in England\" or \"the bodies of two women from Kansas, missing since March 2023, were found in a buried freezer in rural Texas County, Oklahoma\" or \"the community in Homer, Alaska, is mourning the death of 70-year-old Dale Chorman, who was fatally attacked by a cow moose while photographing her calves\" or \"Details about the wrongful conviction of a Missouri man, who has served 33 years in prison, continue to be examined as the hearing proceeds to verify the facts of his case\". Also do not pick stuff like \"Sunday Puzzle: Supermarket Brands\", because that is clearly not a news story, but instead some sort of game that is mixed in with the headlines".format(important_headline, everyman_headline)
+    # Overview picks (standard = Gemini Flash, cheaper)
+    overview_prompt = TIER3_OVERVIEW_PICK_PROMPT.format(
+        excluded_headlines=f"'{important_headline}' or '{everyman_headline}'"
+    )
+    print_and_write('overview_string_prompt', overview_prompt)
 
-    overview_string_prompt = overview_string_prompt + '\n' + 'Also, for background knowledge to assist your judgement, here a brief summary of current events:' + year_page_summary
-
-    print_and_write('overview_string_prompt', overview_string_prompt)
-
-    overview = get_llm_response(all_headlines, system_prompt=overview_string_prompt, mode='standard')
+    overview = get_llm_response(research_document, system_prompt=overview_prompt, mode='standard')
     print_and_write('\noverview1:', overview)
 
     overview = overview_process(overview)

@@ -8,15 +8,15 @@ from newscaster.llm.router import get_llm_response
 # Table of (mode, grounding, url_context) -> expected provider function
 ROUTING_CASES = [
     # (mode, grounding, url_context, expected_provider)
-    ('light', False, False, 'openrouter'),
+    ('light', False, False, 'google'),
     ('light', True, False, 'google'),
     ('light', False, True, 'google'),
     ('standard', True, False, 'google'),
     ('standard', False, True, 'google'),
-    ('standard', False, False, 'openrouter'),
+    ('standard', False, False, 'google'),
     ('heavy', True, False, 'google'),
     ('heavy', False, True, 'google'),
-    ('heavy', False, False, 'google'),
+    ('heavy', False, False, 'openrouter'),
 ]
 
 

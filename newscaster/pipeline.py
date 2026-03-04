@@ -31,12 +31,12 @@ def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_fol
     with both regular and challenging follow-up prompts.
     """
     rounds = [
-        (follow_up_prompt_text, 'light', 'Grok 4.1 Fast'),
-        (challenging_follow_up_prompt_text, 'light', 'Grok 4.1 Fast'),
-        (follow_up_prompt_text, 'standard', 'GPT 5'),
-        (challenging_follow_up_prompt_text, 'standard', 'GPT 5'),
-        (follow_up_prompt_text, 'heavy', 'Gemini Pro'),
-        (challenging_follow_up_prompt_text, 'heavy', 'Gemini Pro'),
+        (follow_up_prompt_text, 'light', 'Gemini Flash Lite'),
+        (challenging_follow_up_prompt_text, 'light', 'Gemini Flash Lite'),
+        (follow_up_prompt_text, 'standard', 'Gemini Flash'),
+        (challenging_follow_up_prompt_text, 'standard', 'Gemini Flash'),
+        (follow_up_prompt_text, 'heavy', 'Claude Opus 4.6'),
+        (challenging_follow_up_prompt_text, 'heavy', 'Claude Opus 4.6'),
     ]
 
     for prompt_template, mode, asker_name in rounds:
