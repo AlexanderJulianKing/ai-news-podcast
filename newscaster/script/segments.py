@@ -1,12 +1,14 @@
 import os
 import time
+from datetime import datetime
 
 from newscaster.llm import get_llm_response
 from newscaster.logging import print_and_write
-from newscaster.prompts import SEGMENT_SCRIPT_PROMPT_TEMPLATE
+from newscaster.dates import format_spoken_date
+from newscaster.prompts import SEGMENT_SCRIPT_PROMPT_TEMPLATE, SEGMENT_SCRIPT_UPDATE_CONTEXT
 
 
-def segments_writer(stories, formatted_date2, voices_list, formatted_date):
+def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_context=None):
     MAX_VARIANTS = 3
     MAX_LLM_RETRIES = 5
     FIRST_PASS_THRESHOLD = 0.55
@@ -79,6 +81,27 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date):
             story_num=i + 1,
             total_stories=len(stories)
         )
+
+        # Append update context if this story is a continuation
+        if arc_context and i < len(arc_context) and arc_context[i]:
+            arc = arc_context[i]
+            episodes = arc.get("episodes", [])
+            if len(episodes) > 1:
+                audience_state = arc.get("audience_state", "")
+                if audience_state:
+                    # Find the previous episode's date for spoken format
+                    prev_date_str = episodes[-2]["date"] if len(episodes) >= 2 else episodes[0]["date"]
+                    try:
+                        prev_date = datetime.strptime(prev_date_str, "%Y_%m_%d").date()
+                        last_covered_spoken = format_spoken_date(prev_date)
+                    except ValueError:
+                        last_covered_spoken = prev_date_str
+                    segment_script_prompt += SEGMENT_SCRIPT_UPDATE_CONTEXT.format(
+                        audience_state=audience_state,
+                        last_covered_spoken=last_covered_spoken,
+                        reporter_name=reporter_name,
+                    )
+                    print_and_write(f'Injected update context for story {i + 1} (arc: {arc.get("slug", "?")})')
 
         quality_records = []
         selected_script = None

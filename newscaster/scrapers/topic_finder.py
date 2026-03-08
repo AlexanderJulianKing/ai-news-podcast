@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from newscaster.logging import print_and_write
@@ -13,6 +14,7 @@ from newscaster.prompts import (
     HEADLINE_EXTRACTION_PROMPT,
     OVERVIEW_ANCHOR_PROMPT,
     REPETITION_REMOVER_TEMPLATE,
+    LEDGER_REPETITION_REMOVER_TEMPLATE,
     TIER1_TRIAGE_PROMPT,
     TIER2_RESEARCH_PROMPT,
     TIER3_IMPORTANT_STORY_PROMPT,
@@ -20,9 +22,31 @@ from newscaster.prompts import (
     TIER3_OVERVIEW_PICK_PROMPT,
 )
 from newscaster.llm import get_llm_response
-from newscaster.dedup import load_recent_story_descriptions, summarize_story_for_archive
+from newscaster.dedup import (
+    load_recent_story_descriptions,
+    summarize_story_for_archive,
+    load_ledger,
+    save_ledger,
+    prune_ledger,
+    format_arcs_for_dedup,
+    create_arc,
+    update_arc,
+    find_matching_arc,
+    strip_arc_tags,
+)
 from newscaster.scrapers.calmatters import calmatters_scraper
 from newscaster.scrapers.web import scrape_text
+
+
+@dataclass
+class TopicFinderResult:
+    topics: list
+    overview: str
+    follow_up_prompt_text: str
+    challenging_follow_up_prompt_text: str
+    arc_context: list = field(default_factory=list)
+    ledger: dict = field(default_factory=dict)
+    side_story_briefs: list = field(default_factory=list)
 
 
 def _today_str():
@@ -135,6 +159,8 @@ def summarize_headline_with_grounding(headline: str) -> str:
 
 def overview_process(overview):
     story_overviews = ''
+    overview_headlines = []
+    overview_briefs = []
     for i in range(5):
         number = str(i + 1)
         headline_finder_prompt = f'Find story number {number}. Only give the headline of that story.'
@@ -151,10 +177,12 @@ def overview_process(overview):
             story = summarize_headline_with_grounding(headline_n)
             print_and_write(story)
             story_overviews = story_overviews + '\n' + story
+            overview_headlines.append(headline_n)
+            overview_briefs.append((headline_n, story))
         except Exception as e:
             print_and_write(f'Grounding failed in overview: {e}')
 
-    return story_overviews
+    return story_overviews, overview_headlines, overview_briefs
 
 
 import re
@@ -184,9 +212,19 @@ def _format_research_briefs(briefs):
 
 def topic_finder(formatted_date):
     today = date.today()
+    formatted_date2 = today.strftime("%Y_%m_%d")
+
+    # Load ledger and fall back to flat descriptions if empty
+    ledger = load_ledger()
+    ledger = prune_ledger(ledger)
+    arc_summaries = format_arcs_for_dedup(ledger)
+    use_ledger = bool(arc_summaries)
+
     recent_story_descriptions, history_found = load_recent_story_descriptions(window_days=7)
-    if history_found:
-        print_and_write("Loaded recent story summaries for deduping.")
+    if use_ledger:
+        print_and_write("Loaded story ledger for deduping.")
+    elif history_found:
+        print_and_write("Loaded recent story summaries for deduping (ledger empty).")
     else:
         print_and_write("No recent story summaries found; using full headline set.")
 
@@ -223,7 +261,10 @@ def topic_finder(formatted_date):
     print_and_write('all headlines')
     print_and_write(all_headlines)
 
-    if history_found:
+    if use_ledger:
+        repetition_remover_system_prompt = LEDGER_REPETITION_REMOVER_TEMPLATE.format(arc_summaries=arc_summaries)
+        all_headlines = get_llm_response(all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard')
+    elif history_found:
         repetition_remover_system_prompt = REPETITION_REMOVER_TEMPLATE.format(recent_stories=recent_story_descriptions)
         all_headlines = get_llm_response(all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard')
 
@@ -287,27 +328,34 @@ def topic_finder(formatted_date):
     overview = get_llm_response(research_document, system_prompt=overview_prompt, mode='standard')
     print_and_write('\noverview1:', overview)
 
-    overview = overview_process(overview)
-    print_and_write('\noverview2:', overview)
+    overview_raw, overview_headlines, overview_briefs = overview_process(overview)
+    print_and_write('\noverview2:', overview_raw)
 
-    overview = get_llm_response(overview, system_prompt=OVERVIEW_ANCHOR_PROMPT, mode='standard')
+    overview_text = get_llm_response(overview_raw, system_prompt=OVERVIEW_ANCHOR_PROMPT, mode='standard')
 
-    overview = overview.replace("*", "")
-    print_and_write('\noverview3:', overview)
+    overview_text = overview_text.replace("*", "")
+    print_and_write('\noverview3:', overview_text)
 
-    important_clean = important_headline.strip('\"').strip('\'').strip()
-    everyman_clean = everyman_headline.strip('\"').strip('\'').strip()
+    # --- Extract arc tags before stripping ---
+    important_raw = important_headline.strip('\"').strip('\'').strip()
+    everyman_raw = everyman_headline.strip('\"').strip('\'').strip()
+
+    important_arc_info = find_matching_arc(important_raw)
+    everyman_arc_info = find_matching_arc(everyman_raw)
+
+    important_clean = strip_arc_tags(important_raw)
+    everyman_clean = strip_arc_tags(everyman_raw)
+
     topics = [important_clean, everyman_clean]
     print_and_write()
     print_and_write(topics)
 
-    today = date.today()
-    formatted_date2 = today.strftime("%Y_%m_%d")
     filename = "stories_chosen/{}_stories_chosen.txt".format(formatted_date2)
     outstring = important_clean + ', ' + everyman_clean
     with open(filename, 'w', encoding='utf-8') as outfile:
         outfile.write(outstring)
 
+    # --- Legacy story summaries (secondary record) ---
     story_summaries = []
     try:
         important_summary = summarize_story_for_archive(important_clean, important_response)
@@ -339,4 +387,48 @@ def topic_finder(formatted_date):
         print_and_write('Wrote story summaries to', summary_filename)
     except IOError as error:
         print_and_write('Failed to write story summaries', error)
-    return topics, overview, follow_up_prompt_text, challenging_follow_up_prompt_text
+
+    # --- Ledger updates ---
+    arc_context = []  # parallel to topics: [arc_dict_for_slot_0, arc_dict_for_slot_1]
+    main_stories_info = [
+        (important_clean, important_summary, important_arc_info, 0),
+        (everyman_clean, everyman_summary, everyman_arc_info, 1),
+    ]
+    for headline, summary, arc_info, slot in main_stories_info:
+        if arc_info:
+            tag_type, slug = arc_info
+            if slug in ledger["arcs"]:
+                update_arc(ledger, slug, headline, "main", slot, formatted_date2)
+                arc_context.append(ledger["arcs"][slug])
+            else:
+                new_slug = create_arc(ledger, headline, "main", slot, formatted_date2, summary)
+                arc_context.append(ledger["arcs"][new_slug])
+        else:
+            new_slug = create_arc(ledger, headline, "main", slot, formatted_date2, summary)
+            arc_context.append(ledger["arcs"][new_slug])
+
+    # Archive side stories in ledger
+    for i, (oh_headline, oh_brief) in enumerate(overview_briefs):
+        oh_clean = strip_arc_tags(oh_headline).strip()
+        oh_arc_info = find_matching_arc(oh_headline)
+        if oh_arc_info:
+            tag_type, slug = oh_arc_info
+            if slug in ledger["arcs"]:
+                update_arc(ledger, slug, oh_clean, "side", i, formatted_date2)
+            else:
+                create_arc(ledger, oh_clean, "side", i, formatted_date2, oh_brief)
+        else:
+            create_arc(ledger, oh_clean, "side", i, formatted_date2, oh_brief)
+
+    save_ledger(ledger)
+    print_and_write(f'Saved ledger with {len(ledger["arcs"])} arcs')
+
+    return TopicFinderResult(
+        topics=topics,
+        overview=overview_text,
+        follow_up_prompt_text=follow_up_prompt_text,
+        challenging_follow_up_prompt_text=challenging_follow_up_prompt_text,
+        arc_context=arc_context,
+        ledger=ledger,
+        side_story_briefs=overview_briefs,
+    )

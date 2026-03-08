@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from datetime import date
@@ -8,12 +9,15 @@ from newscaster.text_utils import find_quoted_strings
 from newscaster.prompts import (
     FOLLOW_UP_PROMPT_TEMPLATE,
     CHALLENGING_FOLLOW_UP_PROMPT_TEMPLATE,
+    AUDIENCE_LEARNED_EXTRACTION_PROMPT,
+    OVERVIEW_AUDIENCE_LEARNED_PROMPT,
     OUTRO_TEMPLATE,
 )
 from newscaster.llm import get_llm_response
-from newscaster.scrapers.topic_finder import topic_finder
+from newscaster.scrapers.topic_finder import topic_finder, TopicFinderResult
 from newscaster.scrapers.google_search import google_official_search
 from newscaster.scrapers.topic_finder import result_piper
+from newscaster.dedup import update_audience_learned, save_ledger
 from newscaster.weather import get_daily_temp
 from newscaster.script.headlines import story_gatherer, headline_maker
 from newscaster.script.intro import intro_writer
@@ -66,11 +70,20 @@ def gather_news(formatted_date, formatted_date2):
     filename = "segment_summaries/{}_segment0_summary.txt".format(formatted_date2)
     if os.path.exists(filename):
         print_and_write(f"The file '{filename}' exists.")
-        return
+        return None
 
     print_and_write(f"The file '{filename}' does not exist.")
 
-    topics, overview, follow_up_prompt_text, challenging_follow_up_prompt_text = topic_finder(formatted_date)
+    tf_result = topic_finder(formatted_date)
+    # Support both TopicFinderResult and legacy tuple
+    if isinstance(tf_result, TopicFinderResult):
+        topics = tf_result.topics
+        overview = tf_result.overview
+        follow_up_prompt_text = tf_result.follow_up_prompt_text
+        challenging_follow_up_prompt_text = tf_result.challenging_follow_up_prompt_text
+    else:
+        topics, overview, follow_up_prompt_text, challenging_follow_up_prompt_text = tf_result
+        tf_result = None
 
     stories = []
 
@@ -175,8 +188,84 @@ def gather_news(formatted_date, formatted_date2):
     outfile.write(overview)
     outfile.close()
 
+    return tf_result
 
-def write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list):
+
+def _extract_audience_learned(formatted_date2, tf_result):
+    """Extract audience_learned from segment summaries and side story briefs, update ledger."""
+    if not tf_result or not isinstance(tf_result, TopicFinderResult):
+        return
+    ledger = tf_result.ledger
+    if not ledger or not ledger.get("arcs"):
+        return
+
+    # Main stories: read segment summaries (arc_context is parallel to topics by index)
+    for i in range(len(tf_result.topics)):
+        summary_path = f"segment_summaries/{formatted_date2}_segment{i}_summary.txt"
+        if not os.path.exists(summary_path):
+            print_and_write(f"Segment summary not found for audience_learned: {summary_path}")
+            continue
+
+        arc_data = tf_result.arc_context[i] if i < len(tf_result.arc_context) else None
+        if not arc_data:
+            print_and_write(f"No arc found for story slot {i}")
+            continue
+
+        slug = arc_data["slug"]
+        try:
+            with open(summary_path, "r", encoding="utf-8") as f:
+                summary_text = f.read()
+        except IOError:
+            continue
+
+        prompt = AUDIENCE_LEARNED_EXTRACTION_PROMPT.format(
+            arc_topic=arc_data.get("topic", headline),
+            audience_state=arc_data.get("audience_state", "(first coverage)"),
+            summary_text=summary_text,
+        )
+        try:
+            response = get_llm_response(prompt, mode="light")
+            parsed = json.loads(response)
+            learned = parsed.get("learned", [])
+            state = parsed.get("state", "")
+            update_audience_learned(ledger, slug, formatted_date2, i, learned, state)
+            print_and_write(f"Updated audience_learned for arc '{slug}': {len(learned)} facts")
+        except (json.JSONDecodeError, Exception) as e:
+            print_and_write(f"Failed to extract audience_learned for '{slug}': {e}")
+
+    # Side stories: use overview briefs
+    # The LLM response items are ordered to match the input briefs, so we match by position
+    if tf_result.side_story_briefs:
+        briefs_text = ""
+        for j, (oh_headline, oh_brief) in enumerate(tf_result.side_story_briefs):
+            briefs_text += f"\n--- Story {j + 1} ---\nHeadline: {oh_headline}\n{oh_brief}\n"
+        prompt = OVERVIEW_AUDIENCE_LEARNED_PROMPT.format(side_story_briefs=briefs_text)
+        try:
+            response = get_llm_response(prompt, mode="light")
+            parsed = json.loads(response)
+            # Build slot→slug lookup for today's side stories
+            side_slot_to_slug = {}
+            for slug, arc in ledger["arcs"].items():
+                for ep in arc.get("episodes", []):
+                    if ep["date"] == formatted_date2 and ep["coverage"] == "side":
+                        side_slot_to_slug[ep["coverage_slot"]] = slug
+            for j, item in enumerate(parsed):
+                item_learned = item.get("learned", [])
+                slug = side_slot_to_slug.get(j)
+                if slug:
+                    update_audience_learned(
+                        ledger, slug, formatted_date2, j,
+                        item_learned, "; ".join(item_learned)
+                    )
+                    print_and_write(f"Updated audience_learned for side arc '{slug}'")
+        except (json.JSONDecodeError, Exception) as e:
+            print_and_write(f"Failed to extract side story audience_learned: {e}")
+
+    save_ledger(ledger)
+    print_and_write("Saved ledger after audience_learned extraction")
+
+
+def write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list, tf_result=None):
     """Stage 2: Generate dialogue scripts from segment summaries."""
     filename = "output_scripts/{}_segment_0.txt".format(formatted_date2)
     if os.path.exists(filename):
@@ -203,8 +292,16 @@ def write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list)
     print_and_write(intro1)
     print_and_write(intro2)
 
+    # arc_context is already a list parallel to topics (slot 0, slot 1, ...)
+    arc_context_list = None
+    if tf_result and isinstance(tf_result, TopicFinderResult) and tf_result.arc_context:
+        arc_context_list = tf_result.arc_context
+
     print_and_write('writing segments')
-    segments_writer(stories, formatted_date2, voices_list, formatted_date)
+    segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_context=arc_context_list)
+
+    # Extract audience_learned after scripts are written (uses segment summaries)
+    _extract_audience_learned(formatted_date2, tf_result)
 
     outro = OUTRO_TEMPLATE
     outfile = open('output_scripts/{}_outro.txt'.format(formatted_date2), 'w', encoding='utf-8')
@@ -239,6 +336,6 @@ def main():
 
     print_and_write(formatted_date3)
 
-    gather_news(formatted_date, formatted_date2)
-    write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list)
+    tf_result = gather_news(formatted_date, formatted_date2)
+    write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list, tf_result=tf_result)
     generate_audio(formatted_date2, voices_list)

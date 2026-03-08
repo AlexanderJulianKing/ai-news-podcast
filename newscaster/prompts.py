@@ -89,17 +89,26 @@ OVERVIEW_ANCHOR_PROMPT = (
 
 
 REPETITION_REMOVER_TEMPLATE = (
-    "Return the text back verbatim, but remove any stories that appear in this log of summaries from the past week:\n"
-    "{recent_stories}\n"
-    "Note that we are defining story very broadly, so if a headline in the story set refers to a looming government shutdown "
-    "and the headline of interest talks about reactions or consequences to a looming government shutdown, then I want you to "
-    "consider it the same story. That being said, if the set of stories talks about a looming government shutdown and the "
-    "headline in question says that the shutdown ACTUALLY happened, then I consider that a different story. \n"
-    "For example, \"House leaders toil to advance Ukraine and Israel aid. But threats to oust speaker grow.\", "
+    "You are filtering today's headlines against stories we already covered in the past week.\n"
+    "Here is a log of recently covered stories:\n"
+    "{recent_stories}\n\n"
+    "For each headline in the text below, classify it into one of three categories:\n"
+    "1. SAME STORY, NO NEW INFO — the headline is essentially retelling something we already covered "
+    "with no meaningful new development. REMOVE these headlines from the output entirely.\n"
+    "2. UPDATE — the headline is about the same ongoing situation we covered before, but there IS a new "
+    "development (a new vote, a new response, new casualties, a policy shift, a court ruling, etc.). "
+    "KEEP the headline but prepend '[UPDATE]' to it.\n"
+    "3. MAJOR ESCALATION — the headline represents a dramatic, qualitative shift in a previously covered "
+    "story (e.g., war breaks out, a leader is killed, a ceasefire is signed, a major attack occurs, "
+    "an institution collapses). KEEP the headline but prepend '[MAJOR ESCALATION]' to it.\n"
+    "4. NEW STORY — the headline is unrelated to anything we covered. KEEP it as-is with no tag.\n\n"
+    "Use a broad definition of 'same story'. For example, "
+    "\"House leaders toil to advance Ukraine and Israel aid. But threats to oust speaker grow.\", "
     "\"Facing a Republican revolt, House Speaker Johnson\u2019s plan for US aid to Ukraine, Israel and allies uncertain.\", "
-    "\"Funding Debate in Israel-Gaza Conflict: Progressive Democrats Against Aid Support\", and "
-    "\"House Speaker Mike Johnson pushes toward a vote on aid for Israel, Ukraine, and Taiwan.\" should all be considered the same story. "
-    "Do not give any other text."
+    "and \"House Speaker Mike Johnson pushes toward a vote on aid for Israel, Ukraine, and Taiwan.\" "
+    "are all the same story. But if we covered a 'looming government shutdown' and today's headline says "
+    "the shutdown ACTUALLY happened, that is a MAJOR ESCALATION, not the same story.\n\n"
+    "Return the modified text and nothing else."
 )
 
 
@@ -150,7 +159,7 @@ SEGMENT_SCRIPT_PROMPT_TEMPLATE = (
 TIER1_TRIAGE_PROMPT = """Rate each headline below on a scale of 1-10 for newsworthiness using these criteria:
 - Impact scale: How many people are materially affected?
 - Institutional response: Does this force action from governments, courts, or major organizations?
-- Novelty: Is this a new development or a rehash of ongoing coverage?
+- Novelty: Is this a new development or a rehash of ongoing coverage? Note: headlines tagged '[UPDATE]' or '[MAJOR ESCALATION]' are continuations of previously covered stories that have genuine new developments. Do NOT penalize them for being continuations — score them based on how significant the new development itself is.
 - Accountability: Does it reveal corruption, illegality, or betrayal of public trust by powerful actors?
 
 For each headline, output exactly one line in this format:
@@ -186,7 +195,12 @@ IMPORTANT: Base your decision on the research briefs provided. Penalize stories 
 
 For violence, disasters, and tragedies: prioritize only when the scale forces federal or international response, or when it signals system failure.
 
-If both lenses point to different stories, prefer the one with broader implications for more Americans. The story must be specific, not vague like "Israel Hamas War". Repeat the headline verbatim in your Answer."""
+If both lenses point to different stories, prefer the one with broader implications for more Americans. The story must be specific, not vague like "Israel Hamas War". Repeat the headline verbatim in your Answer.
+
+IMPORTANT: Some headlines may be tagged '[UPDATE: slug]' or '[MAJOR ESCALATION: slug]'. These tags indicate the story was covered in a previous episode.
+- '[UPDATE]' stories are continuations. Generally prefer fresh stories for the main slot, but if the research brief reveals the update is highly significant, it can be selected.
+- '[MAJOR ESCALATION]' stories can always be selected — the escalation represents a qualitative shift that warrants full coverage.
+- When you repeat the headline in your Answer, do NOT include the tag prefix."""
 
 
 TIER3_EVERYMAN_STORY_PROMPT = (
@@ -198,7 +212,11 @@ TIER3_EVERYMAN_STORY_PROMPT = (
     'Explain why you picked each story, then write down your answer in the format of "Answer:". '
     'Do not pick a mass shooting. When you list the story in "Answer", you must list the event as specifically as possible; '
     'repeating the headline verbatim is preferable.\n\n'
-    'Do not pick \'{excluded_headline}\' or any story that sounds like it.'
+    'Do not pick \'{excluded_headline}\' or any story that sounds like it.\n\n'
+    'IMPORTANT: Some headlines may be tagged \'[UPDATE: slug]\' or \'[MAJOR ESCALATION: slug]\'. These tags indicate the story was covered in a previous episode.\n'
+    '- \'[UPDATE]\' stories are continuations. Generally prefer fresh stories, but if the research brief reveals the update is highly significant, it can be selected.\n'
+    '- \'[MAJOR ESCALATION]\' stories can always be selected — the escalation represents a qualitative shift that warrants full coverage.\n'
+    '- When you repeat the headline in your Answer, do NOT include the tag prefix.'
 )
 
 
@@ -208,7 +226,80 @@ TIER3_OVERVIEW_PICK_PROMPT = (
     "Also, do not pick the major stories of the day, which are: {excluded_headlines}. "
     "Do not pick any stories related to the major stories. For example, if a story is about how the US is involved in some sort of conflict, "
     "do not pick another story about that same conflict. Also, do not pick inconsequential sensational stories like local crimes, "
-    "individual tragedies, or puzzle/game segments that are clearly not news stories."
+    "individual tragedies, or puzzle/game segments that are clearly not news stories.\n\n"
+    "Some headlines may be tagged '[UPDATE]' — these are stories we covered before but that have new developments. "
+    "These are GOOD candidates for side stories, since listeners will appreciate a brief update on ongoing situations. "
+    "Feel free to include them. When you list headlines, do NOT include the '[UPDATE]' or '[MAJOR ESCALATION]' tag prefixes."
+)
+
+
+SLUG_GENERATION_PROMPT = (
+    "Given this news headline, produce a 2-4 word snake_case identifier that captures the core topic. "
+    "Output ONLY the slug, nothing else.\n\n"
+    "Examples:\n"
+    "Headline: US launches airstrikes against Iranian military targets → us_iran_airstrikes\n"
+    "Headline: California wildfire forces evacuation of 50,000 residents → california_wildfire_evacuation\n"
+    "Headline: Supreme Court overturns federal student loan forgiveness plan → scotus_student_loans\n"
+    "Headline: Massive earthquake hits Turkey, thousands feared dead → turkey_earthquake"
+)
+
+
+LEDGER_REPETITION_REMOVER_TEMPLATE = (
+    "You are filtering today's headlines against stories we already covered.\n"
+    "Here is a log of story arcs currently being tracked:\n"
+    "{arc_summaries}\n\n"
+    "For each headline in the text below, classify it into one of four categories:\n"
+    "1. SAME STORY, NO NEW INFO — the headline is essentially retelling something we already covered "
+    "with no meaningful new development. REMOVE these headlines from the output entirely.\n"
+    "2. UPDATE — the headline is about the same ongoing situation we covered before, but there IS a new "
+    "development (a new vote, a new response, new casualties, a policy shift, a court ruling, etc.). "
+    "KEEP the headline but prepend '[UPDATE: arc_slug]' to it, where arc_slug is the slug from the "
+    "matching [ARC: ...] entry above.\n"
+    "3. MAJOR ESCALATION — the headline represents a dramatic, qualitative shift in a previously covered "
+    "story (e.g., war breaks out, a leader is killed, a ceasefire is signed, a major attack occurs, "
+    "an institution collapses). KEEP the headline but prepend '[MAJOR ESCALATION: arc_slug]' to it.\n"
+    "4. NEW STORY — the headline is unrelated to anything we covered. KEEP it as-is with no tag.\n\n"
+    "Use a broad definition of 'same story'. For example, "
+    "\"House leaders toil to advance Ukraine and Israel aid. But threats to oust speaker grow.\", "
+    "\"Facing a Republican revolt, House Speaker Johnson\u2019s plan for US aid to Ukraine, Israel and allies uncertain.\", "
+    "and \"House Speaker Mike Johnson pushes toward a vote on aid for Israel, Ukraine, and Taiwan.\" "
+    "are all the same story. But if we covered a 'looming government shutdown' and today's headline says "
+    "the shutdown ACTUALLY happened, that is a MAJOR ESCALATION, not the same story.\n\n"
+    "Return the modified text and nothing else."
+)
+
+
+AUDIENCE_LEARNED_EXTRACTION_PROMPT = (
+    "You are extracting what the audience learned from a news segment.\n\n"
+    "Arc topic: {arc_topic}\n"
+    "What the audience already knew before this segment:\n{audience_state}\n\n"
+    "Here is the researched segment summary (these are the facts gathered, not the script):\n"
+    "{summary_text}\n\n"
+    "Extract the NEW facts the audience learned from this segment (not things they already knew). "
+    "Also produce an updated cumulative summary of everything the audience now knows about this arc.\n\n"
+    "Respond with valid JSON only, no markdown:\n"
+    '{{"learned": ["fact 1", "fact 2", ...], "state": "Updated cumulative summary of everything the audience knows..."}}'
+)
+
+
+OVERVIEW_AUDIENCE_LEARNED_PROMPT = (
+    "You are extracting what the audience learned from the side stories covered in today's news overview.\n\n"
+    "Here are the individual research briefs for each side story:\n"
+    "{side_story_briefs}\n\n"
+    "For each story, extract the key facts the audience learned.\n\n"
+    "Respond with valid JSON only, no markdown:\n"
+    '[{{"headline": "...", "learned": ["fact 1", "fact 2", ...]}}, ...]'
+)
+
+
+SEGMENT_SCRIPT_UPDATE_CONTEXT = (
+    "\n\nIMPORTANT CONTEXT — This is an UPDATE to a story previously covered on this podcast.\n"
+    "Here is what listeners already know from previous coverage:\n{audience_state}\n\n"
+    "The last time this story was covered was {last_covered_spoken}.\n"
+    "{reporter_name} should frame this as an update, naturally referencing that the show covered "
+    "this before (e.g., 'As we reported last week...' or 'You may remember we covered...'). "
+    "Focus on what's NEW — do not re-explain background the audience already knows. "
+    "Grace can briefly remind listeners of the core situation in her intro question, but keep it to one sentence."
 )
 
 
