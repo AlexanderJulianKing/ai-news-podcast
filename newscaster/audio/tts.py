@@ -1,5 +1,7 @@
 import os
+import struct
 import time
+import wave
 
 from google.cloud import texttospeech
 from pydub import AudioSegment
@@ -8,6 +10,40 @@ from newscaster.config import _SECOND
 from newscaster.logging import print_and_write
 from newscaster.text_utils import text_cleaner
 from newscaster.llm import gemini
+
+_CLIP_THRESHOLD = 0.99   # fraction of max sample value
+_CLIP_PCT_LIMIT = 0.05   # flag if more than 0.05% of samples are clipped
+_MAX_REGEN_ATTEMPTS = 2   # retry TTS this many times before normalizing
+
+
+def check_clipping(filename):
+    """Return (is_clipped, clip_pct) for a 16-bit WAV file."""
+    with wave.open(filename, 'r') as w:
+        frames = w.readframes(w.getnframes())
+        sampwidth = w.getsampwidth()
+    if sampwidth != 2:
+        return False, 0.0
+    n_samples = len(frames) // 2
+    if n_samples == 0:
+        return False, 0.0
+    samples = struct.unpack('<' + 'h' * n_samples, frames)
+    max_val = 32767
+    threshold = _CLIP_THRESHOLD * max_val
+    clipped = sum(1 for s in samples if abs(s) >= threshold)
+    clip_pct = clipped / n_samples * 100
+    return clip_pct > _CLIP_PCT_LIMIT, clip_pct
+
+
+def normalize_audio(filename, headroom_db=3.0):
+    """Reduce peak level of a WAV file to avoid clipping."""
+    audio = AudioSegment.from_wav(filename)
+    peak_db = audio.max_dBFS
+    if peak_db > -headroom_db:
+        reduction = peak_db + headroom_db
+        audio = audio - reduction
+        audio.export(filename, format="wav")
+        print_and_write(f"Normalized {filename} by -{reduction:.1f} dB")
+    return filename
 
 
 def google_speak(name, text, filename):
@@ -75,6 +111,28 @@ def google_speak(name, text, filename):
 
     with open(filename, "wb") as out_file:
         out_file.write(response.audio_content)
+
+    # --- clipping detection with retry ---
+    is_clipped, clip_pct = check_clipping(filename)
+    if is_clipped:
+        print_and_write(f"WARNING: clipping detected in {filename} ({clip_pct:.2f}% samples clipped)")
+        for attempt in range(1, _MAX_REGEN_ATTEMPTS + 1):
+            print_and_write(f"Re-synthesizing {filename} (attempt {attempt}/{_MAX_REGEN_ATTEMPTS})")
+            try:
+                response = client.synthesize_speech(
+                    input=input_text, voice=voice, audio_config=audio_config)
+                with open(filename, "wb") as out_file:
+                    out_file.write(response.audio_content)
+                is_clipped, clip_pct = check_clipping(filename)
+                if not is_clipped:
+                    print_and_write(f"Re-synthesis resolved clipping in {filename}")
+                    break
+            except Exception as e:
+                print_and_write(f"Re-synthesis attempt {attempt} failed: {e}")
+                time.sleep(5)
+        if is_clipped:
+            print_and_write(f"Clipping persists after retries, normalizing {filename}")
+            normalize_audio(filename)
 
     return
 

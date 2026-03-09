@@ -50,8 +50,9 @@ Each stage is idempotent: it checks if its output files already exist and skips 
 | Mode | No grounding | With grounding/url_context |
 |---|---|---|
 | `light` | Gemini 3.1 Flash Lite (Google) | Gemini 3 Flash (Google) |
-| `standard` | Claude Opus 4.6 (OpenRouter) | Gemini 3 Flash (Google) |
-| `heavy` | Gemini 3.1 Pro (Google) | Gemini 3.1 Pro (Google) |
+| `standard` | Gemini 3 Flash (Google) | Gemini 3 Flash (Google) |
+| `plus` | Gemini 3.1 Pro (Google) | Gemini 3.1 Pro (Google) |
+| `heavy` | Claude Opus 4.6 (OpenRouter) | Gemini 3.1 Pro (Google) |
 
 Only Gemini supports `grounding` (Google Search) and `url_context` (page fetching).
 

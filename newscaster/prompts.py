@@ -145,14 +145,17 @@ SEGMENT_SCRIPT_PROMPT_TEMPLATE = (
     "between morning anchor Grace and reporter {reporter_name}. Keep it conversational and easy "
     "to read aloud, with contractions and varied sentence lengths (mostly 8\u201322 words). Alternate "
     "speakers, with Grace asking short 1\u20132 sentence questions that build on the previous answer, "
-    "and {reporter_name} replying in 2\u20134 sentences that add context listeners may not know. "
+    "and {reporter_name} replying in 3\u20135 sentences that add context listeners may not know. "
+    "Aim for roughly 25\u201330 total speaker turns (around 12\u201315 exchanges). Do NOT create a rapid-fire "
+    "Q&A with dozens of one-sentence answers; let {reporter_name} develop their points fully before "
+    "Grace moves to the next topic. "
     "Weave sources into the answers (e.g., 'according to NPR' or 'The Washington Post reports'), "
     "rather than listing them. Avoid lists, filler, or stage directions. No one is on location. "
     "Grace should briefly set up the story, introduce the reporter, and thank them at the end. "
     "Mention timing relative to today ({date}) when specific dates appear. This is story {story_num} "
     "of {total_stories}. Format as 'Name: text' with each line on its own line; no special symbols. "
     "When using a quote, say 'Person A said, quote, yadda yadda, endquote'. The final output should "
-    "be about 1250 words. Numbers should be written in word form, like 'two hundred fifty five'."
+    "be about 1500 words. Numbers should be written in word form, like 'two hundred fifty five'."
 )
 
 

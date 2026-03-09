@@ -39,6 +39,8 @@ def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_fol
         (challenging_follow_up_prompt_text, 'light', 'Gemini Flash Lite'),
         (follow_up_prompt_text, 'standard', 'Gemini Flash'),
         (challenging_follow_up_prompt_text, 'standard', 'Gemini Flash'),
+        (follow_up_prompt_text, 'plus', 'Gemini Pro 3.1'),
+        (challenging_follow_up_prompt_text, 'plus', 'Gemini Pro 3.1'),
         (follow_up_prompt_text, 'heavy', 'Claude Opus 4.6'),
         (challenging_follow_up_prompt_text, 'heavy', 'Claude Opus 4.6'),
     ]
