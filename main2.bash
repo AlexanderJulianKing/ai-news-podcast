@@ -51,12 +51,15 @@ while true; do
     echo $filename
     # Upload the file using curl
     #curl -X PUT -T $filename -u Alexander.julian.king@gmail.com:hubviz-pipqe2-gaxvEs "https://webdav.blubrry.com/media/1474721/"
+    rm -f output_video.mp4
     python3 moviemaker.py
-    echo made_movie
-    #echo uploading_podcast
-    #python3 blubrry_api.py
-    echo uploading_movie
-    python3 uploader2.py --file="output_video.mp4" --title="Summer vacation in California" --description="Had fun surfing in Santa Cruz" --keywords="surfing,Santa Cruz" --category="25" --privacyStatus="public"
+    if [ -f "output_video.mp4" ]; then
+        echo made_movie
+        echo uploading_movie
+        python3 uploader2.py --file="output_video.mp4" --title="Summer vacation in California" --description="Had fun surfing in Santa Cruz" --keywords="surfing,Santa Cruz" --category="25" --privacyStatus="public"
+    else
+        echo "moviemaker failed — skipping upload to avoid uploading stale video"
+    fi
 
     # python3 blubrry_api.py
 

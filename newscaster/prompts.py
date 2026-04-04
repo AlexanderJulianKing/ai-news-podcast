@@ -40,7 +40,7 @@ For example: if the US kidnaps Venezuela's president while also trading threats 
 
 LENS 2 — ACCOUNTABILITY OF POWER: Does the story reveal that powerful people or institutions acted corruptly, illegally, or in betrayal of public trust? These stories matter not because of a single dramatic reaction, but because they force the public to re-evaluate who holds power and whether the system is working.
 
-To separate important accountability stories from tabloid noise, check: (a) the scale of power involved — heads of state, billionaires, or senior officials vs. local figures, (b) the quality of evidence — official government releases, court documents, or verified records vs. anonymous allegations, and (c) whether the story reveals systemic failure, not just individual misconduct — multiple powerful people implicated across institutions, or a pattern of protection by the system itself.
+To separate important accountability stories from tabloid noise, check: (a) the scale of power involved — heads of state, billionaires, or senior officials vs. local figures, (b) the quality of evidence — official government releases, court documents, or verified records vs. anonymous allegations, (c) whether this is surprising or confirms an already-established pattern — if an administration has been repeatedly placing industry insiders in regulatory roles, one more instance of that pattern is confirmatory, not revelatory, unless the specific consequences are extraordinary (e.g., mass casualties, irreversible environmental damage), and (d) whether the story reveals systemic failure, not just individual misconduct — multiple powerful people implicated across institutions, or a pattern of protection by the system itself.
 
 For example: if a government agency releases thousands of documents showing that multiple billionaires and senior political figures had ties to a convicted trafficker, that is a top story — even if no single institution has a dramatic response — because it reveals whether the justice system treats the powerful the same as everyone else. By contrast, a single celebrity scandal based on tabloid reporting is not.
 
@@ -84,7 +84,7 @@ OVERVIEW_ANCHOR_PROMPT = (
     'for updates on the incident. " do not include it. Some bits of information might be covered multiple times in this text. '
     'Cover each bit of information only once. Do not repeat yourself. Be sure to include every story. Make it 500 words. '
     "Numbers should be written in word form, like 'two hundred fifty five'. "
-    'Also use wordplay and puns whenever you can'
+    'Also use wordplay and puns whenever you can. Do NOT put puns or wordplay in quotation marks — just use them naturally in the sentence.'
 )
 
 
@@ -201,8 +201,8 @@ For violence, disasters, and tragedies: prioritize only when the scale forces fe
 If both lenses point to different stories, prefer the one with broader implications for more Americans. The story must be specific, not vague like "Israel Hamas War". Repeat the headline verbatim in your Answer.
 
 IMPORTANT: Some headlines may be tagged '[UPDATE: slug]' or '[MAJOR ESCALATION: slug]'. These tags indicate the story was covered in a previous episode.
-- '[UPDATE]' stories are continuations. Generally prefer fresh stories for the main slot, but if the research brief reveals the update is highly significant, it can be selected.
-- '[MAJOR ESCALATION]' stories can always be selected — the escalation represents a qualitative shift that warrants full coverage.
+- '[UPDATE]' stories MUST NOT be selected. Our audience already heard this story — picking it again wastes their time. Choose a fresh story instead.
+- '[MAJOR ESCALATION]' stories CAN be selected — the escalation represents a qualitative shift that warrants full coverage.
 - When you repeat the headline in your Answer, do NOT include the tag prefix."""
 
 
@@ -217,8 +217,8 @@ TIER3_EVERYMAN_STORY_PROMPT = (
     'repeating the headline verbatim is preferable.\n\n'
     'Do not pick \'{excluded_headline}\' or any story that sounds like it.\n\n'
     'IMPORTANT: Some headlines may be tagged \'[UPDATE: slug]\' or \'[MAJOR ESCALATION: slug]\'. These tags indicate the story was covered in a previous episode.\n'
-    '- \'[UPDATE]\' stories are continuations. Generally prefer fresh stories, but if the research brief reveals the update is highly significant, it can be selected.\n'
-    '- \'[MAJOR ESCALATION]\' stories can always be selected — the escalation represents a qualitative shift that warrants full coverage.\n'
+    '- \'[UPDATE]\' stories MUST NOT be selected. Our audience already heard this story — picking it again wastes their time. Choose a fresh story instead.\n'
+    '- \'[MAJOR ESCALATION]\' stories CAN be selected — the escalation represents a qualitative shift that warrants full coverage.\n'
     '- When you repeat the headline in your Answer, do NOT include the tag prefix.'
 )
 

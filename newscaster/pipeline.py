@@ -221,7 +221,7 @@ def _extract_audience_learned(formatted_date2, tf_result):
             continue
 
         prompt = AUDIENCE_LEARNED_EXTRACTION_PROMPT.format(
-            arc_topic=arc_data.get("topic", headline),
+            arc_topic=arc_data.get("topic", slug),
             audience_state=arc_data.get("audience_state", "(first coverage)"),
             summary_text=summary_text,
         )

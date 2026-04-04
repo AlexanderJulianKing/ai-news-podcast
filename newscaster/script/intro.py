@@ -7,10 +7,10 @@ def intro_writer(formatted_date, weather_string, topics, formatted_date2, storie
     headlines = []
     episode_title = ''
     for story in stories:
-        title = get_llm_response(story, system_prompt=TITLE_PROMPT)
+        title = get_llm_response(story, system_prompt=TITLE_PROMPT, mode="standard")
 
         while len(title) > 80:
-            title = get_llm_response(story, system_prompt=TITLE_PROMPT)
+            title = get_llm_response(story, system_prompt=TITLE_PROMPT, mode="standard")
 
         episode_title = episode_title + title + ', '
         headlines.append(title)
