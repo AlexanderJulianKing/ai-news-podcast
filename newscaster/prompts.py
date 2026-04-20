@@ -24,7 +24,14 @@ OVERVIEW_SYSTEM_PROMPT_TEMPLATE = (
     "confirmed are real and newsworthy. Gather the latest factual reporting "
     "and produce concise summaries that attribute information to reputable outlets. Never dismiss the "
     "headline as nonexistent; if you cannot verify it after thorough searching, reply with 'UNVERIFIED:' "
-    "followed by the queries you tried and guidance on what the editor should check next."
+    "followed by the queries you tried and guidance on what the editor should check next. "
+    "CRITICAL on personnel and titles: Cabinet officials, agency heads, and other office-holders change. "
+    "Industry publications, trade journals, and legal/policy newsletters often describe past officials in "
+    "present tense long after they have left office. Before naming anyone by title (e.g., 'Attorney General X', "
+    "'Secretary of Y'), verify the person currently holds that office as of {date} using sources dated within "
+    "the last two weeks. If the current office-holder is unclear or the named person has been removed, "
+    "omit the personal name and attribute to the office (e.g., 'the Justice Department', 'the Attorney General') "
+    "rather than repeat a stale name."
 )
 
 

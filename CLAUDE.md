@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Newscaster is an automated daily news podcast generation system. It scrapes news from multiple sources, uses LLMs to select and analyze stories, generates dialogue scripts, synthesizes speech, creates video content, and uploads to YouTube.
+Newscaster is an automated daily news podcast generation system. It scrapes news from multiple sources, uses LLMs to select and analyze stories, generates dialogue scripts, synthesizes speech, creates video content, and uploads to YouTube. All of the code actually runs on a raspberry pi, so you will need to ssh into there via tailscale if you want to analyze previous days' outputs or change how things work in production.
 
 ## Commands
 

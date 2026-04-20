@@ -28,6 +28,10 @@ def text_cleaner(text):
 
     text = text.replace("\u200B", "").replace("\u00A0", " ").replace("\u00AD", "")
 
+    # Google Cloud TTS reads "P." as "page" and "A." as a spelled-out letter,
+    # so "5 P.M." comes out as "five page M". Normalize the time suffixes.
+    text = re.sub(r'\b([PpAa])\.\s*([Mm])\.?', lambda m: m.group(1).upper() + m.group(2).upper(), text)
+
     return text
 
 
