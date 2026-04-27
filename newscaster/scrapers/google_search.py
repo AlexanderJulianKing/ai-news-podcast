@@ -1,9 +1,30 @@
 import time
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
 import newscaster.config as _config
 from newscaster.logging import print_and_write
 from newscaster.llm import get_llm_response
+
+
+# Hosts that block scraping or only host snippets, not real articles.
+_BLOCKED_HOST_SUFFIXES = (
+    'facebook.com',
+    'fb.com',
+    'twitter.com',
+    'x.com',
+    't.co',
+)
+
+
+def _is_blocked_url(url):
+    try:
+        host = (urlparse(url).hostname or '').lower()
+    except ValueError:
+        return False
+    if not host:
+        return False
+    return any(host == suffix or host.endswith('.' + suffix) for suffix in _BLOCKED_HOST_SUFFIXES)
 
 
 def google_official_search(query, num_results=3, days_prior=1):
@@ -29,9 +50,13 @@ def google_official_search(query, num_results=3, days_prior=1):
             search_results = result.get("items", [])
 
             for item in search_results:
+                url = item.get("link", "")
+                if _is_blocked_url(url):
+                    print_and_write('FILTERED social/blocked URL:', url)
+                    continue
                 search_result_dict = {
                     "headline": item.get("title", ""),
-                    "url": item.get("link", ""),
+                    "url": url,
                     "snippet": item.get("snippet", "")
                 }
                 print_and_write(search_result_dict['headline'])

@@ -89,6 +89,9 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
         print_and_write('ARTICLE SEEMS RELEVANT', '\n')
         url = result['url']
         text = scrape_text(result['url'])
+        if text.startswith('Error: '):
+            print_and_write('SCRAPE FAILED:', text)
+            return summary_prompt, successful_summary_counter
         if len(text) > 20000:
             print_and_write('ARTICLE IS UNREADABLE')
             return summary_prompt, successful_summary_counter
