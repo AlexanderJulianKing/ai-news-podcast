@@ -30,9 +30,8 @@ def get_llm_response(user_prompt, system_prompt='You are an intelligent assistan
         model = 'gemini-3.1-pro-preview'
         provider = 'google'
     elif mode == 'heavy' and grounding == False and url_context == False:
-        model = 'anthropic/claude-opus-4.6'
-        name = 'Claude Opus 4.6'
-        provider = 'openrouter'
+        model = 'claude-opus-4-7'
+        provider = 'anthropic'
     else:
         model = 'gemini-3.1-flash-lite-preview'
         provider = 'google'

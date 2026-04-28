@@ -61,7 +61,7 @@ def get_openrouter_response(
     high_models = ["o3 High", "o3-Mini High", "o4-Mini High",
                    "Grok 3 Mini Beta (High)", "GPT-5 (high)",
                    "GPT-5 Mini (High)", "GPT-5 Nano (high)"]
-    low_models = ["GPT-5 (low)", "GPT-5 Mini (low)", "GPT-5 Nano (low)"]
+    low_models = ["GPT-5 (low)", "GPT-5 Mini (low)", "GPT-5 Nano (low)", "GPT-5.5 (low)"]
     minimal_models = ["GPT-5 (minimal)", "GPT-5 Nano (minimal)", "GPT-5 Mini (minimal)"]
 
     url = "https://openrouter.ai/api/v1/chat/completions"

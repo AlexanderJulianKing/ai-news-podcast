@@ -43,30 +43,28 @@ def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='
                         ]
                     }
                 ],
-                thinking={
-                    "type": "enabled",
-                    "budget_tokens": 10000
-                }
+                thinking={"type": "adaptive"},
+                extra_body={"output_config": {"effort": "high"}},
             )
     except Exception as e:
         print_and_write('claude failure', e)
-        print_and_write('falling back to GPT-5 (low)')
+        print_and_write('falling back to GPT-5.5 (low)')
         try:
             # Lazy import to avoid circular dependency
             from newscaster.llm.openrouter import get_openrouter_response
             return get_openrouter_response(
                 user_prompt,
-                'openai/gpt-5',
-                'GPT-5 (low)',
+                'openai/gpt-5.5',
+                'GPT-5.5 (low)',
                 False,
                 system_prompt=system_prompt
             )
         except Exception as fallback_error:
-            print_and_write('GPT-5 fallback failure', fallback_error)
+            print_and_write('GPT-5.5 fallback failure', fallback_error)
             raise
 
     print_and_write('claude message received')
-    if thinking == False:
-        return message.content[0].text
-    else:
-        return message.content[1].text
+    for block in message.content:
+        if block.type == 'text':
+            return block.text
+    raise RuntimeError(f'claude response had no text block: {[b.type for b in message.content]}')
