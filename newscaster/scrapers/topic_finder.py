@@ -74,7 +74,22 @@ def determine_relevance(topic, result):
 def summarize_text(text, article):
     text_length = len(text)
     print_and_write(f"Text length: {text_length} characters")
-    prompt = 'Summarize this news article, but be sure to include where the article is from and as many important details as you can.\n\n'
+    prompt = (
+        'Summarize this news article, but be sure to include where the article is from '
+        'and as many important details as you can.\n\n'
+        'STRICT SOURCING RULES:\n'
+        '1. Only state facts that are literally present in the article text below. Do not '
+        'add details from prior knowledge. If the article omits a detail, leave it out — '
+        'do not infer, substitute the most likely answer, or normalize an ambiguous name '
+        'to a more famous match.\n'
+        '2. Preserve the article\'s own grouping of facts. Each claim in your summary '
+        'must map to a single contiguous span of the source. If two pieces of information '
+        'appear in separate sentences or paragraphs, render them as separate clauses — '
+        'do not fuse them with "and," "from," "at," "while," "after," or other connectors '
+        'that imply a relationship (causal, locational, temporal, possessive) the source '
+        'did not assert. When the source presents facts as independent, your summary must '
+        'too.\n\n'
+    )
 
     completion = get_llm_response(prompt + text, mode='standard')
     return completion
