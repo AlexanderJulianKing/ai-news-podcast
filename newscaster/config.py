@@ -52,6 +52,8 @@ MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 5
 _SECOND = 1000
 
+FALLBACK_MODEL = "openai/gpt-5.5"
+
 
 def init():
     """Load API keys from keys.txt. Must be called before using any key constants."""

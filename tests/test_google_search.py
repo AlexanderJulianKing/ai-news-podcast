@@ -16,9 +16,9 @@ def _mock_cse_response(items):
 @patch('newscaster.config.GOOGLE_SEARCH_API_KEY', 'fake_key')
 class TestGoogleOfficialSearch:
 
-    @patch('newscaster.scrapers.google_search.get_llm_response', return_value='rephrased query')
+    @patch('newscaster.scrapers.google_search.call_with_default', return_value='rephrased query')
     def test_zero_results_calls_llm_to_rephrase(self, mock_llm):
-        """When search returns zero results, should call get_llm_response to rephrase."""
+        """When search returns zero results, should call the rephrase helper."""
         with patch('newscaster.scrapers.google_search.time.sleep'):
             mock_service = MagicMock()
             # Always return empty results
@@ -27,7 +27,7 @@ class TestGoogleOfficialSearch:
             with patch('googleapiclient.discovery.build', return_value=mock_service):
                 result = google_official_search('test query', num_results=3)
 
-            # LLM should have been called to rephrase (up to 4 times since 5 iterations)
+            # Rephrase helper should have been called (up to 4 times since 5 iterations)
             assert mock_llm.call_count >= 1
             # With no results ever found, should return empty list
             assert result == []

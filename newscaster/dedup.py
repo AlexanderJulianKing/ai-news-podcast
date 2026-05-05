@@ -96,19 +96,20 @@ def _generate_slug_fallback(headline: str) -> str:
 
 def create_arc(ledger, headline, coverage, coverage_slot, date_str, topic_summary) -> str:
     """Create a new arc entry. Returns the slug."""
-    from newscaster.llm import get_llm_response
+    from newscaster.llm import call_with_default
     from newscaster.prompts import SLUG_GENERATION_PROMPT
 
-    try:
-        slug_response = get_llm_response(
-            f"Headline: {headline}", system_prompt=SLUG_GENERATION_PROMPT, mode="light"
-        )
-        slug = slug_response.strip().lower().replace(" ", "_")
-        slug = re.sub(r"[^a-z0-9_]", "", slug)
-        if not slug:
-            slug = _generate_slug_fallback(headline)
-    except Exception:
-        slug = _generate_slug_fallback(headline)
+    fallback_slug = _generate_slug_fallback(headline)
+    slug_response = call_with_default(
+        fallback_slug,
+        f"Headline: {headline}",
+        system_prompt=SLUG_GENERATION_PROMPT, mode="light",
+        _log_label=f'slug-generation[{headline[:40]}]',
+    )
+    slug = slug_response.strip().lower().replace(" ", "_")
+    slug = re.sub(r"[^a-z0-9_]", "", slug)
+    if not slug:
+        slug = fallback_slug
 
     # Handle slug collisions
     base_slug = slug
@@ -244,7 +245,7 @@ def load_recent_story_descriptions(window_days: int = 7):
 def summarize_story_for_archive(headline: str, context: str) -> str:
     """Produce a short summary used to detect future duplicates."""
     # Lazy import to avoid circular dependency at module load time
-    from newscaster.llm import get_llm_response
+    from newscaster.llm import call_with_default
 
     headline = (headline or "").strip()
     context = (context or "").strip()
@@ -254,10 +255,11 @@ def summarize_story_for_archive(headline: str, context: str) -> str:
         "Do not add commentary beyond the facts."
     )
     input_payload = f"Headline: {headline}\nContext:\n{context}"
-    try:
-        summary = get_llm_response(input_payload, system_prompt=summary_prompt, mode="light")
-    except Exception:
-        summary = context or headline
+    summary = call_with_default(
+        context or headline,
+        input_payload, system_prompt=summary_prompt, mode="light",
+        _log_label=f'archive-summary[{headline[:40]}]',
+    )
     summary = (summary or "").strip()
     if not summary:
         summary = headline

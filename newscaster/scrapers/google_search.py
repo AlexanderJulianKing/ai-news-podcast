@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 import newscaster.config as _config
 from newscaster.logging import print_and_write
-from newscaster.llm import get_llm_response
+from newscaster.llm import call_with_default
 
 
 # Hosts that block scraping or only host snippets, not real articles.
@@ -64,7 +64,10 @@ def google_official_search(query, num_results=3, days_prior=1):
             if len(search_results_list) == 0:
                 print_and_write('SEARCH BREAK', i)
                 query_prompt = 'Please change the following query into a rephrased google search query that can get more relevant results. Please only give the new query and do not give quotation marks'
-                query = get_llm_response(query, system_prompt=query_prompt, mode='light')
+                query = call_with_default(
+                    query, query, system_prompt=query_prompt, mode='light',
+                    _log_label='search-query-rephrase',
+                )
                 query = query.strip("\"").strip('\n')
                 time.sleep(5)
 

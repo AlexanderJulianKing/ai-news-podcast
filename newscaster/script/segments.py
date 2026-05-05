@@ -2,15 +2,17 @@ import os
 import time
 from datetime import datetime
 
-from newscaster.llm import get_llm_response
+from newscaster.llm import get_llm_response, LLMError
+from newscaster.llm.errors import LLMMalformedResponseError
 from newscaster.logging import print_and_write
 from newscaster.dates import format_spoken_date
 from newscaster.prompts import SEGMENT_SCRIPT_PROMPT_TEMPLATE, SEGMENT_SCRIPT_UPDATE_CONTEXT
 
 
 def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_context=None):
+    """stories: dict[int, str] keyed by slot. Failed slots are absent and skipped."""
     MAX_VARIANTS = 3
-    MAX_LLM_RETRIES = 5
+    MAX_CONTENT_RETRIES = 5
     FIRST_PASS_THRESHOLD = 0.55
     attribution_phrases = (
         "according to",
@@ -21,28 +23,29 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
     )
 
     def _fetch_dialogue(story_text, prompt, reporter_name):
+        """Content-shape retry: re-prompt if the LLM returns a script missing
+        the expected Grace/reporter lines. Network/transport failures are
+        already retried by the router — those raise LLMError here, which we
+        propagate so the caller can decide what to do with this segment."""
         attempt = 0
-        while attempt < MAX_LLM_RETRIES:
+        while attempt < MAX_CONTENT_RETRIES:
             attempt += 1
-            try:
-                response = get_llm_response(story_text, system_prompt=prompt, mode='heavy')
-            except Exception as exc:
-                wait_time = 10 * attempt
-                print_and_write(f'LLM call failed for reporter {reporter_name} (attempt {attempt}): {exc}')
-                time.sleep(wait_time)
-                continue
+            response = get_llm_response(story_text, system_prompt=prompt, mode='heavy')
 
             if 'Grace:' not in response:
-                print_and_write(f'Missing Grace line for reporter {reporter_name}; retrying')
+                print_and_write(f'Missing Grace line for reporter {reporter_name} (attempt {attempt}); retrying')
                 time.sleep(2)
                 continue
             if f'{reporter_name}:' not in response:
-                print_and_write(f'Missing reporter line ({reporter_name}) in response; retrying')
+                print_and_write(f'Missing reporter line ({reporter_name}) in response (attempt {attempt}); retrying')
                 time.sleep(2)
                 continue
             return response
 
-        raise RuntimeError(f'Unable to obtain valid script for reporter {reporter_name}')
+        raise LLMMalformedResponseError(
+            f'Unable to obtain content-valid script for reporter {reporter_name} after {MAX_CONTENT_RETRIES} attempts',
+            provider='script-shape', model=reporter_name,
+        )
 
     def _normalize_dialogue(text):
         lines = []
@@ -72,19 +75,28 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
 
     os.makedirs('output_scripts', exist_ok=True)
 
-    for i, story_text in enumerate(stories):
-        reporter_name = voices_list[i]
+    sorted_slots = sorted(stories.keys())
+    total_stories = len(sorted_slots)
+
+    for narrative_idx, slot in enumerate(sorted_slots):
+        outfile_name = 'output_scripts/{}_segment_{}.txt'.format(formatted_date2, slot)
+        if os.path.exists(outfile_name):
+            print_and_write(f'Slot {slot} already has a script on disk; reusing (skipping generation)')
+            continue
+
+        story_text = stories[slot]
+        reporter_name = voices_list[slot]
 
         segment_script_prompt = SEGMENT_SCRIPT_PROMPT_TEMPLATE.format(
             reporter_name=reporter_name,
             date=formatted_date,
-            story_num=i + 1,
-            total_stories=len(stories)
+            story_num=narrative_idx + 1,
+            total_stories=total_stories
         )
 
         # Append update context if this story is a continuation
-        if arc_context and i < len(arc_context) and arc_context[i]:
-            arc = arc_context[i]
+        if arc_context and slot < len(arc_context) and arc_context[slot]:
+            arc = arc_context[slot]
             episodes = arc.get("episodes", [])
             if len(episodes) > 1:
                 audience_state = arc.get("audience_state", "")
@@ -101,27 +113,36 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
                         last_covered_spoken=last_covered_spoken,
                         reporter_name=reporter_name,
                     )
-                    print_and_write(f'Injected update context for story {i + 1} (arc: {arc.get("slug", "?")})')
+                    print_and_write(f'Injected update context for slot {slot} (arc: {arc.get("slug", "?")})')
 
         quality_records = []
         selected_script = None
 
-        for variant in range(MAX_VARIANTS):
-            raw_script = _fetch_dialogue(story_text, segment_script_prompt, reporter_name)
-            dialogue = _normalize_dialogue(raw_script)
-            score = _score_dialogue(dialogue, reporter_name)
-            quality_records.append((score, dialogue))
-            print_and_write(f'Segment {i + 1}, attempt {variant + 1}, score {score}')
+        try:
+            for variant in range(MAX_VARIANTS):
+                raw_script = _fetch_dialogue(story_text, segment_script_prompt, reporter_name)
+                dialogue = _normalize_dialogue(raw_script)
+                score = _score_dialogue(dialogue, reporter_name)
+                quality_records.append((score, dialogue))
+                print_and_write(f'Segment slot {slot}, attempt {variant + 1}, score {score}')
 
-            if variant == 0 and score >= FIRST_PASS_THRESHOLD:
-                selected_script = dialogue
-                print_and_write(f'First attempt cleared threshold ({score}); skipping extra drafts for story {i + 1}')
-                break
+                if variant == 0 and score >= FIRST_PASS_THRESHOLD:
+                    selected_script = dialogue
+                    print_and_write(f'First attempt cleared threshold ({score}); skipping extra drafts for slot {slot}')
+                    break
+        except LLMError as e:
+            print_and_write(
+                f'SCRIPT FAILURE: slot {slot} dialogue generation failed: {e}; '
+                f'slot will have no script and will be skipped during audio assembly'
+            )
+            continue
 
         if not selected_script:
+            if not quality_records:
+                print_and_write(f'SCRIPT FAILURE: slot {slot} produced no candidate scripts; skipping')
+                continue
             best_score, selected_script = max(quality_records, key=lambda item: (item[0], len(item[1])))
-            print_and_write(f'Selected best scoring draft for story {i + 1} with score {best_score}')
+            print_and_write(f'Selected best scoring draft for slot {slot} with score {best_score}')
 
-        outfile_name = 'output_scripts/{}_segment_{}.txt'.format(formatted_date2, i)
         with open(outfile_name, 'w', encoding='utf-8') as outfile:
             outfile.write(selected_script)

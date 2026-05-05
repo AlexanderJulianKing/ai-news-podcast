@@ -2,14 +2,22 @@ import anthropic
 import httpx
 
 import newscaster.config as _config
-from newscaster.logging import print_and_write
+from newscaster.llm.errors import (
+    LLMMalformedResponseError,
+    classify,
+)
 
 
 def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='You are an intelligent assistant.'):
-    client = anthropic.Anthropic(api_key=_config.ANTHROPIC_API_KEY, timeout=httpx.Timeout(300.0, connect=5.0))
+    """One logical attempt against the Anthropic API.
+
+    Raises a typed LLMError on failure; the router decides whether to retry or fall back.
+    """
     max_output_tokens = 16000
     thinking = True
+
     try:
+        client = anthropic.Anthropic(api_key=_config.ANTHROPIC_API_KEY, timeout=httpx.Timeout(300.0, connect=5.0))
         if thinking == False:
             message = client.messages.create(
                 model=model_to_use,
@@ -46,25 +54,25 @@ def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='
                 thinking={"type": "adaptive"},
                 extra_body={"output_config": {"effort": "high"}},
             )
+    except anthropic.APIStatusError as e:
+        status_code = getattr(e, 'status_code', None)
+        cls = classify(e, status_code=status_code)
+        raise cls(str(e), provider='anthropic', model=model_to_use, status_code=status_code) from e
     except Exception as e:
-        print_and_write('claude failure', e)
-        print_and_write('falling back to GPT-5.5 (low)')
-        try:
-            # Lazy import to avoid circular dependency
-            from newscaster.llm.openrouter import get_openrouter_response
-            return get_openrouter_response(
-                user_prompt,
-                'openai/gpt-5.5',
-                'GPT-5.5 (low)',
-                False,
-                system_prompt=system_prompt
-            )
-        except Exception as fallback_error:
-            print_and_write('GPT-5.5 fallback failure', fallback_error)
-            raise
+        cls = classify(e)
+        raise cls(str(e), provider='anthropic', model=model_to_use) from e
 
-    print_and_write('claude message received')
     for block in message.content:
         if block.type == 'text':
-            return block.text
-    raise RuntimeError(f'claude response had no text block: {[b.type for b in message.content]}')
+            text = block.text
+            if not text or not text.strip():
+                raise LLMMalformedResponseError(
+                    'Claude returned empty/whitespace text block',
+                    provider='anthropic', model=model_to_use,
+                )
+            return text
+
+    raise LLMMalformedResponseError(
+        f'Claude response had no text block: {[b.type for b in message.content]}',
+        provider='anthropic', model=model_to_use,
+    )

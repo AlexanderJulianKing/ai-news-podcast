@@ -21,7 +21,7 @@ from newscaster.prompts import (
     TIER3_EVERYMAN_STORY_PROMPT,
     TIER3_OVERVIEW_PICK_PROMPT,
 )
-from newscaster.llm import get_llm_response
+from newscaster.llm import get_llm_response, call_with_default, LLMError
 from newscaster.dedup import (
     load_recent_story_descriptions,
     summarize_story_for_archive,
@@ -63,12 +63,12 @@ def determine_relevance(topic, result):
     prompt = "Given the search engine headline of '{}' and the search result snippet of '{}', do you think that the given website is a news article AND might be relevant to the topic of '{}'? Today is {}. Give a yes or no answer.".format(
         result['headline'], result['snippet'], topic, _today_str())
 
-    response = get_llm_response(prompt, mode='light')
+    response = call_with_default(
+        'no', prompt, mode='light',
+        _log_label=f"determine-relevance[{result.get('headline', '?')[:60]}]",
+    )
 
-    if 'yes' in response.lower():
-        return True
-    else:
-        return False
+    return 'yes' in response.lower()
 
 
 def summarize_text(text, article):
@@ -110,17 +110,27 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
         if len(text) > 20000:
             print_and_write('ARTICLE IS UNREADABLE')
             return summary_prompt, successful_summary_counter
-        summary = summarize_text(text, 'article')
+        try:
+            summary = summarize_text(text, 'article')
+        except LLMError as e:
+            print_and_write(f'summarize_text failed for {url}: {e}; skipping article')
+            return summary_prompt, successful_summary_counter
         print_and_write('\nSUMMARY:', summary, '\n')
         relevance_prompt = "Given the topic of '" + topic + "', is there any relevant information in the summary of a news article below? Answer as a yes or no.\n" + summary
-        completion = get_llm_response(relevance_prompt, mode='light')
+        completion = call_with_default(
+            'no', relevance_prompt, mode='light',
+            _log_label=f'article-relevance[{url}]',
+        )
         response = completion.replace('-', '')
 
         if 'yes' in response.lower():
             print_and_write('ARTICLE IS RELEVANT', '\n')
             news_source_prompt = 'What is the news outlet this url is associated with? Answer after writing "SOURCE:"\n' + url
 
-            news_source_response = get_llm_response(news_source_prompt, mode='light')
+            news_source_response = call_with_default(
+                f'SOURCE: {url}', news_source_prompt, mode='light',
+                _log_label=f'news-source[{url}]',
+            )
 
             summary_prompt = summary_prompt + '\n\n---\nArticle ' + str(successful_summary_counter + 1) + '\n'
             summary_prompt = summary_prompt + 'Source: ' + news_source_response + '\n'
@@ -254,7 +264,9 @@ def topic_finder(formatted_date):
     npr_specific_prompt = "What are the main headlines for NPR's morning news brief here released today, {}? If there are none released today, then say that there are none released from the news source today. And mention the news source. You can be descriptive when talking about the main headlines. \n".format(formatted_date)
 
     print_and_write('scraping NPR')
-    npr_headlines = get_llm_response(npr_specific_prompt, grounding=True) + '\n'
+    npr_headlines = call_with_default(
+        '', npr_specific_prompt, grounding=True, _log_label='scrape-npr',
+    ) + '\n'
     print_and_write('scraping AP')
     ap_prompt = (
         base_scraper_prompt
@@ -263,16 +275,24 @@ def topic_finder(formatted_date):
         + "Ignore sections that are clearly labeled as historical retrospectives such as 'Today in History'. "
         + "https://apnews.com"
     ).format(formatted_date)
-    ap_headlines = get_llm_response(ap_prompt, url_context=True) + '\n'
+    ap_headlines = call_with_default(
+        '', ap_prompt, url_context=True, _log_label='scrape-ap',
+    ) + '\n'
     print_and_write('scraping DN')
-    dn_headlines = get_llm_response(base_scraper_prompt + 'https://www.democracynow.org', grounding=True) + '\n'
+    dn_headlines = call_with_default(
+        '', base_scraper_prompt + 'https://www.democracynow.org', grounding=True, _log_label='scrape-dn',
+    ) + '\n'
     print_and_write('scraping PP')
-    pp_headlines = get_llm_response(base_scraper_prompt + 'https://www.propublica.org', url_context=True) + '\n'
+    pp_headlines = call_with_default(
+        '', base_scraper_prompt + 'https://www.propublica.org', url_context=True, _log_label='scrape-pp',
+    ) + '\n'
     print_and_write('scraping CM')
     calmatters_headlines = calmatters_scraper() + '\n'
-    city_of_riverside_headlines = get_llm_response(
+    city_of_riverside_headlines = call_with_default(
+        '',
         'What are the latest headlines here released in the past two days? Today is {}. If there are none released today, then say that there are none released from the news source today or yesterday. And mention the news source. Do not give anything else. https://www.riversideca.gov/media'.format(formatted_date),
-        mode='standard', url_context=True)
+        mode='standard', url_context=True, _log_label='scrape-riverside',
+    )
 
     all_headlines = 'NPR:\n' + npr_headlines + '\n\nThe Associated Press:\n' + ap_headlines + '\n\nDemocracy Now:\n' + dn_headlines + '\n\nProPublica\n' + pp_headlines + '\n\nCalMatters\n' + calmatters_headlines + '\n\nThe City of Riverside\n' + city_of_riverside_headlines
 
@@ -281,10 +301,16 @@ def topic_finder(formatted_date):
 
     if use_ledger:
         repetition_remover_system_prompt = LEDGER_REPETITION_REMOVER_TEMPLATE.format(arc_summaries=arc_summaries)
-        all_headlines = get_llm_response(all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard')
+        all_headlines = call_with_default(
+            all_headlines, all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard',
+            _log_label='dedup-headlines-ledger',
+        )
     elif history_found:
         repetition_remover_system_prompt = REPETITION_REMOVER_TEMPLATE.format(recent_stories=recent_story_descriptions)
-        all_headlines = get_llm_response(all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard')
+        all_headlines = call_with_default(
+            all_headlines, all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard',
+            _log_label='dedup-headlines-history',
+        )
 
     # === TIER 1: Triage — score all headlines ===
     print_and_write('TIER 1: Triaging headlines')
