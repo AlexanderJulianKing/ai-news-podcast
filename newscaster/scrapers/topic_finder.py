@@ -107,8 +107,8 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
         if text.startswith('Error: '):
             print_and_write('SCRAPE FAILED:', text)
             return summary_prompt, successful_summary_counter
-        if len(text) > 20000:
-            print_and_write('ARTICLE IS UNREADABLE')
+        if not text.strip():
+            print_and_write('ARTICLE IS EMPTY')
             return summary_prompt, successful_summary_counter
         try:
             summary = summarize_text(text, 'article')
