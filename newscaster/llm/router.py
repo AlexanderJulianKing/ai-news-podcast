@@ -34,13 +34,13 @@ def _select_primary(mode, grounding, url_context):
 
     # Everything else goes to Google Gemini.
     if mode == 'light' and not needs_tools:
-        model = 'gemini-3.1-flash-lite-preview'
+        model = 'gemini-3.1-flash-lite'
     elif mode in ('light', 'standard') or (mode == 'standard' and not needs_tools):
         model = 'gemini-3-flash-preview'
     elif mode in ('plus', 'heavy'):
         model = 'gemini-3.1-pro-preview'
     else:
-        model = 'gemini-3.1-flash-lite-preview'
+        model = 'gemini-3.1-flash-lite'
 
     return {
         'provider': 'google',
