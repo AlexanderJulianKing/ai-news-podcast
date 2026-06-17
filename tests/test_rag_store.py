@@ -57,3 +57,9 @@ def test_meta_mismatch_raises(tmp_path, monkeypatch):
     import pytest
     with pytest.raises(ValueError):
         ResearchIndex(db_path=db)
+
+
+def test_zero_norm_vector_is_skipped(tmp_path):
+    store = ResearchIndex(db_path=tmp_path / "idx.db")
+    store.upsert([_chunk("zero", [0.0, 0.0, 0.0])])
+    assert store.search([1.0, 0.0, 0.0], min_sim=0.0) == []

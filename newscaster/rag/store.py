@@ -27,7 +27,7 @@ class Chunk:
     headline: str | None
     url: str | None
     text: str
-    vector: list      # list[float], length == EMBED_DIM
+    vector: list[float]      # length == EMBED_DIM
 
 
 @dataclass
@@ -50,6 +50,9 @@ class ResearchIndex:
         self._conn.row_factory = sqlite3.Row
         self._ensure_schema()
 
+    def close(self):
+        self._conn.close()
+
     def _ensure_schema(self):
         self._conn.execute("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT)")
         self._conn.execute(
@@ -58,31 +61,34 @@ class ResearchIndex:
                    chunk_type TEXT, outlet TEXT, headline TEXT, url TEXT,
                    text TEXT, vector BLOB)"""
         )
-        row = self._conn.execute("SELECT value FROM meta WHERE key='embed_model'").fetchone()
-        if row is None:
-            self._conn.execute("INSERT INTO meta(key,value) VALUES('embed_model',?)", (_config.EMBED_MODEL,))
-            self._conn.execute("INSERT INTO meta(key,value) VALUES('embed_dim',?)", (str(_config.EMBED_DIM),))
+        meta = {r["key"]: r["value"] for r in self._conn.execute("SELECT key, value FROM meta").fetchall()}
+        existing_model = meta.get("embed_model")
+        existing_dim = meta.get("embed_dim")
+        if existing_model is None:
+            self._conn.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('embed_model',?)", (_config.EMBED_MODEL,))
+            self._conn.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('embed_dim',?)", (str(_config.EMBED_DIM),))
             self._conn.commit()
-        else:
-            existing_model = row["value"]
-            existing_dim = self._conn.execute("SELECT value FROM meta WHERE key='embed_dim'").fetchone()["value"]
-            if existing_model != _config.EMBED_MODEL or existing_dim != str(_config.EMBED_DIM):
-                raise ValueError(
-                    f"Index built with {existing_model}/{existing_dim} but config is "
-                    f"{_config.EMBED_MODEL}/{_config.EMBED_DIM}; spaces are incompatible — re-embed required"
-                )
+        elif existing_model != _config.EMBED_MODEL or existing_dim != str(_config.EMBED_DIM):
+            raise ValueError(
+                f"Index built with {existing_model}/{existing_dim} but config is "
+                f"{_config.EMBED_MODEL}/{_config.EMBED_DIM}; spaces are incompatible — re-embed required"
+            )
 
     def upsert(self, chunks):
-        for c in chunks:
-            blob = np.asarray(c.vector, dtype=np.float32).tobytes()
-            self._conn.execute(
-                """INSERT OR REPLACE INTO chunks
-                   (chunk_id,date,arc_slug,slot,chunk_type,outlet,headline,url,text,vector)
-                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                (c.chunk_id, c.date, c.arc_slug, c.slot, c.chunk_type,
-                 c.outlet, c.headline, c.url, c.text, blob),
-            )
-        self._conn.commit()
+        try:
+            for c in chunks:
+                blob = np.asarray(c.vector, dtype=np.float32).tobytes()
+                self._conn.execute(
+                    """INSERT OR REPLACE INTO chunks
+                       (chunk_id,date,arc_slug,slot,chunk_type,outlet,headline,url,text,vector)
+                       VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                    (c.chunk_id, c.date, c.arc_slug, c.slot, c.chunk_type,
+                     c.outlet, c.headline, c.url, c.text, blob),
+                )
+            self._conn.commit()
+        except Exception:
+            self._conn.rollback()
+            raise
         return len(chunks)
 
     def search(self, query_vec, k=None, exclude_date=None, min_sim=None):
