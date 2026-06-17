@@ -54,6 +54,13 @@ _SECOND = 1000
 
 FALLBACK_MODEL = "openai/gpt-5.5"
 
+# --- RAG / embeddings tunables ---
+EMBED_MODEL = "gemini-embedding-2"   # verified current; space incompatible with -001
+EMBED_DIM = 1536                     # pinned; changing requires a full re-embed
+RAG_TOP_K = 6                        # chunks retrieved per refine
+RAG_MIN_SIM = 0.65                   # cosine floor; below -> inject nothing (tune empirically)
+RAG_AUGMENT_ENABLED = False          # gates the retrieve-then-refine pass
+
 
 def init():
     """Load API keys from keys.txt. Must be called before using any key constants."""

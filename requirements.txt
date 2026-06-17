@@ -11,3 +11,4 @@ httpx
 pydub
 moviepy
 wikipedia-api
+numpy
