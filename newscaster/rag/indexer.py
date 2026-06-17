@@ -54,13 +54,17 @@ def index_day(date, store=None):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 record = json.load(f)
-        except (IOError, json.JSONDecodeError) as e:
-            print_and_write(f"index_day: skipping unreadable sidecar {path}: {e}")
+            specs.extend(chunks_from_record(record))
+        except (IOError, json.JSONDecodeError, KeyError, TypeError) as e:
+            print_and_write(f"index_day: skipping malformed sidecar {path}: {e}")
             continue
-        specs.extend(chunks_from_record(record))
     if not specs:
         return 0
     vectors = embed_texts([s["text"] for s in specs], task_type="RETRIEVAL_DOCUMENT")
+    if len(vectors) != len(specs):
+        raise RuntimeError(
+            f"index_day: embed_texts returned {len(vectors)} vectors for {len(specs)} specs"
+        )
     store = store or ResearchIndex()
     chunks = [Chunk(vector=vectors[i], **specs[i]) for i in range(len(specs))]
     return store.upsert(chunks)
