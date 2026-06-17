@@ -63,3 +63,14 @@ def test_zero_norm_vector_is_skipped(tmp_path):
     store = ResearchIndex(db_path=tmp_path / "idx.db")
     store.upsert([_chunk("zero", [0.0, 0.0, 0.0])])
     assert store.search([1.0, 0.0, 0.0], min_sim=0.0) == []
+
+
+def test_search_skips_dimension_mismatched_rows(tmp_path):
+    """A single wrong-length stored vector must be skipped, not crash all retrieval."""
+    store = ResearchIndex(db_path=tmp_path / "idx.db")
+    store.upsert([
+        _chunk("good", [1.0, 0.0, 0.0]),
+        _chunk("bad", [1.0, 0.0]),  # wrong dimension (corrupt/backfilled row)
+    ])
+    hits = store.search([1.0, 0.0, 0.0], min_sim=0.0)
+    assert [h.chunk_id for h in hits] == ["good"]

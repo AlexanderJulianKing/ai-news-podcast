@@ -141,7 +141,7 @@ def _load_manifest(formatted_date2):
         if has_slot_summaries:
             raise _ManifestCorruptError(
                 f"Manifest at {path} is missing but slot summaries already exist — "
-                f"refusing to silently re-pick topics. Delete the slot summaries to force a clean rerun."
+                f"refusing to silently re-pick topics. Delete the slot summaries (and any matching _research.json sidecars) to force a clean rerun."
             )
         return None
 
@@ -152,7 +152,7 @@ def _load_manifest(formatted_date2):
         if has_slot_summaries:
             raise _ManifestCorruptError(
                 f"Manifest at {path} is corrupt ({e}) but slot summaries already exist — "
-                f"refusing to silently re-pick topics. Delete the slot summaries to force a clean rerun, "
+                f"refusing to silently re-pick topics. Delete the slot summaries (and any matching _research.json sidecars) to force a clean rerun, "
                 f"or repair the manifest."
             ) from e
         print_and_write(f"Failed to load gather manifest at {path}: {e}; treating as absent (no slot summaries to orphan)")
@@ -161,7 +161,7 @@ def _load_manifest(formatted_date2):
     if not isinstance(payload, dict):
         msg = f"Manifest at {path} has wrong top-level type ({type(payload).__name__}); expected dict"
         if has_slot_summaries:
-            raise _ManifestCorruptError(msg + " — refusing to silently re-pick topics. Delete slot summaries to force a clean rerun.")
+            raise _ManifestCorruptError(msg + " — refusing to silently re-pick topics. Delete slot summaries (and any matching _research.json sidecars) to force a clean rerun.")
         print_and_write(msg + "; treating as absent (no slot summaries to orphan)")
         return None
 
@@ -174,7 +174,7 @@ def _load_manifest(formatted_date2):
         if has_slot_summaries:
             raise _ManifestCorruptError(
                 f"Manifest schema mismatch at {path} ({e}) but slot summaries already exist — "
-                f"refusing to silently re-pick topics. Delete the slot summaries to force a clean rerun."
+                f"refusing to silently re-pick topics. Delete the slot summaries (and any matching _research.json sidecars) to force a clean rerun."
             ) from e
         print_and_write(f"Manifest schema mismatch at {path}: {e}; treating as absent (no slot summaries to orphan)")
         return None
@@ -200,6 +200,14 @@ def gather_news(formatted_date, formatted_date2):
         manifest = _load_manifest(formatted_date2)
         if manifest is None:
             print_and_write(f"WARNING: marker present but manifest missing/corrupt; downstream arc_context unavailable")
+        # Self-heal: a prior run may have written research sidecars but failed to index
+        # them (e.g. a transient embedding-API error) before the marker was written.
+        # index_day is idempotent and skips already-indexed chunks, so retrying here is
+        # cheap and recovers the corpus on the next (same-day) run.
+        try:
+            index_day(formatted_date2)
+        except Exception as e:
+            print_and_write(f"RAG index_day (marker-present retry) failed for {formatted_date2}: {e}; continuing")
         return manifest
 
     # Try to reuse a previous run's topic selection before re-paying for topic_finder.

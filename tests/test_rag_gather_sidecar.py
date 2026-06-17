@@ -56,3 +56,17 @@ def test_gather_index_failure_does_not_break_gather(tmp_path, monkeypatch):
     assert os.path.exists("segment_summaries/2026_11_05_segment0_summary.txt")
     assert os.path.exists("segment_summaries/2026_11_05_GATHER_COMPLETE.flag")
     assert result is tf_result
+
+
+def test_gather_reindexes_on_marker_present_rerun(tmp_path, monkeypatch):
+    """A completed day must still (re)index on rerun, so a prior indexing failure self-heals."""
+    monkeypatch.chdir(tmp_path)
+    for d in ("segment_summaries", "output_scripts", "logs"):
+        os.makedirs(d)
+    tf_result = _tf(["t"], arc_context=[None])
+    pipeline._save_manifest(tf_result, "2026_11_05")
+    with open("segment_summaries/2026_11_05_GATHER_COMPLETE.flag", "w") as f:
+        f.write("2026_11_05")
+    with patch("newscaster.pipeline.index_day", return_value=0) as mock_index:
+        pipeline.gather_news("November 5, 2026", "2026_11_05")
+    mock_index.assert_called_once_with("2026_11_05")

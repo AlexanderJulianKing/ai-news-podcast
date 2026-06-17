@@ -91,6 +91,17 @@ class ResearchIndex:
             raise
         return len(chunks)
 
+    def existing_chunk_ids(self, chunk_ids):
+        """Return the subset of `chunk_ids` already present in the store."""
+        ids = list(chunk_ids)
+        if not ids:
+            return set()
+        placeholders = ",".join("?" for _ in ids)
+        rows = self._conn.execute(
+            f"SELECT chunk_id FROM chunks WHERE chunk_id IN ({placeholders})", ids
+        ).fetchall()
+        return {r["chunk_id"] for r in rows}
+
     def search(self, query_vec, k=None, exclude_date=None, min_sim=None):
         k = _config.RAG_TOP_K if k is None else k
         min_sim = _config.RAG_MIN_SIM if min_sim is None else min_sim
@@ -109,6 +120,8 @@ class ResearchIndex:
             if exclude_date is not None and r["date"] == exclude_date:
                 continue
             v = np.frombuffer(r["vector"], dtype=np.float32)
+            if v.shape[0] != q.shape[0]:
+                continue  # dimension-mismatched/corrupt row: skip it, don't crash all retrieval
             vn = np.linalg.norm(v)
             if vn == 0:
                 continue

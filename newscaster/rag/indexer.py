@@ -60,11 +60,17 @@ def index_day(date, store=None):
             continue
     if not specs:
         return 0
+    store = store or ResearchIndex()
+    # Skip chunks already indexed so reruns are cheap and an interrupted/failed prior
+    # index self-heals without re-embedding what's already stored.
+    already = store.existing_chunk_ids([s["chunk_id"] for s in specs])
+    specs = [s for s in specs if s["chunk_id"] not in already]
+    if not specs:
+        return 0
     vectors = embed_texts([s["text"] for s in specs], task_type="RETRIEVAL_DOCUMENT")
     if len(vectors) != len(specs):
         raise RuntimeError(
             f"index_day: embed_texts returned {len(vectors)} vectors for {len(specs)} specs"
         )
-    store = store or ResearchIndex()
     chunks = [Chunk(vector=vectors[i], **specs[i]) for i in range(len(specs))]
     return store.upsert(chunks)

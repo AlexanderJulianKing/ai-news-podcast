@@ -124,3 +124,21 @@ def test_index_day_skips_malformed_sidecar(tmp_path, monkeypatch):
         n = indexer.index_day("2026_03_09", store=ResearchIndex(db_path=tmp_path / "idx.db"))
     assert n == 0
     mock_embed.assert_not_called()
+
+
+def test_index_day_skips_already_indexed_chunks(tmp_path, monkeypatch):
+    """Re-running index_day must not re-embed chunks already in the store."""
+    monkeypatch.chdir(tmp_path)
+    os.makedirs("segment_summaries")
+    rec = {"date": "2026_03_09", "slot": 0, "topic": "t", "arc_slug": None,
+           "articles": [{"chunk_id": "2026_03_09_seg0_art0", "summary": "b", "url": "u",
+                         "outlet": "O", "original_headline": "h", "published_date": None,
+                         "retrieved_date": "2026_03_09", "surfacing_topic": "t"}],
+           "followups": []}
+    with open("segment_summaries/2026_03_09_segment0_research.json", "w") as f:
+        json.dump(rec, f)
+    store = ResearchIndex(db_path=tmp_path / "idx.db")
+    with patch("newscaster.rag.indexer.embed_texts", return_value=[[1.0, 0.0]]) as mock_embed:
+        indexer.index_day("2026_03_09", store=store)   # first run embeds
+        indexer.index_day("2026_03_09", store=store)   # second run: already indexed -> no embed
+    assert mock_embed.call_count == 1
