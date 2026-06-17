@@ -11,7 +11,7 @@ def test_result_piper_appends_article_record():
     with patch.object(tf, "determine_relevance", return_value=True), \
          patch.object(tf, "scrape_text", return_value="full article body"), \
          patch.object(tf, "summarize_text", return_value="a concise summary"), \
-         patch.object(tf, "call_with_default", side_effect=["yes", "NPR"]):
+         patch.object(tf, "call_with_default", side_effect=["yes", "SOURCE: NPR"]):
         summary_prompt, counter = tf.result_piper(
             "", 0, "wildfire", result, 0, "2026_03_09", articles=articles
         )

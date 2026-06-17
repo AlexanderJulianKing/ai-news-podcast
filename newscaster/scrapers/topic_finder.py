@@ -145,7 +145,7 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
                 articles.append({
                     "chunk_id": f"{formatted_date2}_seg{i}_art{successful_summary_counter}",
                     "url": url,
-                    "outlet": (news_source_response or "").strip(),
+                    "outlet": (news_source_response or "").replace("SOURCE:", "").strip(),
                     "original_headline": result.get("headline"),
                     "published_date": result.get("date"),
                     "retrieved_date": formatted_date2,
