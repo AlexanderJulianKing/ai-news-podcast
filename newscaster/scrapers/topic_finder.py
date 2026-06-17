@@ -95,7 +95,7 @@ def summarize_text(text, article):
     return completion
 
 
-def result_piper(summary_prompt, successful_summary_counter, topic, result, i, formatted_date2):
+def result_piper(summary_prompt, successful_summary_counter, topic, result, i, formatted_date2, articles=None):
     print_and_write('HEADLINE:', result['headline'], '\n')
     relevant = determine_relevance(topic, result)
     print_and_write(relevant)
@@ -140,6 +140,18 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
             outfile = open('segment_summaries/{}_segment{}_article{}_summary.txt'.format(formatted_date2, i, successful_summary_counter), 'w', encoding='utf-8')
             outfile.write(summary)
             outfile.close()
+
+            if articles is not None:
+                articles.append({
+                    "chunk_id": f"{formatted_date2}_seg{i}_art{successful_summary_counter}",
+                    "url": url,
+                    "outlet": (news_source_response or "").strip(),
+                    "original_headline": result.get("headline"),
+                    "published_date": result.get("date"),
+                    "retrieved_date": formatted_date2,
+                    "surfacing_topic": topic,
+                    "summary": summary,
+                })
 
             successful_summary_counter += 1
 
