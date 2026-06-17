@@ -18,8 +18,8 @@ problems:
    recurs, gather restarts from a blank search instead of building on prior depth.
 
 2. **Provenance is discarded on capture.** When an article is pulled and summarized
-   in `result_piper` (`newscaster/script/headlines.py:98`), the persisted file gets
-   *only the summary text* (`headlines.py:140-142`). The URL is dropped entirely;
+   in `result_piper` (`newscaster/scrapers/topic_finder.py:98`), the persisted file
+   gets *only the summary text* (`topic_finder.py:140-142`). The URL is dropped entirely;
    the outlet is computed via an LLM call but only lives in the in-memory prompt
    string. The follow-up Q&A is concatenated into one `summary_prompt` blob and
    never stored as discrete records.
@@ -106,24 +106,24 @@ segment_summaries/{date}_segment{i}_research.json
 
 **Capture touchpoints (both already compute the data; they just discard it):**
 
-- `result_piper` (`headlines.py:98`) — already derives URL, outlet, and summary.
-  It will append an article record to an accumulator. Because `result_piper` returns
-  `(summary_prompt, counter)` today, it gains a third accumulator argument (a list or
-  a small `SlotResearch` dataclass) rather than changing its return contract in a way
-  that ripples. `published_date` is best-effort (extracted from the result snippet/
-  page where present; `null` otherwise — not fabricated).
+- `result_piper` (`scrapers/topic_finder.py:98`) — already derives URL, outlet, and
+  summary. It gains an optional `articles` list parameter and appends one article
+  record per accepted article (it keeps writing the `_summary.txt` file as today).
+  `published_date` is best-effort (`result.get('date')`; `null` when absent — not
+  fabricated).
 - `_run_follow_up_rounds` (`pipeline.py:30`) — already produces
   `(asker, question, answer, is_challenging)` per round. It will collect those into
   the slot's `followups[]` rather than only concatenating into `summary_prompt`.
 
-**Assembly & persistence:** `_gather_one_topic` accumulates the article and Q&A
-records and returns them alongside the super-summary — its return becomes a small
-result object (e.g. `GatheredTopic(summary, articles, followups)`) rather than a bare
-string. `gather_news` — which already writes the slot `_summary.txt` and holds
-`tf_result.arc_context` — stamps `arc_slug`/`topic` from `arc_context[slot]`, writes
-the `_research.json` sidecar via the existing `_atomic_write_text`, then calls
-`index_day`. This keeps `arc_context` plumbing out of `_gather_one_topic`. The
-article `_summary.txt` files keep being written inside `result_piper` as today.
+**Assembly & persistence:** to avoid changing `_gather_one_topic`'s return type (the
+existing test suite mocks it returning a plain summary string), capture uses
+**accumulator lists**. `gather_news` creates an empty `articles` and `followups` list
+per slot and passes them into `_gather_one_topic`, which threads `articles` to
+`result_piper` and `followups` to `_run_follow_up_rounds`; both append in place. After
+the call, `gather_news` — which holds `tf_result.arc_context` — stamps `arc_slug`/
+`topic` from `arc_context[slot]`, writes the `_research.json` sidecar via the existing
+`_atomic_write_text`, then calls `index_day`. The article `_summary.txt` files keep
+being written inside `result_piper` as today.
 
 **Backward compatibility:** the existing `_segment{i}_summary.txt` and
 `_segment{i}_article{j}_summary.txt` files are unchanged; the `_research.json` sidecar
@@ -221,11 +221,12 @@ newscaster/rag/
   `genai_errors.APIError`, classify via `newscaster/llm/errors.py`, raise typed
   `LLMError`. Retry is light (embeddings are cheap); failures bubble to the §7
   fallback.
-- Integration edits: `result_piper` + `_run_follow_up_rounds` (capture),
-  `_gather_one_topic` (refine hook; return becomes a `GatheredTopic` result object
-  carrying the research records), `gather_news` (stamp `arc_slug`, write sidecar,
-  call `index_day`), `newscaster/prompts.py` (`RAG_REFINE_PROMPT`),
-  `newscaster/config.py` (tunables).
+- Integration edits: `result_piper` (`scrapers/topic_finder.py`) and
+  `_run_follow_up_rounds` (`pipeline.py`) gain optional accumulator params (capture);
+  `_gather_one_topic` threads the accumulators and gains the refine hook; `gather_news`
+  creates the accumulators, stamps `arc_slug`, writes the sidecar, and calls
+  `index_day`; `newscaster/prompts.py` gains `RAG_REFINE_PROMPT`; `newscaster/config.py`
+  gains the tunables.
 
 ## 9. Configuration (`newscaster/config.py`, module globals like `MAX_RETRIES`)
 
