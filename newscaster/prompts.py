@@ -324,3 +324,20 @@ OUTRO_TEMPLATE = (
     "gemini pro three point one, gemini flash three, and Google Cloud Text-to-Speech. "
     "I hope you have a great day. I'll see you tomorrow, Alex."
 )
+
+
+RAG_REFINE_PROMPT = (
+    "You are refining today's news synthesis using BACKGROUND from prior coverage of "
+    "related stories. The background is dated and may be outdated.\n\n"
+    "RULES:\n"
+    "1. Today's synthesis is authoritative. If the background conflicts with it, today's "
+    "synthesis wins — never replace a current fact with an older one.\n"
+    "2. Never present background facts as current. When you use a background detail, mark "
+    "its time explicitly (e.g. 'as of <date>').\n"
+    "3. Only add background that genuinely deepens or contextualizes today's story "
+    "(history, prior developments, earlier figures). Ignore anything irrelevant.\n"
+    "4. Preserve strict sourcing: do not fuse separate facts into implied relationships "
+    "the sources did not assert.\n"
+    "5. Keep today's synthesis intact; you are adding context, not rewriting it.\n\n"
+    "Return only the enriched synthesis."
+)

@@ -12,6 +12,7 @@ from newscaster.prompts import (
     AUDIENCE_LEARNED_EXTRACTION_PROMPT,
     OVERVIEW_AUDIENCE_LEARNED_PROMPT,
     OUTRO_TEMPLATE,
+    RAG_REFINE_PROMPT,
 )
 from newscaster.llm import get_llm_response, call_with_default, LLMError
 from newscaster.scrapers.topic_finder import topic_finder, TopicFinderResult
@@ -23,6 +24,7 @@ from newscaster.script.headlines import story_gatherer, headline_maker
 from newscaster.script.intro import intro_writer
 from newscaster.script.segments import segments_writer
 from newscaster.rag.indexer import index_day, build_research_record
+from newscaster.rag.retrieve import retrieve_prior_research
 # Audio modules are lazy-imported in generate_audio() to avoid pulling
 # google.cloud.texttospeech / pydub at module load time (those imports break
 # in some test environments and aren't needed for the gather/script stages).
@@ -299,6 +301,31 @@ def gather_news(formatted_date, formatted_date2):
     return tf_result
 
 
+def _augment_with_prior_research(super_summary, formatted_date2):
+    """Fold dated prior coverage into the draft summary. Gated + fail-safe:
+    returns the un-augmented draft when disabled, on no hits, or on any error."""
+    import newscaster.config as _config
+    if not _config.RAG_AUGMENT_ENABLED:
+        return super_summary
+    try:
+        hits = retrieve_prior_research(super_summary, exclude_date=formatted_date2)
+        if not hits:
+            return super_summary
+        context = "\n\n".join(
+            f"[Prior coverage — {h.outlet or 'unknown'}, {h.date}]\n{h.text}" for h in hits
+        )
+        user_prompt = (
+            f"TODAY'S SYNTHESIS:\n{super_summary}\n\n"
+            f"BACKGROUND FROM PRIOR COVERAGE:\n{context}"
+        )
+        enriched = get_llm_response(user_prompt, system_prompt=RAG_REFINE_PROMPT, mode="standard")
+        print_and_write(f"RAG: augmented summary with {len(hits)} prior-coverage chunks")
+        return enriched
+    except Exception as e:
+        print_and_write(f"RAG augment failed: {e}; using un-augmented summary")
+        return super_summary
+
+
 def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
                      follow_up_prompt_text, challenging_follow_up_prompt_text,
                      articles=None, followups=None):
@@ -415,6 +442,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
         super_summary = refined
         print_and_write('SUPER SUMMARY ITERATION 2:', super_summary, '\n')
 
+    super_summary = _augment_with_prior_research(super_summary, formatted_date2)
     return super_summary
 
 
