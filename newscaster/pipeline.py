@@ -22,6 +22,7 @@ from newscaster.weather import get_daily_temp
 from newscaster.script.headlines import story_gatherer, headline_maker
 from newscaster.script.intro import intro_writer
 from newscaster.script.segments import segments_writer
+from newscaster.rag.indexer import index_day, build_research_record
 # Audio modules are lazy-imported in generate_audio() to avoid pulling
 # google.cloud.texttospeech / pydub at module load time (those imports break
 # in some test environments and aren't needed for the gather/script stages).
@@ -221,6 +222,9 @@ def gather_news(formatted_date, formatted_date2):
     _save_manifest(tf_result, formatted_date2)
 
     stories: dict[int, str] = {}
+    slot_records: dict[int, tuple] = {}  # slot -> (articles, followups)
+
+    arc_context = getattr(tf_result, "arc_context", None) or []
 
     for topic_index, topic in enumerate(topics):
         topic_OG = topic
@@ -234,10 +238,12 @@ def gather_news(formatted_date, formatted_date2):
                 continue
             # Empty/whitespace summary file — treat as absent and re-gather.
             print_and_write(f"Slot {topic_index} summary on disk is empty/whitespace; will re-gather")
+        articles, followups = [], []
         try:
             stories[topic_index] = _gather_one_topic(
                 topic, topic_index, formatted_date, formatted_date2,
                 follow_up_prompt_text, challenging_follow_up_prompt_text,
+                articles=articles, followups=followups,
             )
         except LLMError as e:
             print_and_write(
@@ -245,12 +251,33 @@ def gather_news(formatted_date, formatted_date2):
                 f'slot will be empty and skipped downstream'
             )
             continue
+        slot_records[topic_index] = (articles, followups)
 
     for i, summary_text in stories.items():
         _atomic_write_text(
             "segment_summaries/{}_segment{}_summary.txt".format(formatted_date2, i),
             summary_text,
         )
+
+    # Write per-slot research sidecars (provenance + Q&A) for freshly-gathered slots.
+    for slot, (articles, followups) in slot_records.items():
+        arc = arc_context[slot] if slot < len(arc_context) else None
+        arc_slug = arc.get("slug") if isinstance(arc, dict) else None
+        topic_str = topics[slot] if slot < len(topics) else ""
+        record = build_research_record(
+            formatted_date2, slot, topic_str, arc_slug, articles, followups
+        )
+        _atomic_write_text(
+            "segment_summaries/{}_segment{}_research.json".format(formatted_date2, slot),
+            json.dumps(record, ensure_ascii=False, indent=2),
+        )
+
+    # Index the day's research (non-critical: never let it break gather).
+    try:
+        indexed = index_day(formatted_date2)
+        print_and_write(f"Indexed {indexed} research chunks for {formatted_date2}")
+    except Exception as e:
+        print_and_write(f"RAG index_day failed for {formatted_date2}: {e}; continuing")
 
     _atomic_write_text(
         "output_scripts/{}_overview.txt".format(formatted_date2),
