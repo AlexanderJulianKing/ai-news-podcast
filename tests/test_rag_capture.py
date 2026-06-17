@@ -36,3 +36,25 @@ def test_result_piper_without_accumulator_still_works():
         summary_prompt, counter = tf.result_piper("seed", 0, "topic", result, 0, "2026_03_09")
     assert counter == 0
     assert summary_prompt == "seed"
+
+
+import newscaster.pipeline as pipeline
+
+
+def test_run_follow_up_rounds_collects_qa():
+    followups = []
+
+    def fake_llm(prompt, system_prompt=None, mode="light", grounding=False, url_context=False):
+        # Grounded calls answer questions; ungrounded calls produce a quoted question.
+        if grounding:
+            return "the grounded answer"
+        return '"a follow up question"'
+
+    with patch.object(pipeline, "get_llm_response", side_effect=fake_llm):
+        pipeline._run_follow_up_rounds("seed summary", "fup template", "challenging template",
+                                       followups=followups)
+
+    assert len(followups) == 8  # 4 modes x (regular + challenging)
+    assert followups[0]["question"] == "a follow up question"
+    assert followups[0]["answer"] == "the grounded answer"
+    assert "asker" in followups[0] and "challenging" in followups[0]

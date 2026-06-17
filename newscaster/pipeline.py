@@ -27,7 +27,7 @@ from newscaster.script.segments import segments_writer
 # in some test environments and aren't needed for the gather/script stages).
 
 
-def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_follow_up_prompt_text):
+def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_follow_up_prompt_text, followups=None):
     """Run multiple follow-up question rounds to enrich a story summary.
 
     Each round: generate a follow-up question, search for the answer via grounding,
@@ -71,6 +71,13 @@ def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_fol
         print_and_write(response)
 
         summary_prompt = summary_prompt + '\n' + f'{asker_name} asked:' + follow_up_question + '\nNews sources found by Gemini Flash reported:\n' + response
+        if followups is not None:
+            followups.append({
+                "asker": asker_name,
+                "question": follow_up_question,
+                "answer": response,
+                "challenging": is_challenging,
+            })
 
     return summary_prompt
 
@@ -266,7 +273,8 @@ def gather_news(formatted_date, formatted_date2):
 
 
 def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
-                     follow_up_prompt_text, challenging_follow_up_prompt_text):
+                     follow_up_prompt_text, challenging_follow_up_prompt_text,
+                     articles=None, followups=None):
     """Gather a single topic into a super_summary. Raises LLMError on terminal failure
     so the caller can isolate the slot. Returns the synthesized summary text."""
     topic_OG = topic
@@ -290,7 +298,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
     irrelevance_prompt = 'Is there any information irrelevant to the main story in the below text, like information about upcoming programming or advertisements? For example, if the main story is about a fire, if the page the story was on also includes a mention of abortion, you should remove it. Give a yes or no answer and explain why: \n\n'
     for result in search_results:
         print_and_write(result)
-        summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2)
+        summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2, articles=articles)
 
         if successful_summary_counter == 3:
             break
@@ -307,7 +315,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
         for result in search_results:
             print_and_write(result)
             try:
-                summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2)
+                summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2, articles=articles)
             except Exception as e:
                 print_and_write(f'result_piper failed for topic {topic}: {e}')
                 pass
@@ -334,7 +342,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
         for result in search_results:
             print_and_write(result)
             try:
-                summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2)
+                summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2, articles=articles)
             except Exception as e:
                 print_and_write(f'result_piper failed for topic {topic}: {e}')
                 pass
@@ -353,7 +361,8 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
     summary_prompt = summary_prompt + get_llm_response(perplexity_prompt, grounding=True, mode='light')
 
     summary_prompt = _run_follow_up_rounds(
-        summary_prompt, follow_up_prompt_text, challenging_follow_up_prompt_text
+        summary_prompt, follow_up_prompt_text, challenging_follow_up_prompt_text,
+        followups=followups,
     )
 
     print_and_write('SUPER SUMMARY LENGTH:', len(summary_prompt))
