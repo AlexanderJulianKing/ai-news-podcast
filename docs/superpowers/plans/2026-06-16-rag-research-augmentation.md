@@ -424,7 +424,8 @@ def embed_texts(texts, *, task_type="RETRIEVAL_DOCUMENT", model=None, dimension=
             config=types.EmbedContentConfig(
                 output_dimensionality=dimension,
                 task_type=task_type,
-                auto_truncate=True,
+                # NOTE: no auto_truncate — that parameter is Vertex-only and the
+                # Gemini API rejects it. Callers must keep inputs under ~8192 tokens.
             ),
         )
     except genai_errors.APIError as e:
@@ -1150,7 +1151,7 @@ def retrieve_prior_research(draft_text, exclude_date, store=None):
     query = (draft_text or "").strip()
     if not query:
         return []
-    query = query[:40000]  # well under the model's 8192-token input limit
+    query = query[:24000]  # ~6k tokens, safely under the 8192-token limit (no auto_truncate on the Gemini API)
     vecs = embed_texts([query], task_type="RETRIEVAL_QUERY")
     if not vecs:
         return []
