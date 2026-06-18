@@ -1,0 +1,260 @@
+{
+  "version": 1,
+  "as_of": "2026-06-17",
+  "description": "Smoke benchmark for newsroom web-search accuracy, freshness, source discipline, and local-government retrieval.",
+  "tasks": [
+    {
+      "id": "ca_sb79_implementation",
+      "category": "california_policy",
+      "question": "As of June 17, 2026, is California SB 79 still pending or already law? Explain the effective date, HCD's compliance role, and what HCD says local jurisdictions must do if they choose to adopt an SB 79 ordinance or TOD alternative plan.",
+      "why_hard": "Older articles describe SB 79 as proposed or controversial. The correct answer requires current HCD implementation guidance, not stale legislative coverage.",
+      "preferred_sources": [
+        "https://www.hcd.ca.gov/planning-and-research/sb79-tod",
+        "https://calmatters.digitaldemocracy.org/bills/ca_202520260sb79"
+      ],
+      "checks": [
+        {"name": "already_law", "points": 1.0, "any": ["already law", "signed", "chaptered", "passed", "enacted"]},
+        {"name": "effective_date", "points": 1.0, "all": ["july 1, 2026"]},
+        {"name": "signature_date", "points": 0.75, "any": ["october 10, 2025", "oct. 10, 2025", "10/10/2025"]},
+        {"name": "hcd_role", "points": 1.0, "all": ["hcd", "compliance"]},
+        {"name": "not_required_to_adopt", "points": 1.0, "all": ["not required", "ordinance"]},
+        {"name": "draft_deadline", "points": 0.75, "all": ["14", "days"]},
+        {"name": "enacted_deadline", "points": 0.75, "all": ["60", "days"]}
+      ],
+      "source_domains": [
+        {"domain": "hcd.ca.gov", "points": 1.0},
+        {"domain": "calmatters.digitaldemocracy.org", "points": 0.5}
+      ],
+      "forbidden": [
+        {"phrase": "still pending", "points": 2.0},
+        {"phrase": "has not passed", "points": 2.0}
+      ]
+    },
+    {
+      "id": "riverside_city_attorney",
+      "category": "local_government",
+      "question": "On Riverside City Council's June 16, 2026 agenda, item 7b concerned a City Attorney employment agreement. Who was named, what annual salary and start date were listed, and what procedural waiver item came immediately before it?",
+      "why_hard": "This is buried in a local Legistar agenda and requires distinguishing item 7a from item 7b.",
+      "preferred_sources": [
+        "https://riversideca.legistar.com/MeetingDetail.aspx?GUID=5CCEF817-75C8-4FFD-BA38-C6D29464ADBB&ID=1416169&Options=info%7C&Search="
+      ],
+      "checks": [
+        {"name": "person", "points": 1.25, "all": ["james johnson"]},
+        {"name": "role", "points": 0.75, "all": ["city attorney"]},
+        {"name": "salary", "points": 1.25, "any": ["$372,624", "372,624"]},
+        {"name": "start_date", "points": 1.0, "all": ["july 17, 2026"]},
+        {"name": "sunshine_ordinance", "points": 1.0, "all": ["sunshine ordinance"]},
+        {"name": "vote_requirement", "points": 0.75, "all": ["five affirmative"]}
+      ],
+      "source_domains": [
+        {"domain": "riversideca.legistar.com", "points": 1.0}
+      ]
+    },
+    {
+      "id": "riverside_water_rate_contract",
+      "category": "local_government",
+      "question": "For Riverside City Council's June 16, 2026 agenda item 28, identify the RFP number, vendor, amount, account/source described, and the work being approved.",
+      "why_hard": "The answer is a small consent-calendar contract, not a headline story.",
+      "preferred_sources": [
+        "https://riversideca.legistar.com/MeetingDetail.aspx?GUID=5CCEF817-75C8-4FFD-BA38-C6D29464ADBB&ID=1416169&Options=info%7C&Search="
+      ],
+      "checks": [
+        {"name": "rfp", "points": 1.0, "all": ["request for proposal", "2494"]},
+        {"name": "vendor", "points": 1.0, "all": ["carollo engineers"]},
+        {"name": "amount", "points": 1.25, "any": ["$271,960", "271,960"]},
+        {"name": "account", "points": 1.0, "all": ["management services", "professional services"]},
+        {"name": "work", "points": 1.25, "all": ["water cost of service", "rate design"]}
+      ],
+      "source_domains": [
+        {"domain": "riversideca.legistar.com", "points": 1.0}
+      ]
+    },
+    {
+      "id": "riverside_grants_consent",
+      "category": "local_government",
+      "question": "From Riverside City Council's June 16, 2026 agenda, compare the Encampment Resolution Funding Program item and the Kaiser Permanente Operation Splash item: what amounts were involved, what projects/programs were named, and which one explicitly required five affirmative votes?",
+      "why_hard": "The model must pull two separate agenda items and not mix grant names, amounts, or vote requirements.",
+      "preferred_sources": [
+        "https://riversideca.legistar.com/MeetingDetail.aspx?GUID=5CCEF817-75C8-4FFD-BA38-C6D29464ADBB&ID=1416169&Options=info%7C&Search="
+      ],
+      "checks": [
+        {"name": "encampment_amount", "points": 1.25, "any": ["$8,423,448.45", "8,423,448.45"]},
+        {"name": "encampment_project", "points": 1.0, "all": ["magnolia corridor", "encampment resolution"]},
+        {"name": "splash_amount", "points": 1.0, "any": ["$85,000", "85,000"]},
+        {"name": "splash_program", "points": 1.0, "all": ["operation splash"]},
+        {"name": "fiscal_years", "points": 0.75, "all": ["2026-27", "2027-28"]},
+        {"name": "vote_requirement", "points": 1.0, "all": ["five affirmative"]}
+      ],
+      "source_domains": [
+        {"domain": "riversideca.legistar.com", "points": 1.0}
+      ]
+    },
+    {
+      "id": "riverside_pit_2026_method",
+      "category": "local_government",
+      "question": "Will Riverside County conduct an unsheltered Point-in-Time homelessness count in 2026? Explain what is still being counted and the reason given.",
+      "why_hard": "The correct answer is not a fresh count number; it is a methodology/status note that many summaries miss.",
+      "preferred_sources": [
+        "https://rivcohws.org/homeless-point-time-pit-count"
+      ],
+      "checks": [
+        {"name": "no_unsheltered", "points": 1.5, "all": ["unsheltered", "not", "conducted", "2026"]},
+        {"name": "sheltered_still", "points": 1.25, "all": ["sheltered", "still"]},
+        {"name": "every_other_year", "points": 1.25, "any": ["every-other-year", "every other year"]},
+        {"name": "federal_requirements", "points": 1.0, "any": ["federal", "hud"]},
+        {"name": "not_total_count", "points": 0.5, "any": ["not a full", "not conduct an unsheltered", "no unsheltered"]}
+      ],
+      "source_domains": [
+        {"domain": "rivcohws.org", "points": 1.0},
+        {"domain": "harivco.org", "points": 0.5}
+      ]
+    },
+    {
+      "id": "cdc_measles_2026",
+      "category": "public_health",
+      "question": "Using CDC's current measles page, give the U.S. 2026 confirmed measles case count as of the June 12, 2026 update, distinguish U.S. resident cases from international visitor cases, and state what share/count was outbreak-associated.",
+      "why_hard": "The page has update dates, report dates, resident counts, visitor counts, and outbreak counts that are easy to conflate.",
+      "preferred_sources": [
+        "https://www.cdc.gov/measles/data-research/index.html"
+      ],
+      "checks": [
+        {"name": "total_cases", "points": 1.25, "any": ["2,073", "2073"]},
+        {"name": "resident_cases", "points": 1.0, "any": ["2,063", "2063"]},
+        {"name": "visitor_cases", "points": 1.0, "all": ["10", "international visitors"]},
+        {"name": "jurisdictions", "points": 0.75, "all": ["40", "jurisdictions"]},
+        {"name": "outbreak_associated", "points": 1.25, "any": ["93%", "1,929", "1929"]},
+        {"name": "data_date", "points": 0.75, "any": ["june 11, 2026", "june 12, 2026"]}
+      ],
+      "source_domains": [
+        {"domain": "cdc.gov", "points": 1.0}
+      ]
+    },
+    {
+      "id": "fed_fomc_june_2026",
+      "category": "economy",
+      "question": "What did the FOMC decide in its June 17, 2026 statement? Include the vote, target range, reserve-policy language, and the specific uncertainty/inflation context mentioned.",
+      "why_hard": "News coverage adds projections and commentary; the task asks for the official statement details.",
+      "preferred_sources": [
+        "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260617a.htm"
+      ],
+      "checks": [
+        {"name": "vote", "points": 1.0, "any": ["12-0", "12 - 0", "unanimous"]},
+        {"name": "maintained", "points": 1.0, "any": ["maintain", "maintained", "hold", "held"]},
+        {"name": "target_range", "points": 1.25, "any": ["3-1/2 to 3-3/4", "3.5% to 3.75%", "3.50% to 3.75%"]},
+        {"name": "ample_reserves", "points": 1.0, "all": ["ample reserves"]},
+        {"name": "middle_east", "points": 0.75, "all": ["middle east"]},
+        {"name": "energy_supply_shocks", "points": 1.0, "all": ["supply shocks", "energy"]}
+      ],
+      "source_domains": [
+        {"domain": "federalreserve.gov", "points": 1.0}
+      ]
+    },
+    {
+      "id": "epa_pfas_2026",
+      "category": "regulation",
+      "question": "As of EPA's May 18, 2026 PFAS drinking-water update, what two proposed rule actions did EPA announce, which PFAS standards would be upheld, which would be rescinded/reconsidered, and what possible compliance extension was described?",
+      "why_hard": "This requires resolving the difference between the 2024 final rule and EPA's 2026 proposed changes.",
+      "preferred_sources": [
+        "https://www.epa.gov/sdwa/and-polyfluoroalkyl-substances-pfas",
+        "https://www.epa.gov/newsreleases/epa-announces-it-will-keep-maximum-contaminant-levels-pfoa-pfos"
+      ],
+      "checks": [
+        {"name": "date", "points": 0.75, "all": ["may 18, 2026"]},
+        {"name": "two_rules", "points": 1.0, "all": ["two", "proposed rules"]},
+        {"name": "uphold_pfoa_pfos", "points": 1.25, "all": ["pfoa", "pfos", "uphold"]},
+        {"name": "compliance_2031", "points": 1.0, "all": ["2031"]},
+        {"name": "rescinded_list", "points": 1.25, "all": ["pfhxs", "pfna", "hfpo-da"]},
+        {"name": "hazard_index", "points": 0.75, "all": ["hazard index"]}
+      ],
+      "source_domains": [
+        {"domain": "epa.gov", "points": 1.0}
+      ]
+    },
+    {
+      "id": "noaa_atlantic_outlook",
+      "category": "weather_climate",
+      "question": "What did NOAA's 2026 Atlantic hurricane season outlook predict for season category probabilities and storm-count ranges? Also say whether it is a landfall forecast.",
+      "why_hard": "The model must avoid mixing Atlantic, eastern Pacific, and live Tropical Storm Arthur updates.",
+      "preferred_sources": [
+        "https://www.noaa.gov/news-release/noaa-predicts-below-normal-2026-atlantic-hurricane-season",
+        "https://www.cpc.ncep.noaa.gov/products/outlooks/hurricane.shtml"
+      ],
+      "checks": [
+        {"name": "below_normal", "points": 1.0, "all": ["55%", "below-normal"]},
+        {"name": "near_normal", "points": 0.75, "all": ["35%", "near-normal"]},
+        {"name": "above_normal", "points": 0.75, "all": ["10%", "above-normal"]},
+        {"name": "named_storms", "points": 1.0, "all": ["8-14", "named storms"]},
+        {"name": "hurricanes", "points": 1.0, "all": ["3-6", "hurricanes"]},
+        {"name": "major_hurricanes", "points": 1.0, "all": ["1-3", "major hurricanes"]},
+        {"name": "not_landfall", "points": 0.75, "all": ["not", "landfall"]}
+      ],
+      "source_domains": [
+        {"domain": "noaa.gov", "points": 1.0},
+        {"domain": "cpc.ncep.noaa.gov", "points": 0.75}
+      ]
+    },
+    {
+      "id": "nhc_arthur_advisory",
+      "category": "breaking_weather",
+      "question": "From the NHC Tropical Storm Arthur intermediate advisory at 1:00 PM CDT on June 17, 2026, summarize the warning area, location, maximum sustained wind, motion, pressure, and the main hazard headline.",
+      "why_hard": "Live storm pages change rapidly; the task asks for a specific advisory timestamp and exact values.",
+      "preferred_sources": [
+        "https://www.nhc.noaa.gov/mobile/text/refresh/MIATCPAT1+html/171753.shtml"
+      ],
+      "checks": [
+        {"name": "timestamp", "points": 0.75, "all": ["1:00 pm cdt", "june 17, 2026"]},
+        {"name": "warning_area", "points": 1.25, "all": ["sargent", "morgan city"]},
+        {"name": "location", "points": 1.0, "all": ["28.9n", "95.7w"]},
+        {"name": "wind", "points": 1.0, "all": ["45 mph"]},
+        {"name": "motion", "points": 1.0, "any": ["ne at 9 mph", "northeast near 9 mph", "35 degrees at 9 mph"]},
+        {"name": "pressure", "points": 0.75, "all": ["1000 mb"]},
+        {"name": "hazard", "points": 1.0, "all": ["life-threatening flooding"]}
+      ],
+      "source_domains": [
+        {"domain": "nhc.noaa.gov", "points": 1.0}
+      ]
+    },
+    {
+      "id": "cpuc_angeles_link",
+      "category": "energy_regulation",
+      "question": "What did the CPUC decide in A.24-12-011 about SoCalGas Angeles Link Phase 2 cost recovery? Include the amount, what was denied, the used-and-useful/direct-benefit reasoning, and whether another application is foreclosed.",
+      "why_hard": "The answer is buried in CPUC PDFs and is easy to confuse with the older Phase 1 memorandum account decision.",
+      "preferred_sources": [
+        "https://docs.cpuc.ca.gov/PublishedDocs/Published/G000/M605/K819/605819437.PDF",
+        "https://docs.cpuc.ca.gov/PublishedDocs/Published/G000/M605/K883/605883054.pdf"
+      ],
+      "checks": [
+        {"name": "application", "points": 0.75, "all": ["a.24-12-011"]},
+        {"name": "amount", "points": 1.0, "any": ["$266 million", "266 million"]},
+        {"name": "denied", "points": 1.25, "all": ["denied", "cost recovery"]},
+        {"name": "phase_2", "points": 0.75, "all": ["phase 2"]},
+        {"name": "used_and_useful", "points": 1.0, "all": ["used and useful"]},
+        {"name": "ratepayer_benefit", "points": 1.0, "any": ["direct benefits", "directly benefit", "end-users", "end users"]},
+        {"name": "refile", "points": 0.75, "any": ["does not preclude", "another application", "future application"]}
+      ],
+      "source_domains": [
+        {"domain": "docs.cpuc.ca.gov", "points": 1.0}
+      ]
+    },
+    {
+      "id": "orange_county_pit_2026",
+      "category": "local_government",
+      "question": "According to Orange County's May 18, 2026 Point In Time Count release, what was the total count, how many were sheltered vs. unsheltered, how did homelessness change compared with 2024, and what first-time milestone did the county report?",
+      "why_hard": "The headline percentage differs slightly from the body text and the answer needs both counts and interpretation.",
+      "preferred_sources": [
+        "https://www.ocgov.com/press/county-orange-announces-2026-point-time-count-results"
+      ],
+      "checks": [
+        {"name": "total", "points": 1.0, "any": ["6,321", "6321"]},
+        {"name": "sheltered", "points": 1.0, "any": ["3,256", "3256"]},
+        {"name": "unsheltered", "points": 1.0, "any": ["3,065", "3065"]},
+        {"name": "overall_decrease", "points": 1.0, "all": ["13.7%", "decrease"]},
+        {"name": "unsheltered_decrease", "points": 0.75, "any": ["26.6%", "27%"]},
+        {"name": "first_time", "points": 1.0, "all": ["first time", "more people", "shelter"]}
+      ],
+      "source_domains": [
+        {"domain": "ocgov.com", "points": 1.0}
+      ]
+    }
+  ]
+}

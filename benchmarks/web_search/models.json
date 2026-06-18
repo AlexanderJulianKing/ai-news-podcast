@@ -1,0 +1,43 @@
+{
+  "models": [
+    {
+      "id": "gemini_flash_lite",
+      "label": "Gemini 3.1 Flash-Lite",
+      "model": "google/gemini-3.1-flash-lite",
+      "notes": "Current cheap light baseline."
+    },
+    {
+      "id": "gemini_flash_3",
+      "label": "Gemini 3 Flash Preview",
+      "model": "google/gemini-3-flash-preview",
+      "notes": "Current Gemini 3 Flash web/standard baseline."
+    },
+    {
+      "id": "glm_5_2",
+      "label": "GLM 5.2 High",
+      "model": "z-ai/glm-5.2",
+      "reasoning_effort": "high",
+      "notes": "Proposed standard replacement; run with high reasoning effort."
+    },
+    {
+      "id": "glm_5_2_medium",
+      "label": "GLM 5.2 Medium",
+      "model": "z-ai/glm-5.2",
+      "reasoning_effort": "medium",
+      "notes": "GLM 5.2 with medium reasoning effort for cost/performance comparison."
+    },
+    {
+      "id": "glm_5_2_low",
+      "label": "GLM 5.2 Low",
+      "model": "z-ai/glm-5.2",
+      "reasoning_effort": "low",
+      "notes": "GLM 5.2 with low reasoning effort for cost/performance comparison."
+    },
+    {
+      "id": "gemma_4_31b",
+      "label": "Gemma 4 31B",
+      "model": "google/gemma-4-31b-it",
+      "notes": "Cheap open model candidate for light utility or LightWeb."
+    }
+  ]
+}
