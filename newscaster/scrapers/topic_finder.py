@@ -2,6 +2,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
+import newscaster.config as _config
 from newscaster.logging import print_and_write
 from newscaster.text_utils import _grounded_response_needs_retry
 from newscaster.prompts import (
@@ -22,6 +23,7 @@ from newscaster.prompts import (
     TIER3_OVERVIEW_PICK_PROMPT,
 )
 from newscaster.llm import get_llm_response, call_with_default, LLMError
+from newscaster.source_hunter import answer_with_source_hunter
 from newscaster.dedup import (
     load_recent_story_descriptions,
     summarize_story_for_archive,
@@ -35,6 +37,7 @@ from newscaster.dedup import (
     strip_arc_tags,
 )
 from newscaster.scrapers.calmatters import calmatters_scraper
+from newscaster.scrapers.dropsite import dropsite_scraper
 from newscaster.scrapers.web import scrape_text
 
 
@@ -161,16 +164,16 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
 
 
 def summarize_headline_with_grounding(headline: str) -> str:
+    """Backward-compatible name; this now uses controlled source-hunter research."""
     headline_clean = (headline or '').strip()
     if not headline_clean:
         return 'UNVERIFIED: Empty headline received. Please provide a valid headline to summarize.'
 
-    system_prompt = OVERVIEW_SYSTEM_PROMPT_TEMPLATE.format(date=_today_str())
     base_prompt = (
         f"Headline: {headline_clean}\n"
         f"Date: {_today_str()}\n"
         "Instructions:\n"
-        "- Use GoogleSearch to pull multiple reputable sources published today or within the past 48 hours.\n"
+        "- Use controlled source-hunter research to pull multiple reputable sources published today or within the past 48 hours.\n"
         "- Summarize the key facts in 3-5 sentences, attributing details to named outlets or officials.\n"
         "- Highlight why the development matters (policy impact, stakeholders, timeline).\n"
         "- End with 'Sources:' followed by one line per outlet (Outlet \u2014 brief descriptor).\n"
@@ -185,16 +188,21 @@ def summarize_headline_with_grounding(headline: str) -> str:
     )
 
     for prompt in (base_prompt, retry_prompt):
-        story = get_llm_response(prompt, system_prompt=system_prompt, grounding=True, mode='standard')
+        story = _source_hunter_answer(prompt, topic=headline_clean, formatted_date=_today_str())
+        if story is None:
+            # Terminal: the source hunter already escalated (standard -> advanced)
+            # and found no current evidence. Re-running the whole apparatus on the
+            # near-identical retry prompt cannot recover, so stop and mark unverified.
+            break
         if not _grounded_response_needs_retry(story):
             return story
+        # Got a real answer that still reads as unverified or denies the story;
+        # loop once more with retry_prompt, which pushes past false negatives.
 
-    fallback_prompt = (
-        base_prompt +
-        "\nGrounded search attempts failed to verify the headline. Produce a brief note beginning with 'UNVERIFIED:' "
-        "that lists the search queries you attempted and suggests what the editor should manually check next."
+    return (
+        "UNVERIFIED: Source-hunter research did not return accepted current evidence. "
+        f"Editor should manually verify this headline: {headline_clean}"
     )
-    return get_llm_response(fallback_prompt, system_prompt=system_prompt, grounding=False, mode='standard')
 
 
 def overview_process(overview):
@@ -220,7 +228,7 @@ def overview_process(overview):
             overview_headlines.append(headline_n)
             overview_briefs.append((headline_n, story))
         except Exception as e:
-            print_and_write(f'Grounding failed in overview: {e}')
+            print_and_write(f'Overview source-hunter research failed: {e}')
 
     return story_overviews, overview_headlines, overview_briefs
 
@@ -248,6 +256,60 @@ def _format_research_briefs(briefs):
     for i, (headline, brief) in enumerate(briefs, 1):
         sections.append(f"--- Brief {i} ---\nHeadline: {headline}\n\n{brief}\n")
     return '\n'.join(sections)
+
+
+def _research_headline_brief(headline, formatted_date):
+    research_prompt = TIER2_RESEARCH_PROMPT.format(date=formatted_date, headline=headline)
+    return _research_with_source_hunter(research_prompt, topic=headline, formatted_date=formatted_date)
+
+
+def _source_hunter_answer(prompt, topic, formatted_date):
+    """Run source-hunter escalation (standard -> advanced) for one prompt.
+
+    Returns the accepted answer string, or ``None`` when the source hunter is
+    disabled, errors, or finds no current evidence. ``None`` is a *terminal*
+    signal: the standard/advanced escalation has already been exhausted, so
+    re-running this helper on a near-identical prompt cannot recover. Callers
+    that need a human-facing brief should turn ``None`` into an UNVERIFIED
+    message themselves.
+    """
+    if _config.SOURCE_HUNTER_ENABLED:
+        try:
+            result = answer_with_source_hunter(
+                prompt,
+                topic=topic,
+                formatted_date=formatted_date,
+                mode='standard',
+            )
+            if result.status == "success":
+                print_and_write(f'  Source hunter brief accepted {len(result.sources)} sources')
+                return result.answer
+            print_and_write(
+                f'  Source hunter brief returned {result.status}; trying advanced research reader'
+            )
+            advanced = answer_with_source_hunter(
+                prompt,
+                topic=topic,
+                formatted_date=formatted_date,
+                mode='advanced',
+            )
+            if advanced.status == "success":
+                print_and_write(f'  Advanced source hunter brief accepted {len(advanced.sources)} sources')
+                return advanced.answer
+            print_and_write(f'  Advanced source hunter brief returned {advanced.status}; marking unverified')
+        except Exception as e:
+            print_and_write(f'  Source hunter brief failed for "{topic}": {e}; marking unverified')
+    return None
+
+
+def _research_with_source_hunter(prompt, topic, formatted_date):
+    answer = _source_hunter_answer(prompt, topic, formatted_date)
+    if answer is not None:
+        return answer
+    return (
+        "UNVERIFIED: Source-hunter research did not return accepted current evidence. "
+        f"Editor should manually verify this topic: {topic}"
+    )
 
 
 def topic_finder(formatted_date):
@@ -300,13 +362,15 @@ def topic_finder(formatted_date):
     ) + '\n'
     print_and_write('scraping CM')
     calmatters_headlines = calmatters_scraper() + '\n'
+    print_and_write('scraping Drop Site')
+    dropsite_headlines = dropsite_scraper() + '\n'
     city_of_riverside_headlines = call_with_default(
         '',
         'What are the latest headlines here released in the past two days? Today is {}. If there are none released today, then say that there are none released from the news source today or yesterday. And mention the news source. Do not give anything else. https://www.riversideca.gov/media'.format(formatted_date),
         mode='standard', url_context=True, _log_label='scrape-riverside',
     )
 
-    all_headlines = 'NPR:\n' + npr_headlines + '\n\nThe Associated Press:\n' + ap_headlines + '\n\nDemocracy Now:\n' + dn_headlines + '\n\nProPublica\n' + pp_headlines + '\n\nCalMatters\n' + calmatters_headlines + '\n\nThe City of Riverside\n' + city_of_riverside_headlines
+    all_headlines = 'NPR:\n' + npr_headlines + '\n\nThe Associated Press:\n' + ap_headlines + '\n\nDemocracy Now:\n' + dn_headlines + '\n\nProPublica\n' + pp_headlines + '\n\nCalMatters\n' + calmatters_headlines + '\n\nDrop Site News\n' + dropsite_headlines + '\n\nThe City of Riverside\n' + city_of_riverside_headlines
 
     print_and_write('all headlines')
     print_and_write(all_headlines)
@@ -341,14 +405,13 @@ def topic_finder(formatted_date):
     for i, h in enumerate(shortlisted_headlines, 1):
         print_and_write(f'  Shortlisted {i}: {h}')
 
-    # === TIER 2: Research — grounded briefs per headline ===
+    # === TIER 2: Research — controlled briefs per headline ===
     print_and_write('TIER 2: Researching shortlisted headlines')
     briefs = []
     for headline in shortlisted_headlines:
         print_and_write(f'  Researching: {headline}')
-        research_prompt = TIER2_RESEARCH_PROMPT.format(date=formatted_date, headline=headline)
         try:
-            brief = get_llm_response(research_prompt, grounding=True, mode='standard')
+            brief = _research_headline_brief(headline, formatted_date)
             briefs.append((headline, brief))
             print_and_write(f'  Brief received ({len(brief)} chars)')
         except Exception as e:
@@ -360,7 +423,7 @@ def topic_finder(formatted_date):
     # === TIER 3: Final picks using enriched context ===
     print_and_write('TIER 3: Selecting stories')
 
-    # Important story (heavy = Claude Opus 4.6)
+    # Important story (heavy = Claude Opus 4.8)
     important_response = get_llm_response(research_document, system_prompt=TIER3_IMPORTANT_STORY_PROMPT, mode='heavy')
     important_response = important_response.replace('*', '')
     print_and_write()
@@ -369,13 +432,13 @@ def topic_finder(formatted_date):
     important_headline = headline_extractor(important_response)
     print_and_write(important_headline)
 
-    # Everyman story (heavy = Claude Opus 4.6)
+    # Everyman story (heavy = Claude Opus 4.8)
     everyman_prompt = TIER3_EVERYMAN_STORY_PROMPT.format(excluded_headline=important_headline)
     everyman_topic_response = get_llm_response(research_document, system_prompt=everyman_prompt, mode='heavy')
     print_and_write('\nimportant topic for average person and why:', everyman_topic_response)
     everyman_headline = headline_extractor(everyman_topic_response)
 
-    # Overview picks (standard = Gemini Flash, cheaper)
+    # Overview picks (standard = Gemma 4 31B)
     overview_prompt = TIER3_OVERVIEW_PICK_PROMPT.format(
         excluded_headlines=f"'{important_headline}' or '{everyman_headline}'"
     )

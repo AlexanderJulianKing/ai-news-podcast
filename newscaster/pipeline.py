@@ -16,7 +16,7 @@ from newscaster.prompts import (
 )
 from newscaster.llm import get_llm_response, call_with_default, LLMError
 from newscaster.scrapers.topic_finder import topic_finder, TopicFinderResult
-from newscaster.scrapers.google_search import google_official_search
+from newscaster.search import search_web
 from newscaster.scrapers.topic_finder import result_piper
 from newscaster.dedup import update_audience_learned, save_ledger
 from newscaster.weather import get_daily_temp
@@ -25,27 +25,30 @@ from newscaster.script.intro import intro_writer
 from newscaster.script.segments import segments_writer
 from newscaster.rag.indexer import index_day, build_research_record
 from newscaster.rag.retrieve import retrieve_prior_research
+from newscaster.research_agent import run_adaptive_research
+from newscaster.source_hunter import answer_with_source_hunter
 # Audio modules are lazy-imported in generate_audio() to avoid pulling
 # google.cloud.texttospeech / pydub at module load time (those imports break
 # in some test environments and aren't needed for the gather/script stages).
 
 
-def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_follow_up_prompt_text, followups=None):
+def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_follow_up_prompt_text,
+                          followups=None, topic=None, formatted_date=None):
     """Run multiple follow-up question rounds to enrich a story summary.
 
-    Each round: generate a follow-up question, search for the answer via grounding,
-    and append both to the summary. Runs through light, standard, and heavy modes
-    with both regular and challenging follow-up prompts.
+    Each round: generate a follow-up question, answer it through the controlled
+    source-hunter apparatus, and append both to the summary. Runs through light,
+    standard, plus, and heavy question-generation modes.
     """
     rounds = [
         (follow_up_prompt_text, 'light', 'Gemini Flash Lite'),
         (challenging_follow_up_prompt_text, 'light', 'Gemini Flash Lite'),
-        (follow_up_prompt_text, 'standard', 'Gemini Flash'),
-        (challenging_follow_up_prompt_text, 'standard', 'Gemini Flash'),
+        (follow_up_prompt_text, 'standard', 'Gemma 4 31B'),
+        (challenging_follow_up_prompt_text, 'standard', 'Gemma 4 31B'),
         (follow_up_prompt_text, 'plus', 'Gemini Pro 3.1'),
         (challenging_follow_up_prompt_text, 'plus', 'Gemini Pro 3.1'),
-        (follow_up_prompt_text, 'heavy', 'Claude Opus 4.6'),
-        (challenging_follow_up_prompt_text, 'heavy', 'Claude Opus 4.6'),
+        (follow_up_prompt_text, 'heavy', 'Claude Opus 4.8'),
+        (challenging_follow_up_prompt_text, 'heavy', 'Claude Opus 4.8'),
     ]
 
     for prompt_template, mode, asker_name in rounds:
@@ -67,13 +70,13 @@ def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_fol
         label = 'challenging follow_up_question' if is_challenging else 'follow_up_question'
         print_and_write(label, follow_up_question)
         try:
-            response = get_llm_response(follow_up_question, mode='light', grounding=True)
+            response = _answer_research_question(follow_up_question, topic, formatted_date)
         except LLMError as e:
-            print_and_write(f'follow-up grounded answer failed ({asker_name}): {e}; skipping this round')
+            print_and_write(f'follow-up source-hunter answer failed ({asker_name}): {e}; skipping this round')
             continue
         print_and_write(response)
 
-        summary_prompt = summary_prompt + '\n' + f'{asker_name} asked:' + follow_up_question + '\nNews sources found by Gemini Flash reported:\n' + response
+        summary_prompt = summary_prompt + '\n' + f'{asker_name} asked:' + follow_up_question + '\nControlled source hunter reported:\n' + response
         if followups is not None:
             followups.append({
                 "asker": asker_name,
@@ -83,6 +86,39 @@ def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_fol
             })
 
     return summary_prompt
+
+
+def _answer_research_question(question, topic=None, formatted_date=None):
+    """Answer a research question with source-hunter standard, then advanced."""
+    import newscaster.config as _config
+    if not _config.SOURCE_HUNTER_ENABLED:
+        raise LLMError("source hunter is disabled for research question answering")
+
+    first = answer_with_source_hunter(
+        question,
+        topic=topic,
+        formatted_date=formatted_date,
+        mode='standard',
+    )
+    if first.status == "success":
+        return first.answer
+
+    print_and_write(
+        f"Source hunter standard returned {first.status}; trying advanced research reader"
+    )
+    second = answer_with_source_hunter(
+        question,
+        topic=topic,
+        formatted_date=formatted_date,
+        mode='advanced',
+    )
+    if second.status == "success":
+        return second.answer
+
+    raise LLMError(
+        f"source hunter could not answer research question "
+        f"(standard={first.status}, advanced={second.status})"
+    )
 
 
 def _manifest_path(formatted_date2):
@@ -346,7 +382,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
     for waiting_duration in waiting_time:
         time.sleep(waiting_duration)
         try:
-            search_results = google_official_search(topic, 9)
+            search_results = search_web(topic, 9)
             break
         except Exception as e:
             print_and_write(f'Google search failed: {e}')
@@ -370,7 +406,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
         for waiting_duration in waiting_time:
             time.sleep(waiting_duration)
             try:
-                search_results = google_official_search(topic, 9, days_prior=3)
+                search_results = search_web(topic, 9, days_prior=3)
                 break
             except Exception as e:
                 print_and_write(f'Google search failed: {e}')
@@ -397,7 +433,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
         for waiting_duration in waiting_time:
             time.sleep(waiting_duration)
             try:
-                search_results = google_official_search(topic, 9)
+                search_results = search_web(topic, 9)
                 break
             except Exception as e:
                 print_and_write(f'Google search failed: {e}')
@@ -420,12 +456,80 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
 
     topic = topic_OG
     perplexity_prompt = 'Tell me about this story with as much detail as possible:\n' + topic
-    summary_prompt = summary_prompt + get_llm_response(perplexity_prompt, grounding=True, mode='light')
+    import newscaster.config as _config
+    if _config.SOURCE_HUNTER_ENABLED:
+        try:
+            seed_result = answer_with_source_hunter(
+                perplexity_prompt,
+                topic=topic,
+                formatted_date=formatted_date,
+                mode='standard',
+            )
+            if seed_result.status == "success":
+                summary_prompt = (
+                    summary_prompt
+                    + "\n\nControlled source-hunter seed context:\n"
+                    + seed_result.answer
+                )
+            else:
+                print_and_write(
+                    f"Source hunter seed returned {seed_result.status}; "
+                    "trying advanced seed context"
+                )
+                advanced_seed = answer_with_source_hunter(
+                    perplexity_prompt,
+                    topic=topic,
+                    formatted_date=formatted_date,
+                    mode='advanced',
+                )
+                if advanced_seed.status == "success":
+                    summary_prompt = (
+                        summary_prompt
+                        + "\n\nControlled source-hunter advanced seed context:\n"
+                        + advanced_seed.answer
+                    )
+                else:
+                    print_and_write(f"Advanced source hunter seed returned {advanced_seed.status}; continuing without seed context")
+        except Exception as e:
+            print_and_write(f"Source hunter seed failed: {e}; continuing without seed context")
+    else:
+        print_and_write("Source hunter disabled; continuing without grounded seed context")
 
-    summary_prompt = _run_follow_up_rounds(
-        summary_prompt, follow_up_prompt_text, challenging_follow_up_prompt_text,
-        followups=followups,
-    )
+    # The research agent's only research tool is the controlled source hunter, so it
+    # requires both flags. With the hunter off the agent would otherwise collapse to
+    # early termination, so fall back to the fixed follow-up rounds instead.
+    if _config.AGENTIC_RESEARCH_ENABLED and _config.SOURCE_HUNTER_ENABLED:
+        try:
+            adaptive_result = run_adaptive_research(
+                topic,
+                topic_index,
+                formatted_date,
+                formatted_date2,
+                summary_prompt,
+                successful_summary_counter,
+                articles=articles,
+                followups=followups,
+            )
+            summary_prompt = adaptive_result.summary_prompt
+            successful_summary_counter = adaptive_result.successful_summary_counter
+            print_and_write(
+                f"Research agent completed slot {topic_index}: {len(adaptive_result.followups)} follow-ups, "
+                f"{len(adaptive_result.articles)} articles, reason: {adaptive_result.done_reason or 'complete'}"
+            )
+        except Exception as e:
+            print_and_write(
+                f"Research agent failed for slot {topic_index}: {e}; "
+                f"falling back to fixed follow-up rounds"
+            )
+            summary_prompt = _run_follow_up_rounds(
+                summary_prompt, follow_up_prompt_text, challenging_follow_up_prompt_text,
+                followups=followups, topic=topic, formatted_date=formatted_date,
+            )
+    else:
+        summary_prompt = _run_follow_up_rounds(
+            summary_prompt, follow_up_prompt_text, challenging_follow_up_prompt_text,
+            followups=followups, topic=topic, formatted_date=formatted_date,
+        )
 
     print_and_write('SUPER SUMMARY LENGTH:', len(summary_prompt))
 

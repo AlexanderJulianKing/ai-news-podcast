@@ -9,7 +9,7 @@ from pydub import AudioSegment
 from newscaster.config import _SECOND
 from newscaster.logging import print_and_write
 from newscaster.text_utils import text_cleaner
-from newscaster.llm import gemini
+from newscaster.llm import get_llm_response
 
 _CLIP_THRESHOLD = 0.99   # fraction of max sample value
 _CLIP_PCT_LIMIT = 0.05   # flag if more than 0.05% of samples are clipped
@@ -95,7 +95,7 @@ def google_speak(name, text, filename):
                 lower_than_5000 = False
                 while lower_than_5000 == False:
                     print_and_write('trying to say', text)
-                    text = gemini(text, system_prompt='Please modify the text to fit these requirements: \n1: The Entirety of the text is no greater than 5000 characters. \n2: Each individual sentence is no greater than 700 characters long. \n3: Do not refer to Donald Trump as the former president; he is the current president. \n Give no other text.')
+                    text = get_llm_response(text, system_prompt='Please modify the text to fit these requirements: \n1: The Entirety of the text is no greater than 5000 characters. \n2: Each individual sentence is no greater than 700 characters long. \n3: Do not refer to Donald Trump as the former president; he is the current president. \n Give no other text.', mode='light')
                     text = text_cleaner(text)
                     while 'quote quote' in text:
                         text = text.replace('quote quote', 'quote')

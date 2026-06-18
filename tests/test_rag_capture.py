@@ -45,16 +45,14 @@ def test_run_follow_up_rounds_collects_qa():
     followups = []
 
     def fake_llm(prompt, system_prompt=None, mode="light", grounding=False, url_context=False):
-        # Grounded calls answer questions; ungrounded calls produce a quoted question.
-        if grounding:
-            return "the grounded answer"
         return '"a follow up question"'
 
-    with patch.object(pipeline, "get_llm_response", side_effect=fake_llm):
+    with patch.object(pipeline, "get_llm_response", side_effect=fake_llm), \
+         patch.object(pipeline, "_answer_research_question", return_value="the controlled-source answer"):
         pipeline._run_follow_up_rounds("seed summary", "fup template", "challenging template",
                                        followups=followups)
 
     assert len(followups) == 8  # 4 modes x (regular + challenging)
     assert followups[0]["question"] == "a follow up question"
-    assert followups[0]["answer"] == "the grounded answer"
+    assert followups[0]["answer"] == "the controlled-source answer"
     assert "asker" in followups[0] and "challenging" in followups[0]

@@ -12,6 +12,15 @@ def test_import_without_init():
     assert cfg.MAX_RETRIES == 5
     assert cfg.INITIAL_RETRY_DELAY == 5
     assert cfg._SECOND == 1000
+    assert cfg.LIGHT_MODEL == "gemini-3.1-flash-lite"
+    assert cfg.STANDARD_MODEL == "google/gemma-4-31b-it"
+    assert cfg.ADVANCED_MODEL == "z-ai/glm-5.2"
+    assert cfg.ADVANCED_REASONING_EFFORT == "medium"
+    assert cfg.HEAVY_MODEL == "claude-opus-4-8"
+    assert cfg.ADVERSARY_MODEL == cfg.FALLBACK_MODEL
+    assert cfg.ADVERSARY_REASONING_EFFORT == "high"
+    assert cfg.SEARCH_PROVIDER == "google_cse"
+    assert cfg.SEARCH_FALLBACK_PROVIDER == "openrouter_web"
 
 
 def test_init_with_missing_file(tmp_path, monkeypatch):
@@ -58,3 +67,26 @@ def test_rag_constants_present():
     assert cfg.RAG_TOP_K == 6
     assert isinstance(cfg.RAG_MIN_SIM, float)
     assert cfg.RAG_AUGMENT_ENABLED is False
+    assert cfg.LIGHT_MODEL == "gemini-3.1-flash-lite"
+    assert cfg.STANDARD_MODEL == "google/gemma-4-31b-it"
+    assert cfg.ADVANCED_MODEL == "z-ai/glm-5.2"
+    assert cfg.ADVANCED_REASONING_EFFORT == "medium"
+    assert cfg.HEAVY_MODEL == "claude-opus-4-8"
+    assert cfg.ADVERSARY_MODEL == cfg.FALLBACK_MODEL
+    assert cfg.ADVERSARY_REASONING_EFFORT == "high"
+    assert cfg.SEARCH_PROVIDER == "google_cse"
+    assert cfg.SEARCH_FALLBACK_PROVIDER == "openrouter_web"
+    assert cfg.SEARCH_FALLBACK_ON_EMPTY is True
+    assert cfg.SEARCH_OPENROUTER_MODEL == cfg.FALLBACK_MODEL
+    assert cfg.SEARCH_OPENROUTER_ENGINE == "parallel"
+    assert cfg.AGENTIC_RESEARCH_ENABLED is True
+    assert cfg.AGENTIC_RESEARCH_MAX_ITERATIONS == 5
+    assert cfg.AGENTIC_RESEARCH_MIN_ITERATIONS == 2
+    assert cfg.AGENTIC_RESEARCH_ADVERSARY_ENABLED is True
+    assert cfg.RAG_RESEARCH_MEMORY_ENABLED is True
+    assert cfg.SOURCE_HUNTER_ENABLED is True
+    assert cfg.SOURCE_HUNTER_MAX_ITERATIONS == 3
+    assert cfg.SOURCE_HUNTER_CANDIDATE_LIMIT == 8
+    assert cfg.SOURCE_HUNTER_NEARBY_SOURCE_LIMIT == 5
+    assert cfg.SOURCE_HUNTER_NEARBY_SOURCE_DEPTH == 4
+    assert cfg.SOURCE_HUNTER_MAX_SOURCE_CHARS == 9000

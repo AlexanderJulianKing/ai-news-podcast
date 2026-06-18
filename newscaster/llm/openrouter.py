@@ -92,6 +92,8 @@ def get_openrouter_response(
 
     if name == "Gemini 2.5 Pro Preview (2025-06-05) Limited":
         payload["reasoning"] = {"max_tokens": 8000}
+    if isinstance(reasoning, str) and reasoning:
+        payload["reasoning"] = {"effort": reasoning}
     if name in nonthinking_variants:
         print(name, 'nonthinking')
         payload["reasoning"] = {"max_tokens": 0, 'enabled': False}

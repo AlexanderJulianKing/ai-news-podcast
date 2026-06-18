@@ -54,12 +54,53 @@ _SECOND = 1000
 
 FALLBACK_MODEL = "openai/gpt-5.5"
 
+# --- LLM mode routing ---
+LIGHT_MODEL = "gemini-3.1-flash-lite"
+STANDARD_MODEL = "google/gemma-4-31b-it"
+ADVANCED_MODEL = "z-ai/glm-5.2"
+ADVANCED_REASONING_EFFORT = "medium"
+HEAVY_MODEL = "claude-opus-4-8"
+ADVERSARY_MODEL = FALLBACK_MODEL
+ADVERSARY_REASONING_EFFORT = "high"
+TOOL_LIGHT_STANDARD_MODEL = "gemini-3-flash-preview"
+TOOL_PLUS_HEAVY_MODEL = "gemini-3.1-pro-preview"
+
+# --- Search provider routing ---
+SEARCH_PROVIDER = "google_cse"
+SEARCH_FALLBACK_PROVIDER = "openrouter_web"
+SEARCH_FALLBACK_ON_EMPTY = True
+SEARCH_OPENROUTER_MODEL = FALLBACK_MODEL
+SEARCH_OPENROUTER_ENGINE = "parallel"
+SEARCH_OPENROUTER_MAX_RESULTS = 8
+
+# --- Audit logging ---
+LLM_AUDIT_LOG_ENABLED = True
+LLM_AUDIT_LOG_PROMPTS = True
+LLM_AUDIT_LOG_RESPONSES = False  # response bodies bloat logs on the Pi; prompts still captured
+SEARCH_AUDIT_LOG_ENABLED = True
+SOURCE_HUNTER_AUDIT_LOG_ENABLED = True
+
 # --- RAG / embeddings tunables ---
 EMBED_MODEL = "gemini-embedding-2"   # verified current; space incompatible with -001
 EMBED_DIM = 1536                     # pinned; changing requires a full re-embed
 RAG_TOP_K = 6                        # chunks retrieved per refine
 RAG_MIN_SIM = 0.65                   # cosine floor; below -> inject nothing (tune empirically)
 RAG_AUGMENT_ENABLED = False          # gates the retrieve-then-refine pass
+
+# --- Agentic selected-story research ---
+AGENTIC_RESEARCH_ENABLED = True
+AGENTIC_RESEARCH_MAX_ITERATIONS = 5
+AGENTIC_RESEARCH_MIN_ITERATIONS = 2
+AGENTIC_RESEARCH_ADVERSARY_ENABLED = True
+RAG_RESEARCH_MEMORY_ENABLED = True
+
+# --- Controlled source-hunter research ---
+SOURCE_HUNTER_ENABLED = True
+SOURCE_HUNTER_MAX_ITERATIONS = 3
+SOURCE_HUNTER_CANDIDATE_LIMIT = 8
+SOURCE_HUNTER_NEARBY_SOURCE_LIMIT = 5
+SOURCE_HUNTER_NEARBY_SOURCE_DEPTH = 4
+SOURCE_HUNTER_MAX_SOURCE_CHARS = 9000
 
 
 def init():

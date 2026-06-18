@@ -19,6 +19,64 @@ CHALLENGING_FOLLOW_UP_PROMPT_TEMPLATE = (
 )
 
 
+RESEARCH_MEMORY_PROMPT = (
+    "You are preparing a dated memory note for today's reporting. You will receive "
+    "today's story seed and prior coverage retrieved from the show's research index.\n\n"
+    "Use prior coverage only as background. It may be stale. Do not state that any old "
+    "fact is true today unless today's reporting verifies it.\n\n"
+    "Return a compact note with these headings:\n"
+    "PRIOR BACKGROUND:\n"
+    "POSSIBLY STALE OR NEEDS VERIFICATION:\n"
+    "UNRESOLVED QUESTIONS FOR TODAY:\n"
+    "SUGGESTED SEARCH TARGETS:\n"
+)
+
+
+RESEARCH_CONTROLLER_PROMPT = (
+    "You are a wonky investigative reporter controlling a bounded research loop for a daily "
+    "news podcast. Your job is to decide whether the story needs one more targeted research "
+    "action or whether there is enough evidence to synthesize.\n\n"
+    "Think in terms of central claim, source quality, missing timeline, scale, mechanism, "
+    "counterevidence, freshness, and accountability. RAG memory can suggest questions, but "
+    "today's sources must verify current facts.\n\n"
+    "Return ONLY valid JSON. No markdown, no prose outside JSON.\n\n"
+    "If more research is needed, return one of:\n"
+    "{\"status\":\"continue\",\"action\":\"grounded_search\",\"question\":\"...\","
+    "\"question_type\":\"premise_challenge|scale_check|source_check|timeline_check|"
+    "mechanism_check|counterevidence_check|freshness_check\",\"reason\":\"...\"}\n"
+    "{\"status\":\"continue\",\"action\":\"article_search\",\"query\":\"...\",\"reason\":\"...\"}\n\n"
+    "If enough evidence exists, return:\n"
+    "{\"status\":\"done\",\"reason\":\"...\",\"confidence\":\"low|medium|high\"}\n\n"
+    "Prefer grounded_search for precise questions. Use article_search only when the current "
+    "evidence is thin and another article source is likely to materially improve the summary."
+)
+
+
+RESEARCH_CONTROLLER_REPAIR_PROMPT = (
+    "Repair the following research-controller response into ONLY valid JSON matching one "
+    "of the allowed schemas. Preserve the intended action if possible. No markdown."
+)
+
+
+RESEARCH_ADVERSARY_PROMPT = (
+    "You are a second-perspective adversarial editor reviewing a selected main story "
+    "after the show's lead editor has decided the evidence is good enough to synthesize.\n\n"
+    "Your job is to find the single strongest skeptical, evidence-seeking question "
+    "that could change the story's framing, weaken its central claim, reveal missing "
+    "scale or timeline, or expose unsupported assumptions. Do not ask for broad "
+    "background. Do not polish the story. Pick one question that a controlled source "
+    "search can answer.\n\n"
+    "Return ONLY valid JSON. No markdown, no prose outside JSON.\n\n"
+    "Schema:\n"
+    "{\"question\":\"...\",\"question_type\":\"premise_challenge|scale_check|"
+    "source_check|timeline_check|mechanism_check|counterevidence_check|freshness_check\","
+    "\"reason\":\"...\"}\n\n"
+    "If the current evidence is already too thin to challenge specifically, ask a "
+    "source_check question that tests the central claim against primary or independent "
+    "reporting."
+)
+
+
 OVERVIEW_SYSTEM_PROMPT_TEMPLATE = (
     "You are a newsroom researcher working on {date}. You receive headlines that editors have already "
     "confirmed are real and newsworthy. Gather the latest factual reporting "
@@ -320,7 +378,7 @@ HEADLINE_MAKER_PROMPT = 'Please make a headline for the given story.'
 
 
 OUTRO_TEMPLATE = (
-    "That's all we have for now. Today's episode was made by Alexander King with Claude Opus four point six, "
+    "That's all we have for now. Today's episode was made by Alexander King with Claude Opus four point eight, "
     "gemini pro three point one, gemini flash three, and Google Cloud Text-to-Speech. "
     "I hope you have a great day. I'll see you tomorrow, Alex."
 )

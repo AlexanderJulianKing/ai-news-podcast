@@ -12,3 +12,4 @@ pydub
 moviepy
 wikipedia-api
 numpy
+langgraph

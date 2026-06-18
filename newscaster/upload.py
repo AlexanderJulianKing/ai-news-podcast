@@ -15,7 +15,7 @@ from googleapiclient.http import MediaFileUpload
 import httplib2
 import argparse
 
-from newscaster.llm.gemini import gemini
+from newscaster.llm import get_llm_response
 from newscaster.logging import print_and_write
 
 httplib2.RETRIES = 1
@@ -101,7 +101,7 @@ def initialize_upload(youtube, options):
         titles_content = infile.read()
 
     real_description = (
-        f"{titles_content}.\nDaily News. Always ad-free. \nMade by Alex using Claude Opus 4.6, Gemini Pro 3.1, Gemini Flash 3, and Google Cloud Text to speech. \n\n"
+        f"{titles_content}.\nDaily News. Always ad-free. \nMade by Alex using Claude Opus 4.8, GLM 5.2, Gemma 4 31B, Gemini, and Google Cloud Text to speech. \n\n"
         "I made this podcast to give me the news each morning as I get ready for the day. I wanted to stay informed about the world, but there are a lot of stories highlighted by media outlets that aren\'t important to the world, relevant to my life, or interesting. In the interest of making money, these media outlets will sensationalize stories and amplify negativity, which is what keeps eyeballs and therefore ad revenue.\n"
         "So I made a news podcast that circumvents these perverse incentives and distills out the important stories. \n"
         "Every day, an LLM will pick out news stories: one it deems the most important to the american people, and one it deems the most important to the average Californian. Additionally, it briefly goes over other stories that may be of general interest. \n\n"
@@ -109,7 +109,7 @@ def initialize_upload(youtube, options):
     print('real_description', type(real_description), real_description)
 
     tags_prompt = "Based on this description, please make 6 tags for a YouTube video with a mix of broad tags and specific tags. For example: Broad tags: 'fitness', 'workouts' Specific tags: 'how to do a pushup', 'proper pushup form'. Only give the tags and separate by comma.\n\nDescription: " + real_description
-    tags = gemini(tags_prompt, system_prompt='You are an intelligent assistant.', model='gemini-2.5-flash', grounding=False, url_context=False)
+    tags = get_llm_response(tags_prompt, system_prompt='You are an intelligent assistant.', mode='light')
     tags = [tag.strip() for tag in tags.split(",") if tag.strip()]
 
     body = {

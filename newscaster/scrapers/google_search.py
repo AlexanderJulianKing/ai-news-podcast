@@ -1,5 +1,4 @@
 import time
-from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 import newscaster.config as _config
@@ -42,9 +41,7 @@ def google_official_search(query, num_results=3, days_prior=1):
 
             service = build("customsearch", "v1", developerKey=api_key)
 
-            today = datetime.today()
-            past_day = today - timedelta(days=days_prior)
-            date_restriction = 'd1'
+            date_restriction = f'd{max(1, int(days_prior))}'
             result = service.cse().list(q=query, cx=custom_search_engine_id, num=num_results, dateRestrict=date_restriction).execute()
 
             search_results = result.get("items", [])
