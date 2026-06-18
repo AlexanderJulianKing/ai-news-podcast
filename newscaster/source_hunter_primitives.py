@@ -1,8 +1,9 @@
 """Source-hunter fetch, extraction, validation, and nearby-link primitives.
 
-This module is copied from the web-search benchmark harness so production does
-not depend on the untracked/optional ``benchmarks`` package being deployed.
-Keep behavior in sync with benchmark changes when source-hunter is retuned.
+Single source of truth for the source-hunter toolkit. Self-contained (stdlib +
+requests + BeautifulSoup only). The web-search benchmark
+(``benchmarks/web_search/web_bench_lib.py``) re-exports from here, so the
+primitives are maintained in exactly one place.
 """
 
 import argparse
@@ -21,10 +22,14 @@ import requests
 from bs4 import BeautifulSoup
 
 
-ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_TASKS = Path(__file__).resolve().parent / "tasks.json"
-DEFAULT_MODELS = Path(__file__).resolve().parent / "models.json"
-DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
+ROOT = Path(__file__).resolve().parents[1]  # repo root
+# Benchmark resources (used only by the web-search benchmark harness, never by the
+# production source hunter); located under the repo's benchmarks/ tree. These are
+# Path objects only — production never reads them, so this adds no runtime dependency.
+_BENCH_DIR = ROOT / "benchmarks" / "web_search"
+DEFAULT_TASKS = _BENCH_DIR / "tasks.json"
+DEFAULT_MODELS = _BENCH_DIR / "models.json"
+DEFAULT_OUTPUT_DIR = _BENCH_DIR / "outputs"
 
 STOPWORDS = {
     "about", "according", "after", "again", "against", "also", "and", "are", "because",

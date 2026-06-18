@@ -65,7 +65,7 @@ Only Gemini supports `grounding` (Google Search) and `url_context` (page fetchin
 - **Circular dependency**: `dedup.py` uses a lazy import (`from newscaster.llm import get_llm_response`) inside `summarize_story_for_archive()` to avoid circular imports at module load time.
 - **All prompts** are centralized in `newscaster/prompts.py` as template constants.
 - **Deduplication**: `stories_chosen/` stores JSON summaries per day; `load_recent_story_descriptions()` checks the past 7 days to avoid repeating stories.
-- **Controlled research**: `source_hunter.py` + `source_hunter_primitives.py` implement evidence-gated research (discover → fetch → validate → answer from accepted evidence only); `research_agent.py` (LangGraph) orchestrates adaptive rounds with a controller and adversary; `search.py` abstracts web search (Google CSE primary → OpenRouter web-search fallback). Gated by `SOURCE_HUNTER_ENABLED` / `AGENTIC_RESEARCH_ENABLED` in `config.py`. Note: `source_hunter_primitives.py` is kept in sync with `benchmarks/web_search/web_bench_lib.py` — fixes must be applied to both.
+- **Controlled research**: `source_hunter.py` + `source_hunter_primitives.py` implement evidence-gated research (discover → fetch → validate → answer from accepted evidence only); `research_agent.py` (LangGraph) orchestrates adaptive rounds with a controller and adversary; `search.py` abstracts web search (Google CSE primary → OpenRouter web-search fallback). Gated by `SOURCE_HUNTER_ENABLED` / `AGENTIC_RESEARCH_ENABLED` in `config.py`. `source_hunter_primitives.py` is the single source of truth for the primitives; the benchmark's `benchmarks/web_search/web_bench_lib.py` re-exports it.
 
 ## Configuration
 
