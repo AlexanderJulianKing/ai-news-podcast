@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Source Hunter Agent Flow</title>
+  <style>
+    :root {
+      --ink: #17202c;
+      --muted: #596677;
+      --line: #cbd5e1;
+      --bg: #f7f9fc;
+      --panel: #ffffff;
+      --navy: #17324d;
+      --blue: #2563a8;
+      --blue-soft: #e8f1ff;
+      --green: #23734d;
+      --green-soft: #e8f6ee;
+      --amber: #8a5b00;
+      --amber-soft: #fff3d8;
+      --red: #9b2f2f;
+      --red-soft: #ffeded;
+      --slate: #344154;
+      --slate-soft: #edf1f6;
+      --violet: #6f4ba4;
+      --violet-soft: #f1e9ff;
+      --shadow: 0 14px 36px rgba(25, 38, 58, 0.08);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    header {
+      background: var(--navy);
+      color: #fff;
+      border-bottom: 6px solid #54a17a;
+    }
+
+    .wrap {
+      width: min(1240px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      min-height: 260px;
+      display: grid;
+      align-items: end;
+      padding: 54px 0 34px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 6vw, 66px);
+      line-height: 0.98;
+      letter-spacing: 0;
+      max-width: 1060px;
+    }
+
+    .lede {
+      max-width: 980px;
+      margin: 0;
+      color: #dce7f3;
+      font-size: clamp(16px, 2vw, 20px);
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(247, 249, 252, 0.96);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+
+    nav .wrap {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 12px 0;
+    }
+
+    nav a {
+      color: var(--slate);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 13px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 8px 10px;
+      border-radius: 7px;
+    }
+
+    main {
+      padding: 30px 0 56px;
+    }
+
+    section {
+      margin: 0 0 34px;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: clamp(24px, 3vw, 34px);
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    .section-note {
+      max-width: 920px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 12px;
+      margin-bottom: 10px;
+      color: var(--slate);
+      background: var(--slate-soft);
+      border: 1px solid #d6dde8;
+    }
+
+    .tag.blue {
+      color: var(--blue);
+      background: var(--blue-soft);
+      border-color: #c8daf5;
+    }
+
+    .tag.green {
+      color: var(--green);
+      background: var(--green-soft);
+      border-color: #c8e5d4;
+    }
+
+    .tag.amber {
+      color: var(--amber);
+      background: var(--amber-soft);
+      border-color: #efd58e;
+    }
+
+    .tag.red {
+      color: var(--red);
+      background: var(--red-soft);
+      border-color: #efb7b7;
+    }
+
+    .tag.violet {
+      color: var(--violet);
+      background: var(--violet-soft);
+      border-color: #dccbff;
+    }
+
+    .flow-shell {
+      overflow-x: auto;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .flow {
+      min-width: 1110px;
+      display: grid;
+      grid-template-columns: 170px 36px 170px 36px 170px 36px 170px 36px 170px 36px 170px;
+      grid-auto-rows: minmax(92px, auto);
+      align-items: center;
+      gap: 0;
+      position: relative;
+    }
+
+    .node {
+      min-height: 90px;
+      padding: 13px;
+      border: 2px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      display: grid;
+      align-content: start;
+      gap: 4px;
+    }
+
+    .node strong {
+      display: block;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .node span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .node.input {
+      border-color: #b7c9ea;
+      background: var(--blue-soft);
+    }
+
+    .node.search {
+      border-color: #d9c178;
+      background: var(--amber-soft);
+    }
+
+    .node.fetch {
+      border-color: #b8c6d8;
+      background: var(--slate-soft);
+    }
+
+    .node.validate {
+      border-color: #cbb7ed;
+      background: var(--violet-soft);
+    }
+
+    .node.accept {
+      border-color: #afd9be;
+      background: var(--green-soft);
+    }
+
+    .node.reject {
+      border-color: #ebb0b0;
+      background: var(--red-soft);
+    }
+
+    .node.answer {
+      border-color: #b7c9ea;
+      background: #f0f6ff;
+    }
+
+    .node.stop {
+      border-color: #b8c6d8;
+      background: #f7fafc;
+    }
+
+    .arrow {
+      height: 2px;
+      background: var(--line);
+      position: relative;
+    }
+
+    .arrow::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: -5px;
+      border-left: 9px solid var(--line);
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+    }
+
+    .flow .row2 {
+      margin-top: 18px;
+    }
+
+    .loop {
+      grid-column: 3 / 10;
+      grid-row: 3;
+      border: 2px dashed #d4a22d;
+      border-radius: var(--radius);
+      padding: 13px 16px;
+      background: #fff8e8;
+      color: #684400;
+      font-size: 14px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .loop strong {
+      display: block;
+    }
+
+    .loop small {
+      display: block;
+      color: #76520c;
+    }
+
+    .decision {
+      grid-column: 7;
+      grid-row: 2;
+      display: grid;
+      align-items: center;
+      min-height: 100px;
+      text-align: center;
+      border-color: #cbb7ed;
+      background: #fbf8ff;
+    }
+
+    .fail-path {
+      grid-column: 5 / 8;
+      grid-row: 4;
+      border: 2px solid #efb7b7;
+      border-radius: var(--radius);
+      background: var(--red-soft);
+      padding: 14px;
+      color: #762424;
+      font-size: 13px;
+    }
+
+    .fail-path strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .swatch.blue { background: var(--blue-soft); border-color: #b7c9ea; }
+    .swatch.amber { background: var(--amber-soft); border-color: #d9c178; }
+    .swatch.slate { background: var(--slate-soft); border-color: #b8c6d8; }
+    .swatch.violet { background: var(--violet-soft); border-color: #cbb7ed; }
+    .swatch.green { background: var(--green-soft); border-color: #afd9be; }
+    .swatch.red { background: var(--red-soft); border-color: #ebb0b0; }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .rule {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    .num {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--navy);
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .rule strong {
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .rule span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .matrix {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      font-size: 14px;
+    }
+
+    .matrix th,
+    .matrix td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 12px;
+    }
+
+    .matrix th {
+      background: #edf3fa;
+      color: var(--slate);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .matrix tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: #eef2f7;
+      border: 1px solid #d7dee8;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 0.92em;
+    }
+
+    .mini-log {
+      background: #101824;
+      color: #d7e4f4;
+      border-radius: var(--radius);
+      padding: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+
+    .mini-log .ok {
+      color: #92e0aa;
+    }
+
+    .mini-log .no {
+      color: #ffb1b1;
+    }
+
+    .mini-log .warn {
+      color: #f6d37a;
+    }
+
+    .callout {
+      border-left: 5px solid var(--blue);
+      background: #eef5ff;
+      padding: 14px 16px;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: #20374f;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 28px;
+    }
+
+    @media (max-width: 840px) {
+      .grid.two,
+      .grid.three {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        min-height: 220px;
+      }
+
+      .matrix {
+        font-size: 13px;
+      }
+
+      .matrix th,
+      .matrix td {
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap hero">
+      <div>
+        <h1>Source Hunter Agent Flow</h1>
+        <p class="lede">A focused diagram for the URL-discovery agent: how it searches, fetches, validates, rejects bad pages, retries, and hands only adequate evidence to the answer model.</p>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="wrap">
+      <a href="#overview">Overview</a>
+      <a href="#flow">Flowchart</a>
+      <a href="#validation">Validation</a>
+      <a href="#failures">Failure Paths</a>
+      <a href="#examples">Examples</a>
+      <a href="#general">Generalizable Core</a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <section id="overview">
+      <h2>What This Agent Is Doing</h2>
+      <p class="section-note">The agent is not just asking a model to browse. It is a controlled loop around search and scraping. The loop keeps looking until it finds a page that contains the evidence needed to answer the question, or until the budget runs out.</p>
+
+      <div class="grid three">
+        <article class="panel">
+          <span class="tag blue">Input</span>
+          <h3>Evidence Contract</h3>
+          <p>The question is converted into a generic or generated contract: entity, date, document type, required answer slots, official-source preference, and weak-page traps.</p>
+        </article>
+        <article class="panel">
+          <span class="tag amber">Loop</span>
+          <h3>Search And Fetch</h3>
+          <p>The discovery model proposes candidate URLs. The harness fetches the pages directly, extracts readable text, and builds source excerpts.</p>
+        </article>
+        <article class="panel">
+          <span class="tag green">Output</span>
+          <h3>Validated Evidence</h3>
+          <p>Only accepted pages are passed to Gemma, GLM, Gemini, or whichever answer model is being benchmarked. Rejected pages never become answer evidence.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="flow">
+      <h2>Flowchart</h2>
+      <p class="section-note">The important behavior is the red feedback path: when a URL is missing, stale, blocked, or not evidentially adequate, the agent records why and asks the search step to avoid that mistake.</p>
+
+      <div class="flow-shell" aria-label="Source hunter flowchart">
+        <div class="flow">
+          <div class="node input" style="grid-column: 1; grid-row: 1;">
+            <strong>1. Newsroom Question</strong>
+            <span>Example: "What were the county PIT results?"</span>
+          </div>
+          <div class="arrow" style="grid-column: 2; grid-row: 1;"></div>
+          <div class="node input" style="grid-column: 3; grid-row: 1;">
+            <strong>2. Build Contract</strong>
+            <span>Generated by a cheap model when enabled; otherwise inferred generically from the question.</span>
+          </div>
+          <div class="arrow" style="grid-column: 4; grid-row: 1;"></div>
+          <div class="node search" style="grid-column: 5; grid-row: 1;">
+            <strong>3. Discover URLs</strong>
+            <span>OpenRouter web plugin proposes candidate pages and citations.</span>
+          </div>
+          <div class="arrow" style="grid-column: 6; grid-row: 1;"></div>
+          <div class="node fetch" style="grid-column: 7; grid-row: 1;">
+            <strong>4. Controlled Fetch</strong>
+            <span>Download HTML/PDF, follow redirects, extract text, select excerpts.</span>
+          </div>
+          <div class="arrow" style="grid-column: 8; grid-row: 1;"></div>
+          <div class="node validate" style="grid-column: 9; grid-row: 1;">
+            <strong>5. Validate Source</strong>
+            <span>Does this page actually contain the answer evidence?</span>
+          </div>
+          <div class="arrow" style="grid-column: 10; grid-row: 1;"></div>
+          <div class="node accept" style="grid-column: 11; grid-row: 1;">
+            <strong>6. Accept Evidence</strong>
+            <span>Keep source text for final answer model.</span>
+          </div>
+
+          <div class="node reject decision">
+            <strong>Reject?</strong>
+            <span>Wrong page, blocked fetch, stale date, missing answer slots, non-official copy.</span>
+          </div>
+
+          <div class="loop">
+            <div>
+              <strong>Retry With Rejection Memory</strong>
+              <small>"Avoid the webinar announcement. It lacks the generated count slots. Search for an official results release or page with the requested breakdown."</small>
+            </div>
+            <div>up to 3 hunt iterations</div>
+          </div>
+
+          <div class="fail-path">
+            <strong>Budget exhausted or no valid source</strong>
+            The agent returns empty or partial evidence. The answer model should abstain or clearly say the source could not support the requested facts.
+          </div>
+
+          <div class="node answer" style="grid-column: 9; grid-row: 5;">
+            <strong>7. Answer Model</strong>
+            <span>Gemma answers from controlled source evidence only, no live plugin.</span>
+          </div>
+          <div class="arrow" style="grid-column: 10; grid-row: 5;"></div>
+          <div class="node stop" style="grid-column: 11; grid-row: 5;">
+            <strong>8. JSON Result</strong>
+            <span>Answer, key facts, source URLs, uncertainties, scoring metadata.</span>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><i class="swatch blue"></i>Input and contract</span>
+          <span><i class="swatch amber"></i>Search loop</span>
+          <span><i class="swatch slate"></i>Fetch and scrape</span>
+          <span><i class="swatch violet"></i>Validation gate</span>
+          <span><i class="swatch green"></i>Accepted evidence</span>
+          <span><i class="swatch red"></i>Rejected evidence</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="validation">
+      <h2>Validation Gates</h2>
+      <p class="section-note">The gate is the brain of the source-hunter. It checks whether a page satisfies the generated or generic evidence contract, not merely whether it is topically related.</p>
+
+      <div class="grid two">
+        <div class="panel stack">
+          <div class="rule">
+            <div class="num">1</div>
+            <div><strong>Fetch Validity</strong><span>Reject if the URL 403s, 404s, times out, redirects to login, or extracts no useful text.</span></div>
+          </div>
+          <div class="rule">
+            <div class="num">2</div>
+            <div><strong>Constraint Match</strong><span>Hard-check exact date, named entity, item number, advisory time, document type, and official-source requirement.</span></div>
+          </div>
+          <div class="rule">
+            <div class="num">3</div>
+            <div><strong>Evidence Adequacy</strong><span>Require the page to contain the slots the answer needs: counts, vote, range, warning area, motion, pressure, dollar amount, or table rows.</span></div>
+          </div>
+          <div class="rule">
+            <div class="num">4</div>
+            <div><strong>Weak-Page Rejection</strong><span>Reject previews, calendars, agendas without item text, press-event announcements, secondary copies, recaps, and stale pages.</span></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <span class="tag violet">Contract Example</span>
+          <h3>County PIT Results</h3>
+          <table class="matrix">
+            <tr>
+              <th>Question Need</th>
+              <th>Validation Rule</th>
+            </tr>
+            <tr>
+              <td>Official county release</td>
+              <td>Prefer an official county/government release when the question asks for a named authority's results.</td>
+            </tr>
+            <tr>
+              <td>Total count</td>
+              <td>Page must include a numeric total, not just "results will be announced."</td>
+            </tr>
+            <tr>
+              <td>Sheltered and unsheltered split</td>
+              <td>Page must contain both terms and associated figures.</td>
+            </tr>
+            <tr>
+              <td>Change from 2024</td>
+              <td>Page must mention comparison or percent change if the answer asks for it.</td>
+            </tr>
+            <tr>
+              <td>First-time milestone</td>
+              <td>Page must contain milestone language or enough text to infer the exact milestone.</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="failures">
+      <h2>What Happens When URLs Fail</h2>
+      <p class="section-note">Failures are not all the same. The source-hunter records the specific reason, then retries broadly or stops safely. Site-specific resolvers are optional adapter mode, not the clean benchmark default.</p>
+
+      <table class="matrix">
+        <tr>
+          <th>Failure Type</th>
+          <th>Example</th>
+          <th>Agent Response</th>
+          <th>Safe Outcome</th>
+        </tr>
+        <tr>
+          <td>Fetch failure</td>
+          <td><code>403</code> on Riverside HWS or HARI page</td>
+          <td>Mark <code>fetch_failed</code>, keep looking for official mirrors, PDFs, archived pages, or related county pages.</td>
+          <td>If no valid source is found, answer should abstain or state the source gap.</td>
+        </tr>
+        <tr>
+          <td>Wrong document</td>
+          <td>Legistar calendar page instead of meeting item detail</td>
+          <td>Reject as <code>document_mismatch</code>; optional adapter mode can try a Legistar meeting-detail resolver.</td>
+          <td>Only agenda detail pages with the right date and item number are accepted.</td>
+        </tr>
+        <tr>
+          <td>Related but insufficient</td>
+          <td>Webinar or preview announcement before results are posted</td>
+          <td>Reject as missing generated result slots, then search for an official page with the actual release.</td>
+          <td>No hallucinated counts from a page that lacks numbers.</td>
+        </tr>
+        <tr>
+          <td>Secondary copy</td>
+          <td>LegiStorm copy of Federal Reserve statement</td>
+          <td>Reject when official source is expected; optional adapter mode can try a Fed calendar/statement resolver.</td>
+          <td>Answer cites <code>federalreserve.gov</code>.</td>
+        </tr>
+        <tr>
+          <td>Nearby official page</td>
+          <td>NHC storm archive or mobile advisory with wrong timestamp</td>
+          <td>Reject on time mismatch, crawl official NHC archive table for exact UTC advisory.</td>
+          <td>Answer uses the exact advisory.</td>
+        </tr>
+        <tr>
+          <td>Dynamic or awkward HTML</td>
+          <td>Government portals where search finds listing pages but not item pages</td>
+          <td>Use controlled fetch first; add reader/browser-rendered fetch if static extraction cannot see the text.</td>
+          <td>Evidence gate still decides whether the rendered page is enough.</td>
+        </tr>
+      </table>
+    </section>
+
+    <section id="examples">
+      <h2>Example Run Log</h2>
+      <p class="section-note">This is the behavior we want: the agent finds plausible pages, rejects the weak ones, keeps searching, and only then lets the answer model speak.</p>
+
+      <div class="grid two">
+        <div class="panel">
+          <span class="tag red">Before</span>
+          <h3>Wrong Acceptance</h3>
+          <div class="mini-log">
+            HUNT county_pit_results<br>
+            <span class="warn">FOUND</span> webinar announcement<br>
+            <span class="warn">ACCEPTED</span> topic matched "PIT Count Results"<br>
+            RUN Gemma<br>
+            Gemma: "source does not contain the counts"<br>
+            score: 0%
+          </div>
+        </div>
+
+        <div class="panel">
+          <span class="tag green">After</span>
+          <h3>Evidence Adequacy</h3>
+          <div class="mini-log">
+            HUNT county_pit_results<br>
+            <span class="no">REJECT</span> announcement: contract_reject, count_results_missing<br>
+            <span class="ok">FOUND</span> official county PIT results release<br>
+            <span class="ok">ACCEPT</span> contains total, sheltered, unsheltered, 2024 comparison<br>
+            RUN Gemma<br>
+            score: 100%
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="general">
+      <h2>What Is Generalizable</h2>
+      <p class="section-note">The exact benchmark URL is not the general solution. The portable solution is the generated source contract, stale-page checks, controlled fetch, validation, and retry loop. Site-specific resolvers are opt-in accelerators for recurring public systems.</p>
+
+      <div class="grid two">
+        <article class="panel">
+          <span class="tag green">Generalizable</span>
+          <h3>The Contract And Gate</h3>
+          <p>Any question can be converted into required evidence slots by a generated contract or a generic fallback parser. Any candidate source can be checked against those slots. This works across city councils, agencies, weather advisories, public health releases, court filings, PDFs, and local news pages.</p>
+          <p><strong>Core rule:</strong> a source is not found until it contains the answer evidence.</p>
+        </article>
+
+        <article class="panel">
+          <span class="tag amber">Site-Specific</span>
+          <h3>Resolvers</h3>
+          <p>Resolvers are small helpers for known weird systems: Legistar, NHC archives, Federal Reserve calendars, county press-release paths. They should not replace validation. They just propose better candidate URLs.</p>
+          <p><strong>Core rule:</strong> if optional adapters are enabled, a resolver can suggest a page, but validation still has veto power.</p>
+        </article>
+      </div>
+
+      <div class="callout">
+        <strong>Production direction:</strong> add generic official-domain search, sitemap/news/press-page crawling, browser-rendered fetch for dynamic pages, PDF extraction, then use specific resolvers only when the public site structure is stable and valuable enough to encode.
+      </div>
+
+      <p class="footer-note">Current implementation lives in <code>benchmarks/web_search/run_web_bench.py</code> and <code>benchmarks/web_search/web_bench_lib.py</code>. This diagram describes the benchmark agent pattern before production integration.</p>
+    </section>
+  </main>
+</body>
+</html>

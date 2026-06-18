@@ -1,0 +1,1278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Newscaster Pipeline Diagram</title>
+  <style>
+    :root {
+      --ink: #18202b;
+      --muted: #5b6675;
+      --line: #c8d1dc;
+      --panel: #ffffff;
+      --band: #f4f7fb;
+      --soft-blue: #e7f0ff;
+      --blue: #285ea8;
+      --soft-green: #e8f6ed;
+      --green: #247347;
+      --soft-amber: #fff3d7;
+      --amber: #8a5b00;
+      --soft-red: #ffecec;
+      --red: #9a3030;
+      --soft-slate: #edf1f5;
+      --slate: #344154;
+      --shadow: 0 10px 28px rgba(29, 42, 59, 0.08);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #f8fafc;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    header {
+      background: #17202d;
+      color: #fff;
+      border-bottom: 6px solid #4d8b66;
+    }
+
+    .wrap {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      min-height: 320px;
+      display: grid;
+      align-items: end;
+      padding: 64px 0 36px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(36px, 7vw, 76px);
+      line-height: 0.95;
+      letter-spacing: 0;
+      max-width: 980px;
+    }
+
+    .lede {
+      max-width: 900px;
+      margin: 0;
+      color: #d9e3ef;
+      font-size: 18px;
+    }
+
+    nav {
+      padding: 18px 0;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    nav .wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    nav a {
+      color: var(--slate);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    main {
+      padding: 28px 0 64px;
+    }
+
+    section {
+      padding: 34px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    section:last-child {
+      border-bottom: 0;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    .section-intro {
+      max-width: 900px;
+      color: var(--muted);
+      font-size: 16px;
+      margin-bottom: 22px;
+    }
+
+    .diagram {
+      overflow-x: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin: 18px 0 24px;
+    }
+
+    svg {
+      display: block;
+      min-width: 960px;
+      width: 100%;
+      height: auto;
+    }
+
+    .node rect {
+      rx: 8;
+      ry: 8;
+      stroke-width: 1.5;
+    }
+
+    .node text {
+      font-size: 13px;
+      fill: var(--ink);
+      font-weight: 700;
+    }
+
+    .node .small {
+      font-size: 11px;
+      fill: var(--muted);
+      font-weight: 600;
+    }
+
+    .edge {
+      fill: none;
+      stroke: #66758a;
+      stroke-width: 2;
+    }
+
+    .edge-soft {
+      fill: none;
+      stroke: #9aa7b7;
+      stroke-width: 1.8;
+      stroke-dasharray: 5 5;
+    }
+
+    .label {
+      font-size: 11px;
+      fill: var(--muted);
+      font-weight: 700;
+    }
+
+    .blue rect { fill: var(--soft-blue); stroke: #92b4ec; }
+    .green rect { fill: var(--soft-green); stroke: #83bf98; }
+    .amber rect { fill: var(--soft-amber); stroke: #e3bf64; }
+    .red rect { fill: var(--soft-red); stroke: #e4a0a0; }
+    .slate rect { fill: var(--soft-slate); stroke: #aab5c2; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 8px 22px rgba(29, 42, 59, 0.05);
+    }
+
+    .card p,
+    .card li {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    ul {
+      padding-left: 20px;
+      margin: 10px 0 0;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.92em;
+      background: #edf1f5;
+      color: #253246;
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow-x: auto;
+      background: #17202d;
+      color: #f2f6fb;
+      border-radius: var(--radius);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+      font-size: inherit;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 13px;
+      font-weight: 800;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--slate);
+    }
+
+    .pill.blue { background: var(--soft-blue); border-color: #92b4ec; color: var(--blue); }
+    .pill.green { background: var(--soft-green); border-color: #83bf98; color: var(--green); }
+    .pill.amber { background: var(--soft-amber); border-color: #e3bf64; color: var(--amber); }
+    .pill.red { background: var(--soft-red); border-color: #e4a0a0; color: var(--red); }
+
+    .table-wrap {
+      overflow-x: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    th {
+      background: #edf1f5;
+      color: var(--slate);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .note {
+      border-left: 4px solid #4d8b66;
+      background: #eef7f1;
+      padding: 14px 16px;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: #254833;
+      margin: 16px 0 0;
+    }
+
+    .mini-flow {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin: 18px 0 22px;
+    }
+
+    .step {
+      min-height: 120px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 13px;
+      box-shadow: 0 8px 22px rgba(29, 42, 59, 0.05);
+    }
+
+    .step strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: var(--slate);
+    }
+
+    .step span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 820px) {
+      .hero {
+        min-height: 260px;
+        padding-top: 44px;
+      }
+
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+
+      nav {
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap hero">
+      <div>
+        <h1>Newscaster Pipeline</h1>
+        <p class="lede">A map of the daily run: headline discovery, searching, article scraping, editorial selection, LangGraph adaptive research, RAG research memory, script generation, audio production, video export, and YouTube upload.</p>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="wrap">
+      <a href="#overview">Overview</a>
+      <a href="#collection">Source Collection</a>
+      <a href="#topic-selection">Topic Selection</a>
+      <a href="#topic-research">Per-Topic Research</a>
+      <a href="#agentic-research">Agentic Research</a>
+      <a href="#rag">RAG</a>
+      <a href="#production">Production</a>
+      <a href="#router">LLM Router</a>
+      <a href="#artifacts">Artifacts</a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <section id="overview">
+      <h2>End-to-End Map</h2>
+      <p class="section-intro">The scheduled Raspberry Pi run starts in <code>main2.bash</code>. It calls <code>main.py</code> for gather, scripts, and audio, then <code>moviemaker.py</code>, then <code>uploader2.py</code>.</p>
+
+      <div class="diagram" aria-label="End-to-end pipeline diagram">
+        <svg viewBox="0 0 1180 420" role="img">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#66758a"></path>
+            </marker>
+          </defs>
+
+          <g class="node slate">
+            <rect x="20" y="142" width="150" height="74"></rect>
+            <text x="95" y="170" text-anchor="middle">4 AM scheduler</text>
+            <text x="95" y="191" text-anchor="middle" class="small">main2.bash</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="215" y="58" width="180" height="92"></rect>
+            <text x="305" y="88" text-anchor="middle">Source discovery</text>
+            <text x="305" y="109" text-anchor="middle" class="small">Gemini grounding</text>
+            <text x="305" y="128" text-anchor="middle" class="small">URL context + scrapers</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="215" y="210" width="180" height="92"></rect>
+            <text x="305" y="240" text-anchor="middle">Topic finder</text>
+            <text x="305" y="261" text-anchor="middle" class="small">triage -> research</text>
+            <text x="305" y="280" text-anchor="middle" class="small">final story picks</text>
+          </g>
+
+          <g class="node green">
+            <rect x="440" y="142" width="180" height="92"></rect>
+            <text x="530" y="172" text-anchor="middle">Gather stories</text>
+            <text x="530" y="193" text-anchor="middle" class="small">Google CSE</text>
+            <text x="530" y="212" text-anchor="middle" class="small">LangGraph research</text>
+          </g>
+
+          <g class="node amber">
+            <rect x="665" y="58" width="180" height="92"></rect>
+            <text x="755" y="88" text-anchor="middle">RAG memory</text>
+            <text x="755" y="109" text-anchor="middle" class="small">sidecars -> embeddings</text>
+            <text x="755" y="128" text-anchor="middle" class="small">SQLite vector index</text>
+          </g>
+
+          <g class="node green">
+            <rect x="665" y="210" width="180" height="92"></rect>
+            <text x="755" y="240" text-anchor="middle">Write scripts</text>
+            <text x="755" y="261" text-anchor="middle" class="small">intro, segments</text>
+            <text x="755" y="280" text-anchor="middle" class="small">overview, outro</text>
+          </g>
+
+          <g class="node green">
+            <rect x="890" y="142" width="150" height="74"></rect>
+            <text x="965" y="170" text-anchor="middle">Generate audio</text>
+            <text x="965" y="191" text-anchor="middle" class="small">TTS + assembly</text>
+          </g>
+
+          <g class="node slate">
+            <rect x="1080" y="74" width="84" height="58"></rect>
+            <text x="1122" y="98" text-anchor="middle">Video</text>
+            <text x="1122" y="117" text-anchor="middle" class="small">MoviePy</text>
+          </g>
+
+          <g class="node slate">
+            <rect x="1080" y="226" width="84" height="58"></rect>
+            <text x="1122" y="250" text-anchor="middle">Upload</text>
+            <text x="1122" y="269" text-anchor="middle" class="small">YouTube</text>
+          </g>
+
+          <path class="edge" marker-end="url(#arrow)" d="M 170 178 C 190 140, 195 104, 215 104"></path>
+          <path class="edge" marker-end="url(#arrow)" d="M 170 178 C 190 215, 195 256, 215 256"></path>
+          <path class="edge" marker-end="url(#arrow)" d="M 395 104 C 430 110, 433 151, 440 174"></path>
+          <path class="edge" marker-end="url(#arrow)" d="M 395 256 C 430 250, 433 212, 440 196"></path>
+          <path class="edge" marker-end="url(#arrow)" d="M 620 188 C 645 150, 645 110, 665 104"></path>
+          <path class="edge" marker-end="url(#arrow)" d="M 620 188 C 645 220, 645 252, 665 256"></path>
+          <path class="edge" marker-end="url(#arrow)" d="M 845 256 C 865 236, 875 198, 890 184"></path>
+          <path class="edge" marker-end="url(#arrow)" d="M 1040 172 C 1060 150, 1065 118, 1080 104"></path>
+          <path class="edge" marker-end="url(#arrow)" d="M 1122 132 L 1122 226"></path>
+
+          <text x="528" y="276" text-anchor="middle" class="label">writes segment summaries</text>
+          <text x="758" y="332" text-anchor="middle" class="label">dialogue scripts become voices</text>
+        </svg>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Idempotent stages</h3>
+          <p>Gather and script generation use marker files and existing outputs to skip completed work. Failed slots can be absent without killing the whole episode.</p>
+          <div class="pill-row">
+            <span class="pill green">GATHER_COMPLETE</span>
+            <span class="pill green">SCRIPTS_COMPLETE</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Two selected main stories</h3>
+          <p>The current topic finder returns one important national story and one California/everyday story, plus a five-story overview segment.</p>
+        </div>
+        <div class="card">
+          <h3>Research memory</h3>
+          <p>RAG stores each day's article summaries and research-agent Q&A, then retrieves prior coverage as an early memory note when related stories recur.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="collection">
+      <h2>Source Collection</h2>
+      <p class="section-intro">The first search pass is broad discovery. It collects fresh headlines from named outlets using a mix of LLM web tools and one direct scraper.</p>
+
+      <div class="cards">
+        <div class="card">
+          <h3>NPR</h3>
+          <p><code>topic_finder()</code> asks for NPR morning news brief headlines using Gemini grounding.</p>
+          <span class="pill blue">grounding</span>
+        </div>
+        <div class="card">
+          <h3>AP News</h3>
+          <p>Uses Gemini URL context against <code>https://apnews.com</code>, with relative timestamp rules for "Now" and recent posts.</p>
+          <span class="pill blue">url_context</span>
+        </div>
+        <div class="card">
+          <h3>Democracy Now</h3>
+          <p>Uses Gemini grounding to find current headlines from <code>democracynow.org</code>.</p>
+          <span class="pill blue">grounding</span>
+        </div>
+        <div class="card">
+          <h3>ProPublica</h3>
+          <p>Uses Gemini URL context against <code>propublica.org</code> to pull latest headlines.</p>
+          <span class="pill blue">url_context</span>
+        </div>
+        <div class="card">
+          <h3>CalMatters</h3>
+          <p><code>calmatters_scraper()</code> requests category pages and parses archive story cards with BeautifulSoup.</p>
+          <span class="pill green">requests + bs4</span>
+        </div>
+        <div class="card">
+          <h3>City of Riverside</h3>
+          <p>Uses Gemini URL context against the city media page and accepts items from the past two days.</p>
+          <span class="pill blue">url_context</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="topic-selection">
+      <h2>Topic Selection</h2>
+      <p class="section-intro">After collecting headlines, the system removes or tags repeat coverage, scores candidates on four newsworthiness criteria, researches the strongest candidates with grounded search, then chooses the episode structure.</p>
+
+      <div class="diagram" aria-label="Topic selection diagram">
+        <svg viewBox="0 0 1180 330" role="img">
+          <defs>
+            <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#66758a"></path>
+            </marker>
+          </defs>
+
+          <g class="node blue">
+            <rect x="20" y="95" width="150" height="86"></rect>
+            <text x="95" y="126" text-anchor="middle">All headlines</text>
+            <text x="95" y="147" text-anchor="middle" class="small">6 sources combined</text>
+            <text x="95" y="166" text-anchor="middle" class="small">single text blob</text>
+          </g>
+
+          <g class="node amber">
+            <rect x="210" y="95" width="170" height="86"></rect>
+            <text x="295" y="126" text-anchor="middle">Dedup / arc filter</text>
+            <text x="295" y="147" text-anchor="middle" class="small">remove repeats</text>
+            <text x="295" y="166" text-anchor="middle" class="small">tag updates</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="420" y="40" width="170" height="86"></rect>
+            <text x="505" y="71" text-anchor="middle">Tier 1 triage</text>
+            <text x="505" y="92" text-anchor="middle" class="small">1-10 news score</text>
+            <text x="505" y="111" text-anchor="middle" class="small">top 10 shortlist</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="420" y="178" width="170" height="86"></rect>
+            <text x="505" y="209" text-anchor="middle">Tier 2 research</text>
+            <text x="505" y="230" text-anchor="middle" class="small">Gemini Flash</text>
+            <text x="505" y="249" text-anchor="middle" class="small">grounded memo</text>
+          </g>
+
+          <g class="node green">
+            <rect x="635" y="95" width="185" height="86"></rect>
+            <text x="727" y="126" text-anchor="middle">Tier 3 selection</text>
+            <text x="727" y="147" text-anchor="middle" class="small">Claude for main picks</text>
+            <text x="727" y="166" text-anchor="middle" class="small">Gemini for overview</text>
+          </g>
+
+          <g class="node amber">
+            <rect x="860" y="95" width="160" height="86"></rect>
+            <text x="940" y="126" text-anchor="middle">Ledger update</text>
+            <text x="940" y="147" text-anchor="middle" class="small">create/update arcs</text>
+            <text x="940" y="166" text-anchor="middle" class="small">story continuity</text>
+          </g>
+
+          <g class="node slate">
+            <rect x="1060" y="95" width="100" height="86"></rect>
+            <text x="1110" y="126" text-anchor="middle">Manifest</text>
+            <text x="1110" y="147" text-anchor="middle" class="small">pins picks</text>
+            <text x="1110" y="166" text-anchor="middle" class="small">rerun-safe</text>
+          </g>
+
+          <path class="edge" marker-end="url(#arrow2)" d="M 170 138 L 210 138"></path>
+          <path class="edge" marker-end="url(#arrow2)" d="M 380 138 C 400 115, 405 91, 420 83"></path>
+          <path class="edge" marker-end="url(#arrow2)" d="M 505 126 L 505 178"></path>
+          <path class="edge" marker-end="url(#arrow2)" d="M 590 221 C 620 205, 620 153, 635 138"></path>
+          <path class="edge" marker-end="url(#arrow2)" d="M 820 138 L 860 138"></path>
+          <path class="edge" marker-end="url(#arrow2)" d="M 1020 138 L 1060 138"></path>
+        </svg>
+      </div>
+
+      <div class="mini-flow">
+        <div class="step">
+          <strong>1. Headline bundle</strong>
+          <span>NPR, AP, Democracy Now, ProPublica, CalMatters, and Riverside headlines are concatenated into one source-labeled document.</span>
+        </div>
+        <div class="step">
+          <strong>2. Dedup / arc filter</strong>
+          <span>Compares against the story ledger when available; otherwise checks the past seven days of story summaries.</span>
+        </div>
+        <div class="step">
+          <strong>3. Tier 1 scoring</strong>
+          <span>Asks for one 1-10 score per headline, sorted highest to lowest, then keeps the top ten parsed headlines.</span>
+        </div>
+        <div class="step">
+          <strong>4. Tier 2 research</strong>
+          <span>Runs a grounded Gemini Flash brief for each shortlisted headline and assembles those briefs into one research document.</span>
+        </div>
+        <div class="step">
+          <strong>5. Tier 3 picks</strong>
+          <span>Chooses the national lead, California/everyday lead, and overview headlines from the research document.</span>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="card">
+          <h3>Dedup / arc filter</h3>
+          <ul>
+            <li>This is a repeat-management pass, not a numeric scoring pass.</li>
+            <li>If <code>story_ledger.json</code> has active arcs, the LLM sees each arc slug, topic, last-covered date, and audience state.</li>
+            <li>If the ledger is empty, it falls back to <code>load_recent_story_descriptions(window_days=7)</code>.</li>
+            <li>Each headline is classified as <code>SAME STORY, NO NEW INFO</code>, <code>UPDATE</code>, <code>MAJOR ESCALATION</code>, or <code>NEW STORY</code>.</li>
+            <li><code>SAME STORY, NO NEW INFO</code> is removed. Updates and escalations are kept with tags such as <code>[UPDATE: arc_slug]</code>.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Tier 1 scoring</h3>
+          <ul>
+            <li>Model call: <code>get_llm_response(..., mode="standard")</code>, which routes to Gemini Flash without web tools.</li>
+            <li>Score format: <code>SCORE: X | HEADLINE: Y | REASON: Z</code>.</li>
+            <li>Criteria: impact scale, institutional response, novelty, and accountability.</li>
+            <li>Tagged <code>[UPDATE]</code> and <code>[MAJOR ESCALATION]</code> stories are not penalized just for being continuations; the new development is scored.</li>
+            <li>If fewer than five score lines parse, the code falls back to passing all non-empty headline lines forward.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="cards" style="margin-top:14px;">
+        <div class="card">
+          <h3>Tier 2 grounded briefs</h3>
+          <ul>
+            <li>For each shortlisted headline, <code>TIER2_RESEARCH_PROMPT</code> asks for a 150-250 word newsroom memo.</li>
+            <li>Model call: <code>get_llm_response(research_prompt, grounding=True, mode="standard")</code>.</li>
+            <li>Router target: Google Gemini <code>gemini-3-flash-preview</code> with Google Search grounding.</li>
+            <li>The memo must cover what happened, context/history, impact/scale, and which major outlets are reporting it.</li>
+            <li>If verification fails, the response should begin with <code>UNVERIFIED:</code> and explain what was tried.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Tier 3 final picks</h3>
+          <ul>
+            <li>Important story: <code>mode="heavy"</code>, no web tools, selected from the Tier 2 research document.</li>
+            <li>Everyday/California story: also <code>mode="heavy"</code>, excluding the already chosen important story.</li>
+            <li>Router target for those heavy calls: Claude Opus via the Anthropic adapter.</li>
+            <li>Overview picks: <code>mode="standard"</code>, excluding the two main stories and related stories.</li>
+            <li>Main-story prompts reject ordinary <code>[UPDATE]</code> stories but allow <code>[MAJOR ESCALATION]</code>; overview picks may include updates.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Selection outputs</h3>
+          <ul>
+            <li><code>stories_chosen/{date}_stories_chosen.txt</code> stores selected main topics.</li>
+            <li><code>stories_chosen/{date}_story_summaries.json</code> stores archive summaries for future deduping.</li>
+            <li><code>stories_chosen/story_ledger.json</code> stores arcs and audience state.</li>
+            <li><code>segment_summaries/{date}_GATHER_MANIFEST.json</code> pins the exact topic picks for reruns.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="topic-research">
+      <h2>Per-Topic Research</h2>
+      <p class="section-intro">Once two main topics are selected, each topic gets a separate deep-dive. The first pass builds a seed evidence bundle from articles and grounded search. Then a LangGraph research agent decides what else to ask or fetch before the final super-summary is synthesized.</p>
+
+      <div class="diagram" aria-label="Per-topic research diagram">
+        <svg viewBox="0 0 1180 470" role="img">
+          <defs>
+            <marker id="arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#66758a"></path>
+            </marker>
+          </defs>
+
+          <g class="node green">
+            <rect x="20" y="160" width="135" height="76"></rect>
+            <text x="87" y="190" text-anchor="middle">Selected topic</text>
+            <text x="87" y="211" text-anchor="middle" class="small">slot 0 or slot 1</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="200" y="68" width="165" height="82"></rect>
+            <text x="282" y="98" text-anchor="middle">Google CSE</text>
+            <text x="282" y="119" text-anchor="middle" class="small">9 results, d1</text>
+            <text x="282" y="138" text-anchor="middle" class="small">rephrase on empty</text>
+          </g>
+
+          <g class="node red">
+            <rect x="200" y="250" width="165" height="82"></rect>
+            <text x="282" y="280" text-anchor="middle">Retry ladder</text>
+            <text x="282" y="301" text-anchor="middle" class="small">sleep 0,5,60,60,</text>
+            <text x="282" y="320" text-anchor="middle" class="small">300,600 seconds</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="410" y="68" width="175" height="82"></rect>
+            <text x="497" y="98" text-anchor="middle">Relevance pass 1</text>
+            <text x="497" y="119" text-anchor="middle" class="small">headline + snippet</text>
+            <text x="497" y="138" text-anchor="middle" class="small">light LLM yes/no</text>
+          </g>
+
+          <g class="node green">
+            <rect x="630" y="68" width="175" height="82"></rect>
+            <text x="717" y="98" text-anchor="middle">Scrape article</text>
+            <text x="717" y="119" text-anchor="middle" class="small">requests + bs4</text>
+            <text x="717" y="138" text-anchor="middle" class="small">article/main fallback</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="850" y="68" width="155" height="82"></rect>
+            <text x="927" y="98" text-anchor="middle">Summarize</text>
+            <text x="927" y="119" text-anchor="middle" class="small">strict sourcing</text>
+            <text x="927" y="138" text-anchor="middle" class="small">standard mode</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="410" y="250" width="175" height="82"></rect>
+            <text x="497" y="280" text-anchor="middle">Relevance pass 2</text>
+            <text x="497" y="301" text-anchor="middle" class="small">summary vs topic</text>
+            <text x="497" y="320" text-anchor="middle" class="small">keep up to 3</text>
+          </g>
+
+          <g class="node amber">
+            <rect x="630" y="250" width="175" height="82"></rect>
+            <text x="717" y="280" text-anchor="middle">LangGraph agent</text>
+            <text x="717" y="301" text-anchor="middle" class="small">2-5 decisions</text>
+            <text x="717" y="320" text-anchor="middle" class="small">ask, fetch, or stop</text>
+          </g>
+
+          <g class="node green">
+            <rect x="850" y="250" width="155" height="82"></rect>
+            <text x="927" y="280" text-anchor="middle">Super summary</text>
+            <text x="927" y="301" text-anchor="middle" class="small">synthesize depth</text>
+            <text x="927" y="320" text-anchor="middle" class="small">remove irrelevant</text>
+          </g>
+
+          <g class="node amber">
+            <rect x="1045" y="160" width="115" height="76"></rect>
+            <text x="1102" y="190" text-anchor="middle">RAG memory</text>
+            <text x="1102" y="211" text-anchor="middle" class="small">early note</text>
+          </g>
+
+          <path class="edge" marker-end="url(#arrow3)" d="M 155 198 C 180 168, 180 119, 200 109"></path>
+          <path class="edge-soft" marker-end="url(#arrow3)" d="M 282 150 L 282 250"></path>
+          <path class="edge" marker-end="url(#arrow3)" d="M 365 109 L 410 109"></path>
+          <path class="edge" marker-end="url(#arrow3)" d="M 585 109 L 630 109"></path>
+          <path class="edge" marker-end="url(#arrow3)" d="M 805 109 L 850 109"></path>
+          <path class="edge" marker-end="url(#arrow3)" d="M 927 150 C 905 205, 560 205, 497 250"></path>
+          <path class="edge" marker-end="url(#arrow3)" d="M 585 291 L 630 291"></path>
+          <path class="edge" marker-end="url(#arrow3)" d="M 805 291 L 850 291"></path>
+          <path class="edge-soft" marker-end="url(#arrow3)" d="M 1045 198 C 1015 236, 845 270, 805 291"></path>
+
+          <path class="edge-soft" marker-end="url(#arrow3)" d="M 717 332 C 670 390, 330 388, 282 332"></path>
+          <path class="edge-soft" marker-end="url(#arrow3)" d="M 717 332 C 770 390, 995 390, 927 332"></path>
+
+          <text x="592" y="376" text-anchor="middle" class="label">Agent can trigger grounded_search or article_search, then loops back to decide again</text>
+          <text x="927" y="376" text-anchor="middle" class="label">Final synthesis still uses the existing super-summary prompt</text>
+        </svg>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Google Custom Search details</h3>
+          <p><code>google_official_search()</code> uses Google CSE, filters social/blocked hosts, and asks the LLM to rewrite the query when no results come back.</p>
+        </div>
+        <div class="card">
+          <h3>Article extraction</h3>
+          <p><code>scrape_text()</code> strips page chrome, tries article containers, falls back to normalized body text, and truncates at 20,000 characters.</p>
+        </div>
+        <div class="card">
+          <h3>Adaptive research</h3>
+          <p><code>run_adaptive_research()</code> replaces the fixed eight-round follow-up loop when <code>AGENTIC_RESEARCH_ENABLED</code> is true. The old loop remains as an emergency fallback.</p>
+        </div>
+        <div class="card">
+          <h3>Final synthesis</h3>
+          <p>The final super-summary generation stays deterministic. The agent enriches <code>summary_prompt</code>; then the existing synthesis prompt writes the researched story summary.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="agentic-research">
+      <h2>Agentic Research</h2>
+      <p class="section-intro">The selected-story research agent is a bounded LangGraph state machine. It does not replace the LLM router, search wrapper, scraper, RAG store, or final synthesis. It only decides the next research action for the two main stories.</p>
+
+      <div class="diagram" aria-label="LangGraph selected-story research agent">
+        <svg viewBox="0 0 1180 520" role="img">
+          <defs>
+            <marker id="arrow-agent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#66758a"></path>
+            </marker>
+          </defs>
+
+          <g class="node green">
+            <rect x="20" y="198" width="155" height="86"></rect>
+            <text x="97" y="229" text-anchor="middle">Initial state</text>
+            <text x="97" y="250" text-anchor="middle" class="small">topic + evidence</text>
+            <text x="97" y="269" text-anchor="middle" class="small">articles + Q&A</text>
+          </g>
+
+          <g class="node amber">
+            <rect x="220" y="60" width="180" height="86"></rect>
+            <text x="310" y="91" text-anchor="middle">memory node</text>
+            <text x="310" y="112" text-anchor="middle" class="small">retrieve prior chunks</text>
+            <text x="310" y="131" text-anchor="middle" class="small">make dated note</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="455" y="198" width="185" height="86"></rect>
+            <text x="547" y="229" text-anchor="middle">controller node</text>
+            <text x="547" y="250" text-anchor="middle" class="small">Claude Opus 4.8</text>
+            <text x="547" y="269" text-anchor="middle" class="small">strict JSON decision</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="710" y="50" width="180" height="86"></rect>
+            <text x="800" y="81" text-anchor="middle">grounded_search</text>
+            <text x="800" y="102" text-anchor="middle" class="small">Gemini light</text>
+            <text x="800" y="121" text-anchor="middle" class="small">Google grounding</text>
+          </g>
+
+          <g class="node green">
+            <rect x="710" y="220" width="180" height="86"></rect>
+            <text x="800" y="251" text-anchor="middle">article_search</text>
+            <text x="800" y="272" text-anchor="middle" class="small">Google CSE</text>
+            <text x="800" y="291" text-anchor="middle" class="small">result_piper</text>
+          </g>
+
+          <g class="node red">
+            <rect x="710" y="390" width="180" height="86"></rect>
+            <text x="800" y="421" text-anchor="middle">failure guard</text>
+            <text x="800" y="442" text-anchor="middle" class="small">2 consecutive</text>
+            <text x="800" y="461" text-anchor="middle" class="small">failures stop</text>
+          </g>
+
+          <g class="node green">
+            <rect x="965" y="198" width="180" height="86"></rect>
+            <text x="1055" y="229" text-anchor="middle">return prompt</text>
+            <text x="1055" y="250" text-anchor="middle" class="small">summary_prompt</text>
+            <text x="1055" y="269" text-anchor="middle" class="small">articles + followups</text>
+          </g>
+
+          <path class="edge" marker-end="url(#arrow-agent)" d="M 175 241 C 205 210, 205 124, 220 103"></path>
+          <path class="edge" marker-end="url(#arrow-agent)" d="M 400 103 C 438 125, 438 215, 455 241"></path>
+          <path class="edge" marker-end="url(#arrow-agent)" d="M 640 234 C 675 188, 675 102, 710 93"></path>
+          <path class="edge" marker-end="url(#arrow-agent)" d="M 640 250 L 710 263"></path>
+          <path class="edge-soft" marker-end="url(#arrow-agent)" d="M 800 136 C 780 178, 675 188, 640 225"></path>
+          <path class="edge-soft" marker-end="url(#arrow-agent)" d="M 800 306 C 765 350, 665 318, 640 270"></path>
+          <path class="edge" marker-end="url(#arrow-agent)" d="M 640 265 C 680 356, 708 403, 710 433"></path>
+          <path class="edge" marker-end="url(#arrow-agent)" d="M 890 433 C 950 400, 945 280, 965 250"></path>
+          <path class="edge" marker-end="url(#arrow-agent)" d="M 890 263 L 965 241"></path>
+          <path class="edge" marker-end="url(#arrow-agent)" d="M 890 93 C 945 130, 945 205, 965 225"></path>
+
+          <text x="548" y="325" text-anchor="middle" class="label">Loop budget: min 2 controller decisions, max 5 decisions per selected story</text>
+        </svg>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Public entrypoint</h3>
+          <p><code>run_adaptive_research(topic, slot, date, date_key, summary_prompt, article_count, articles, followups)</code> returns an enriched prompt plus updated article and follow-up accumulators.</p>
+        </div>
+        <div class="card">
+          <h3>State fields</h3>
+          <p>The graph carries <code>topic</code>, <code>formatted_date</code>, <code>summary_prompt</code>, <code>articles</code>, <code>followups</code>, <code>memory_note</code>, iteration counts, failure counts, and the last controller decision.</p>
+        </div>
+        <div class="card">
+          <h3>Controller inputs</h3>
+          <p>The controller is the main agent brain: <code>get_llm_response(..., mode="heavy")</code>, routed to Claude Opus 4.8. It sees the story topic, current evidence, RAG memory note, recent Q&A, article count, completed iterations, minimum iterations, and remaining budget.</p>
+        </div>
+        <div class="card">
+          <h3>What it optimizes for</h3>
+          <p>The prompt asks it to think like an investigative reporter: central claim, source quality, missing timeline, scale, mechanism, counterevidence, freshness, and accountability.</p>
+        </div>
+      </div>
+
+      <div class="two-col" style="margin-top:14px;">
+        <div class="card">
+          <h3>Continue: grounded search</h3>
+          <p>Used for precise questions. The answer is produced by <code>get_llm_response(question, mode="light", grounding=True)</code> and appended to the research prompt.</p>
+          <pre><code>{
+  "status": "continue",
+  "action": "grounded_search",
+  "question": "What is the strongest evidence for or against the central claim?",
+  "question_type": "premise_challenge",
+  "reason": "The claim is important but not yet stress-tested."
+}</code></pre>
+        </div>
+        <div class="card">
+          <h3>Continue: article search</h3>
+          <p>Used when the evidence is thin and a new article is likely to help. It calls <code>google_official_search()</code>, then <code>result_piper()</code> keeps at most one new relevant article per iteration.</p>
+          <pre><code>{
+  "status": "continue",
+  "action": "article_search",
+  "query": "headline terms official response local reporting",
+  "reason": "Need another source before synthesizing."
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="two-col" style="margin-top:14px;">
+        <div class="card">
+          <h3>Done decision</h3>
+          <p>The controller can stop once the minimum iteration rule is satisfied. If it says done too early, the code forces one freshness-check grounded search.</p>
+          <pre><code>{
+  "status": "done",
+  "reason": "Enough independent sourcing and no major unresolved claim.",
+  "confidence": "medium"
+}</code></pre>
+        </div>
+        <div class="card">
+          <h3>Failure behavior</h3>
+          <ul>
+            <li>Malformed JSON gets one repair call.</li>
+            <li>Tool failures are logged and do not append bad Q&A.</li>
+            <li>Two consecutive controller/tool failures stop the graph gracefully.</li>
+            <li>If graph setup or execution fails before useful output, <code>_gather_one_topic()</code> falls back to the old fixed follow-up loop.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="cards" style="margin-top:14px;">
+        <div class="card">
+          <h3>Question types</h3>
+          <p><code>premise_challenge</code>, <code>scale_check</code>, <code>source_check</code>, <code>timeline_check</code>, <code>mechanism_check</code>, <code>counterevidence_check</code>, and <code>freshness_check</code>.</p>
+        </div>
+        <div class="card">
+          <h3>Sidecar metadata</h3>
+          <p>Research-agent follow-ups keep the old fields and add optional metadata: <code>iteration</code>, <code>question_type</code>, <code>action</code>, <code>reason</code>, and <code>memory_guided</code>.</p>
+        </div>
+        <div class="card">
+          <h3>Config switches</h3>
+          <p><code>AGENTIC_RESEARCH_ENABLED=True</code>, <code>AGENTIC_RESEARCH_MIN_ITERATIONS=2</code>, <code>AGENTIC_RESEARCH_MAX_ITERATIONS=5</code>, and <code>RAG_RESEARCH_MEMORY_ENABLED=True</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="rag">
+      <h2>RAG Implementation</h2>
+      <p class="section-intro">RAG is implemented as research memory. The write path captures article summaries and research-agent Q&A into a SQLite vector index. The active read path retrieves prior chunks before adaptive research and turns them into a dated memory note. A separate late summary-refine path still exists, but remains disabled by default.</p>
+
+      <div class="diagram" aria-label="RAG write and read paths">
+        <svg viewBox="0 0 1180 540" role="img">
+          <defs>
+            <marker id="arrow4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#66758a"></path>
+            </marker>
+          </defs>
+
+          <text x="20" y="35" fill="#344154" font-size="18" font-weight="800">Write path: capture today's research</text>
+          <g class="node green">
+            <rect x="20" y="70" width="160" height="84"></rect>
+            <text x="100" y="101" text-anchor="middle">Article summaries</text>
+            <text x="100" y="122" text-anchor="middle" class="small">headline, outlet, URL</text>
+            <text x="100" y="141" text-anchor="middle" class="small">summary text</text>
+          </g>
+
+          <g class="node amber">
+            <rect x="20" y="185" width="160" height="84"></rect>
+            <text x="100" y="216" text-anchor="middle">Research Q&A</text>
+            <text x="100" y="237" text-anchor="middle" class="small">asker, question</text>
+            <text x="100" y="256" text-anchor="middle" class="small">grounded answer</text>
+          </g>
+
+          <g class="node slate">
+            <rect x="230" y="127" width="180" height="84"></rect>
+            <text x="320" y="158" text-anchor="middle">Research sidecar</text>
+            <text x="320" y="179" text-anchor="middle" class="small">segment_summaries/</text>
+            <text x="320" y="198" text-anchor="middle" class="small">{date}_segmentN_research.json</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="470" y="127" width="170" height="84"></rect>
+            <text x="555" y="158" text-anchor="middle">Document embed</text>
+            <text x="555" y="179" text-anchor="middle" class="small">gemini-embedding-2</text>
+            <text x="555" y="198" text-anchor="middle" class="small">1536 dimensions</text>
+          </g>
+
+          <g class="node green">
+            <rect x="700" y="127" width="180" height="84"></rect>
+            <text x="790" y="158" text-anchor="middle">SQLite index</text>
+            <text x="790" y="179" text-anchor="middle" class="small">stories_chosen/</text>
+            <text x="790" y="198" text-anchor="middle" class="small">research_index.db</text>
+          </g>
+
+          <g class="node slate">
+            <rect x="930" y="127" width="210" height="84"></rect>
+            <text x="1035" y="158" text-anchor="middle">Idempotent upsert</text>
+            <text x="1035" y="179" text-anchor="middle" class="small">skip existing chunk_ids</text>
+            <text x="1035" y="198" text-anchor="middle" class="small">retry on later runs</text>
+          </g>
+
+          <path class="edge" marker-end="url(#arrow4)" d="M 180 112 C 205 120, 205 158, 230 166"></path>
+          <path class="edge" marker-end="url(#arrow4)" d="M 180 227 C 205 218, 205 181, 230 174"></path>
+          <path class="edge" marker-end="url(#arrow4)" d="M 410 169 L 470 169"></path>
+          <path class="edge" marker-end="url(#arrow4)" d="M 640 169 L 700 169"></path>
+          <path class="edge" marker-end="url(#arrow4)" d="M 880 169 L 930 169"></path>
+
+          <line x1="20" y1="304" x2="1160" y2="304" stroke="#c8d1dc" stroke-width="1"></line>
+          <text x="20" y="345" fill="#344154" font-size="18" font-weight="800">Read path A: retrieve prior coverage before adaptive research</text>
+
+          <g class="node green">
+            <rect x="20" y="380" width="165" height="84"></rect>
+            <text x="102" y="411" text-anchor="middle">Story seed</text>
+            <text x="102" y="432" text-anchor="middle" class="small">topic + evidence</text>
+            <text x="102" y="451" text-anchor="middle" class="small">query text</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="235" y="380" width="165" height="84"></rect>
+            <text x="317" y="411" text-anchor="middle">Query embed</text>
+            <text x="317" y="432" text-anchor="middle" class="small">first 24k chars</text>
+            <text x="317" y="451" text-anchor="middle" class="small">RETRIEVAL_QUERY</text>
+          </g>
+
+          <g class="node amber">
+            <rect x="450" y="380" width="180" height="84"></rect>
+            <text x="540" y="411" text-anchor="middle">Cosine search</text>
+            <text x="540" y="432" text-anchor="middle" class="small">top_k = 6</text>
+            <text x="540" y="451" text-anchor="middle" class="small">min_sim = 0.65</text>
+          </g>
+
+          <g class="node red">
+            <rect x="680" y="380" width="165" height="84"></rect>
+            <text x="762" y="411" text-anchor="middle">Exclude today</text>
+            <text x="762" y="432" text-anchor="middle" class="small">avoid self-retrieval</text>
+            <text x="762" y="451" text-anchor="middle" class="small">dated background</text>
+          </g>
+
+          <g class="node blue">
+            <rect x="895" y="380" width="135" height="84"></rect>
+            <text x="962" y="411" text-anchor="middle">Memory LLM</text>
+            <text x="962" y="432" text-anchor="middle" class="small">memory prompt</text>
+            <text x="962" y="451" text-anchor="middle" class="small">Claude Opus 4.8</text>
+          </g>
+
+          <g class="node green">
+            <rect x="1070" y="380" width="90" height="84"></rect>
+            <text x="1115" y="411" text-anchor="middle">Memory</text>
+            <text x="1115" y="432" text-anchor="middle" class="small">note</text>
+          </g>
+
+          <path class="edge" marker-end="url(#arrow4)" d="M 185 422 L 235 422"></path>
+          <path class="edge" marker-end="url(#arrow4)" d="M 400 422 L 450 422"></path>
+          <path class="edge" marker-end="url(#arrow4)" d="M 630 422 L 680 422"></path>
+          <path class="edge" marker-end="url(#arrow4)" d="M 845 422 L 895 422"></path>
+          <path class="edge" marker-end="url(#arrow4)" d="M 1030 422 L 1070 422"></path>
+          <path class="edge-soft" marker-end="url(#arrow4)" d="M 790 211 C 790 300, 540 320, 540 380"></path>
+        </svg>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <h3>What gets indexed</h3>
+          <p>Each sidecar becomes chunks. Article chunks store source, headline, URL, and article summary. Research Q&A chunks store <code>Q: ... A: ...</code> text, including agent metadata when present.</p>
+        </div>
+        <div class="card">
+          <h3>Where vectors live</h3>
+          <p><code>ResearchIndex</code> stores metadata and float32 vectors in SQLite. Search loads rows, normalizes vectors, computes cosine similarity with NumPy, and returns top hits.</p>
+        </div>
+        <div class="card">
+          <h3>Active read path</h3>
+          <p><code>RAG_RESEARCH_MEMORY_ENABLED = True</code> enables early retrieval. The query is selected topic plus current seed evidence. Retrieved chunks become a memory note for the LangGraph controller.</p>
+          <span class="pill green">early memory on</span>
+        </div>
+        <div class="card">
+          <h3>Fail-safe behavior</h3>
+          <p>If memory retrieval or memory-note generation fails, the research agent continues without memory. If late refinement fails, the pipeline keeps the original super-summary.</p>
+          <span class="pill green">never blocks gather</span>
+        </div>
+      </div>
+
+      <div class="two-col" style="margin-top:14px;">
+        <div class="card">
+          <h3>Early memory note</h3>
+          <p><code>build_research_memory_note()</code> retrieves prior chunks with <code>exclude_date=today</code>, then asks Claude Opus 4.8 for four sections: prior background, possibly stale facts, unresolved questions, and suggested search targets.</p>
+        </div>
+        <div class="card">
+          <h3>Late summary refinement</h3>
+          <p><code>_augment_with_prior_research()</code> still exists after super-summary generation, but <code>RAG_AUGMENT_ENABLED = False</code> keeps it off by default. This avoids old research rewriting current facts unless explicitly enabled.</p>
+        </div>
+      </div>
+
+      <div class="note">
+        Core rule: prior coverage can guide questions, but today's sources must verify current facts. The RAG memory note is context for the controller, not evidence that automatically goes into the final story.
+      </div>
+    </section>
+
+    <section id="production">
+      <h2>Script, Audio, Video, Upload</h2>
+      <p class="section-intro">After gather, summaries become dialogue scripts, then TTS audio, then an MP4 with a static image, then a public YouTube upload.</p>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Scripts</h3>
+          <ul>
+            <li><code>story_gatherer()</code> reads available slot summaries.</li>
+            <li><code>headline_maker()</code> creates show headlines.</li>
+            <li><code>intro_writer()</code> writes intro text and episode title.</li>
+            <li><code>segments_writer()</code> drafts Grace/reporter dialogue and scores candidates.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Audio</h3>
+          <ul>
+            <li><code>google_speak()</code> uses Google Cloud TTS voices for Grace, Ethan, Chloe, and Elias.</li>
+            <li>Line-level WAV files are assembled into per-segment MP3 files.</li>
+            <li>Intro music is overlaid with PyDub.</li>
+            <li><code>assemble_podcast()</code> exports normal and HQ MP3 files.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Video</h3>
+          <ul>
+            <li><code>create_video_from_audio_and_image()</code> combines <code>output_audio/{date}_HQ.mp3</code> with <code>image copy.png</code>.</li>
+            <li>The result is <code>output_video.mp4</code>.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Upload</h3>
+          <ul>
+            <li><code>uploader2.py</code> reads the episode title file.</li>
+            <li>Gemini creates tags from the description.</li>
+            <li>YouTube Data API uploads with OAuth credentials.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="router">
+      <h2>LLM Router</h2>
+      <p class="section-intro"><code>get_llm_response()</code> centralizes model choice, retry policy, grounding support, URL fetch support, and fallback behavior.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Mode / flags</th>
+              <th>Primary provider</th>
+              <th>Primary model</th>
+              <th>Used for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>light</code>, no web tools</td>
+              <td>Google Gemini</td>
+              <td><code>gemini-3.1-flash-lite</code></td>
+              <td>Fast helper tasks, yes/no relevance, query cleanup, title extraction.</td>
+            </tr>
+            <tr>
+              <td><code>standard</code>, no web tools</td>
+              <td>Google Gemini</td>
+              <td><code>gemini-3-flash-preview</code></td>
+              <td>Tier 1 scoring, super-summary synthesis, overview writing, and other non-agent standard tasks.</td>
+            </tr>
+            <tr>
+              <td><code>light</code> or <code>standard</code> with <code>grounding</code> or <code>url_context</code></td>
+              <td>Google Gemini</td>
+              <td><code>gemini-3-flash-preview</code></td>
+              <td>Fresh web search, URL page context, headline discovery, grounded briefs, and research-agent grounded answers.</td>
+            </tr>
+            <tr>
+              <td><code>plus</code> or <code>heavy</code> with web tools</td>
+              <td>Google Gemini</td>
+              <td><code>gemini-3.1-pro-preview</code></td>
+              <td>Higher-quality web-assisted reasoning when grounding or URL context is required.</td>
+            </tr>
+            <tr>
+              <td><code>heavy</code>, no web tools</td>
+              <td>Anthropic via app adapter</td>
+              <td><code>claude-opus-4-8</code></td>
+              <td>Research-agent controller decisions, RAG memory notes, final story selection, and long dialogue script writing.</td>
+            </tr>
+            <tr>
+              <td>Primary exhausted or auth failure</td>
+              <td>OpenRouter fallback</td>
+              <td><code>openai/gpt-5.5</code></td>
+              <td>Fallback call; attaches <code>openrouter:web_search</code> and/or <code>openrouter:web_fetch</code> when the original request needed those tools.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="artifacts">
+      <h2>Artifacts and Directories</h2>
+      <p class="section-intro">These are the main files created during a daily run. Most are date-prefixed with <code>YYYY_MM_DD</code>.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Directory / file</th>
+              <th>Purpose</th>
+              <th>Producer</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>segment_summaries/{date}_segmentN_summary.txt</code></td>
+              <td>Final per-topic super-summary after article research, adaptive research, irrelevance cleanup, and optional late RAG refinement.</td>
+              <td><code>gather_news()</code></td>
+            </tr>
+            <tr>
+              <td><code>segment_summaries/{date}_segmentN_articleM_summary.txt</code></td>
+              <td>Individual article summary captured during per-topic research.</td>
+              <td><code>result_piper()</code></td>
+            </tr>
+            <tr>
+              <td><code>segment_summaries/{date}_segmentN_research.json</code></td>
+              <td>Structured RAG sidecar with article provenance and research-agent Q&A. Follow-ups may include iteration, question type, action, reason, and memory-guided metadata.</td>
+              <td><code>build_research_record()</code></td>
+            </tr>
+            <tr>
+              <td><code>stories_chosen/research_index.db</code></td>
+              <td>SQLite vector store for prior research chunks.</td>
+              <td><code>index_day()</code></td>
+            </tr>
+            <tr>
+              <td><code>output_scripts/*.txt</code></td>
+              <td>Intro, dialogue segment scripts, overview, outro, and completion marker.</td>
+              <td><code>write_scripts()</code></td>
+            </tr>
+            <tr>
+              <td><code>episode_titles/{date}.txt</code></td>
+              <td>Episode title parts used by the YouTube upload.</td>
+              <td><code>intro_writer()</code></td>
+            </tr>
+            <tr>
+              <td><code>segment_audio/</code></td>
+              <td>Line-level WAV files, segment MP3s, intro mix, overview, outro.</td>
+              <td><code>text2speech()</code>, PyDub helpers</td>
+            </tr>
+            <tr>
+              <td><code>output_audio/{date}.mp3</code> and <code>{date}_HQ.mp3</code></td>
+              <td>Final podcast exports.</td>
+              <td><code>assemble_podcast()</code></td>
+            </tr>
+            <tr>
+              <td><code>output_video.mp4</code></td>
+              <td>Static-image video with HQ audio.</td>
+              <td><code>moviemaker.py</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
