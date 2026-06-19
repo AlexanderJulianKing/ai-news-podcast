@@ -94,6 +94,48 @@ def _results_from_content(content: str) -> list[dict[str, str]]:
     return fallback_rows
 
 
+def _openrouter_web_chat(prompt: str, *, model: str, max_results: int, search_prompt: str,
+                         title: str, reasoning: dict[str, Any] | None = None,
+                         timeout: tuple[int, int] = (10, 60)) -> tuple[dict[str, Any], dict[str, Any]]:
+    """POST one web-search-plugin chat completion to OpenRouter.
+
+    Returns ``(message, data)``: the assistant message dict and the full response
+    JSON (the latter carries usage/cost). Raises on transport or HTTP failure;
+    callers decide what to do with an empty or unparseable message.
+    """
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "plugins": [{
+            "id": "web",
+            "engine": _config.SEARCH_OPENROUTER_ENGINE,
+            "max_results": max_results,
+            "search_prompt": search_prompt,
+        }],
+        "usage": {"include": True},
+        "stream": False,
+    }
+    if reasoning is not None:
+        payload["reasoning"] = reasoning
+    headers = {
+        "Authorization": f"Bearer {_config.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "HTTP-Referer": "http://localhost",
+        "X-Title": title,
+    }
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        json=payload,
+        headers=headers,
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    data = response.json()
+    message = ((data.get("choices") or [{}])[0].get("message") or {})
+    return message, data
+
+
 def openrouter_web_search(query: str, num_results: int = 8, days_prior: int = 1) -> list[dict[str, str]]:
     """Discover URLs through OpenRouter's web-search tool."""
     prompt = (
@@ -103,38 +145,17 @@ def openrouter_web_search(query: str, num_results: int = 8, days_prior: int = 1)
         f"Return only a JSON array of up to {num_results} objects. Each object must have "
         '"headline", "url", and "snippet". Prefer primary or official sources when relevant.'
     )
-    payload = {
-        "model": _config.SEARCH_OPENROUTER_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "plugins": [{
-            "id": "web",
-            "engine": _config.SEARCH_OPENROUTER_ENGINE,
-            "max_results": num_results,
-            "search_prompt": (
-                "A web search was conducted for a newsroom source-discovery step. "
-                "Prefer official or primary sources and return useful URLs."
-            ),
-        }],
-        "reasoning": {"effort": "low"},
-        "usage": {"include": True},
-        "stream": False,
-    }
-    headers = {
-        "Authorization": f"Bearer {_config.OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "HTTP-Referer": "http://localhost",
-        "X-Title": "Newscaster Search Fallback",
-    }
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        json=payload,
-        headers=headers,
-        timeout=(10, 60),
+    message, _ = _openrouter_web_chat(
+        prompt,
+        model=_config.SEARCH_OPENROUTER_MODEL,
+        max_results=num_results,
+        search_prompt=(
+            "A web search was conducted for a newsroom source-discovery step. "
+            "Prefer official or primary sources and return useful URLs."
+        ),
+        title="Newscaster Search Fallback",
+        reasoning={"effort": "low"},
     )
-    response.raise_for_status()
-    data = response.json()
-    message = ((data.get("choices") or [{}])[0].get("message") or {})
     content = message.get("content") or ""
     annotations = message.get("annotations") or []
     results = _results_from_annotations(annotations) + _results_from_content(content)
@@ -169,37 +190,17 @@ def openrouter_web_brief(question: str, *, model: str | None = None,
     back to an UNVERIFIED marker.
     """
     model = model or _config.STANDARD_MODEL
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": question}],
-        "plugins": [{
-            "id": "web",
-            "engine": _config.SEARCH_OPENROUTER_ENGINE,
-            "max_results": max_results,
-            "search_prompt": (
-                "A web search was conducted for a newsroom background brief. "
-                "Prefer recent, reputable, and primary sources."
-            ),
-        }],
-        "usage": {"include": True},
-        "stream": False,
-    }
-    headers = {
-        "Authorization": f"Bearer {_config.OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "HTTP-Referer": "http://localhost",
-        "X-Title": "Newscaster Tier-2 Brief",
-    }
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        json=payload,
-        headers=headers,
+    message, data = _openrouter_web_chat(
+        question,
+        model=model,
+        max_results=max_results,
+        search_prompt=(
+            "A web search was conducted for a newsroom background brief. "
+            "Prefer recent, reputable, and primary sources."
+        ),
+        title="Newscaster Tier-2 Brief",
         timeout=(10, 90),
     )
-    response.raise_for_status()
-    data = response.json()
-    message = ((data.get("choices") or [{}])[0].get("message") or {})
     content = (message.get("content") or "").strip()
     if not content:
         raise RuntimeError("OpenRouter web brief returned an empty completion")
