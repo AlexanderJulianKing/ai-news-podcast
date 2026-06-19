@@ -104,6 +104,11 @@ def _source_summary(source: dict[str, Any]) -> dict[str, Any]:
         "char_count": source.get("char_count") or 0,
         "validation_score": validation.get("score"),
         "validation_reason": validation.get("reason", ""),
+        # Persist the fetched excerpt so downstream faithfulness checks (and forensics) can
+        # verify the synthesis against the actual source text the pipeline read, instead of
+        # re-fetching. Capped to bound research-sidecar / audit size. The RAG indexer ignores
+        # source_hunter_sources, so this is invisible to the embeddings store.
+        "excerpt": _clip(source.get("excerpt") or "", 4000),
     }
 
 
