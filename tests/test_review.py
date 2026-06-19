@@ -1,7 +1,9 @@
 import json
 from unittest.mock import patch
 
-from newscaster.review import extract_quotes, verify_quotes, build_source_corpus, faithfulness_flags
+from newscaster.review import (
+    extract_quotes, verify_quotes, build_source_corpus, faithfulness_flags, stable_fact_flags,
+)
 
 
 def test_extract_pulls_marked_quotes():
@@ -79,3 +81,20 @@ def test_faithfulness_flags_fails_open_on_error():
     # The gate must never block the pipeline, so an LLM error yields no flags, not an exception.
     with patch("newscaster.review.get_llm_response", side_effect=RuntimeError("llm down")):
         assert faithfulness_flags("a script", "some corpus text") == []
+
+
+def test_stable_fact_flags_parses_flags():
+    out = "FLAG: Google CEO Eric Schmidt — former Google CEO (Pichai leads Google)\nsome prose"
+    with patch("newscaster.review.get_llm_response", return_value=out):
+        flags = stable_fact_flags("...script naming Eric Schmidt as Google CEO...")
+    assert len(flags) == 1 and "Schmidt" in flags[0]
+
+
+def test_stable_fact_flags_none_when_clean():
+    with patch("newscaster.review.get_llm_response", return_value="NONE"):
+        assert stable_fact_flags("a clean script") == []
+
+
+def test_stable_fact_flags_fails_open_on_error():
+    with patch("newscaster.review.get_llm_response", side_effect=RuntimeError("llm down")):
+        assert stable_fact_flags("a script") == []

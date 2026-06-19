@@ -144,33 +144,71 @@ def faithfulness_flags(script_text: str, corpus_text: str, mode: str = "standard
     return [ln.strip() for ln in (out or "").splitlines() if ln.strip().upper().startswith("FLAG:")]
 
 
+_STABLE_FACT_SYSTEM = (
+    "You verify ONLY well-established background facts in a news script — the names, current job "
+    "titles, roles, and affiliations of well-known people and organizations that you know with high "
+    "confidence from longstanding knowledge (for example, who currently leads a major company). Do "
+    "NOT flag anything tied to current events: recent dates, votes, poll numbers, dollar amounts, "
+    "court rulings, or breaking news — you cannot verify those and they postdate your training. Flag "
+    "ONLY a clearly wrong stable fact, such as an outdated or incorrect current title for a well-known "
+    "person. Output one line per problem as 'FLAG: <script phrase> — <correction>'. If none, output 'NONE'."
+)
+
+
+def stable_fact_flags(script_text: str, mode: str = "standard") -> list[str]:
+    """World-knowledge pass: flag stable-fact errors (names/titles/roles/affiliations).
+
+    Catches the source-error class the source-grounded passes cannot — e.g. a source's
+    "Google CEO Eric Schmidt" when Pichai has led Google for years. Unlike the faithfulness pass
+    it deliberately USES the model's world knowledge, but scoped strictly to STABLE facts, never
+    current events: the news postdates any model's training cutoff, so judging *current* facts by
+    training knowledge rejects real news as fake. It carries some noise from the model's own
+    imperfect knowledge, so it is advisory only. Flag-only and fail-open.
+    """
+    script = (script_text or "").strip()
+    if not script:
+        return []
+    try:
+        out = get_llm_response(script, system_prompt=_STABLE_FACT_SYSTEM, mode=mode)
+    except Exception as exc:
+        print_and_write(f"STABLE-FACT pass error (non-blocking): {exc}")
+        return []
+    return [ln.strip() for ln in (out or "").splitlines() if ln.strip().upper().startswith("FLAG:")]
+
+
 def review_scripts(date2: str) -> list[tuple[str, str, str]]:
-    """Flag (don't block) ungrounded quotes and claims in the day's scripts before TTS.
+    """Flag (don't block) ungrounded quotes, unsupported claims, and stale facts before TTS.
 
     Runs over every script for the day — the overview AND the segments — because fabrications
-    appear in both (the overview anchor mangled a quote in the 2026-06-19 episode). Two passes:
-      1. mechanical: marked "quote, ..., endquote" spans must appear verbatim in the sources;
-      2. LLM faithfulness: claims/paraphrases the sources don't support (catches the anchor case).
-    Ground truth is the persisted source-hunter excerpts (build_source_corpus), not the LLM
-    summaries. Flag-only for now; later escalate to softening the line or blocking the run.
+    appear in both (the overview anchor mangled a quote in the 2026-06-19 episode). Three passes:
+      1. mechanical (source-grounded): marked "quote, ..., endquote" spans must appear verbatim;
+      2. LLM faithfulness (source-grounded): claims/paraphrases the sources don't support;
+      3. stable-fact (world knowledge): wrong stable names/titles/roles a source got wrong.
+    Ground truth for 1-2 is the persisted source-hunter excerpts (build_source_corpus), not the LLM
+    summaries. The stable-fact pass needs no corpus, so it runs even before persistence kicks in.
+    Flag-only for now; later escalate to softening the line or blocking the run.
 
     Wire into pipeline.main(), between write_scripts() and generate_audio().
     """
     corpus = build_source_corpus(date2)
-    if not corpus.strip():
-        print_and_write("QUOTE-CHECK: no persisted source excerpts for the day; skipping gate.")
-        return []
+    have_corpus = bool(corpus.strip())
+    if not have_corpus:
+        print_and_write("QUOTE-CHECK: no persisted source excerpts yet; running stable-fact pass only.")
     flags: list[tuple[str, str, str]] = []
     for script_path in sorted(glob.glob(f"output_scripts/{date2}_*.txt")):
         name = Path(script_path).name
         text = Path(script_path).read_text(encoding="utf-8")
-        for verdict in verify_quotes(text, corpus):
-            if not verdict.grounded:
-                flags.append((name, "quote", verdict.quote))
-                print_and_write(f'QUOTE-CHECK [{name}] ungrounded quote: "{verdict.quote}" — {verdict.reason}')
-        for flag in faithfulness_flags(text, corpus):
-            flags.append((name, "faithfulness", flag))
-            print_and_write(f"FAITHFULNESS [{name}] {flag}")
+        if have_corpus:
+            for verdict in verify_quotes(text, corpus):
+                if not verdict.grounded:
+                    flags.append((name, "quote", verdict.quote))
+                    print_and_write(f'QUOTE-CHECK [{name}] ungrounded quote: "{verdict.quote}" — {verdict.reason}')
+            for flag in faithfulness_flags(text, corpus):
+                flags.append((name, "faithfulness", flag))
+                print_and_write(f"FAITHFULNESS [{name}] {flag}")
+        for flag in stable_fact_flags(text):
+            flags.append((name, "stable-fact", flag))
+            print_and_write(f"STABLE-FACT [{name}] {flag}")
     if not flags:
-        print_and_write("QUOTE-CHECK: all checkable quotes and claims grounded in sources.")
+        print_and_write("QUOTE-CHECK: no quote / faithfulness / stable-fact issues found.")
     return flags
