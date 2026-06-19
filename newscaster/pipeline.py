@@ -26,7 +26,7 @@ from newscaster.script.segments import segments_writer
 from newscaster.rag.indexer import index_day, build_research_record
 from newscaster.rag.retrieve import retrieve_prior_research
 from newscaster.research_agent import run_adaptive_research
-from newscaster.source_hunter import answer_with_source_hunter
+from newscaster.source_hunter import answer_with_escalation
 # Audio modules are lazy-imported in generate_audio() to avoid pulling
 # google.cloud.texttospeech / pydub at module load time (those imports break
 # in some test environments and aren't needed for the gather/script stages).
@@ -94,30 +94,11 @@ def _answer_research_question(question, topic=None, formatted_date=None):
     if not _config.SOURCE_HUNTER_ENABLED:
         raise LLMError("source hunter is disabled for research question answering")
 
-    first = answer_with_source_hunter(
-        question,
-        topic=topic,
-        formatted_date=formatted_date,
-        mode='standard',
-    )
-    if first.status == "success":
-        return first.answer
-
-    print_and_write(
-        f"Source hunter standard returned {first.status}; trying advanced research reader"
-    )
-    second = answer_with_source_hunter(
-        question,
-        topic=topic,
-        formatted_date=formatted_date,
-        mode='advanced',
-    )
-    if second.status == "success":
-        return second.answer
-
+    result = answer_with_escalation(question, topic=topic, formatted_date=formatted_date)
+    if result.status == "success":
+        return result.answer
     raise LLMError(
-        f"source hunter could not answer research question "
-        f"(standard={first.status}, advanced={second.status})"
+        f"source hunter could not answer research question (status={result.status})"
     )
 
 
@@ -459,11 +440,9 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
     import newscaster.config as _config
     if _config.SOURCE_HUNTER_ENABLED:
         try:
-            seed_result = answer_with_source_hunter(
-                perplexity_prompt,
-                topic=topic,
-                formatted_date=formatted_date,
-                mode='standard',
+            seed_result = answer_with_escalation(
+                perplexity_prompt, topic=topic, formatted_date=formatted_date,
+                label="Source hunter seed",
             )
             if seed_result.status == "success":
                 summary_prompt = (
@@ -474,22 +453,8 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
             else:
                 print_and_write(
                     f"Source hunter seed returned {seed_result.status}; "
-                    "trying advanced seed context"
+                    "continuing without seed context"
                 )
-                advanced_seed = answer_with_source_hunter(
-                    perplexity_prompt,
-                    topic=topic,
-                    formatted_date=formatted_date,
-                    mode='advanced',
-                )
-                if advanced_seed.status == "success":
-                    summary_prompt = (
-                        summary_prompt
-                        + "\n\nControlled source-hunter advanced seed context:\n"
-                        + advanced_seed.answer
-                    )
-                else:
-                    print_and_write(f"Advanced source hunter seed returned {advanced_seed.status}; continuing without seed context")
         except Exception as e:
             print_and_write(f"Source hunter seed failed: {e}; continuing without seed context")
     else:

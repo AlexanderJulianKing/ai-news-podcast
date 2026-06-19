@@ -23,7 +23,7 @@ from newscaster.prompts import (
     TIER3_OVERVIEW_PICK_PROMPT,
 )
 from newscaster.llm import get_llm_response, call_with_default, LLMError
-from newscaster.source_hunter import answer_with_source_hunter
+from newscaster.source_hunter import answer_with_escalation
 from newscaster.search import openrouter_web_brief
 from newscaster.dedup import (
     load_recent_story_descriptions,
@@ -295,28 +295,14 @@ def _source_hunter_answer(prompt, topic, formatted_date):
     """
     if _config.SOURCE_HUNTER_ENABLED:
         try:
-            result = answer_with_source_hunter(
-                prompt,
-                topic=topic,
-                formatted_date=formatted_date,
-                mode='standard',
+            result = answer_with_escalation(
+                prompt, topic=topic, formatted_date=formatted_date,
+                label="  Source hunter brief",
             )
             if result.status == "success":
                 print_and_write(f'  Source hunter brief accepted {len(result.sources)} sources')
                 return result.answer
-            print_and_write(
-                f'  Source hunter brief returned {result.status}; trying advanced research reader'
-            )
-            advanced = answer_with_source_hunter(
-                prompt,
-                topic=topic,
-                formatted_date=formatted_date,
-                mode='advanced',
-            )
-            if advanced.status == "success":
-                print_and_write(f'  Advanced source hunter brief accepted {len(advanced.sources)} sources')
-                return advanced.answer
-            print_and_write(f'  Advanced source hunter brief returned {advanced.status}; marking unverified')
+            print_and_write(f'  Source hunter brief returned {result.status}; marking unverified')
         except Exception as e:
             print_and_write(f'  Source hunter brief failed for "{topic}": {e}; marking unverified')
     return None

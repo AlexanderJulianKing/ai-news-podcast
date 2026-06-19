@@ -327,3 +327,24 @@ def _audit_source_hunter(question: str, topic: str | None, formatted_date: str |
         "attempts": result.metadata.get("attempts", []),
         "metadata": result.metadata,
     })
+
+
+def answer_with_escalation(question: str, *, topic: str | None = None,
+                           formatted_date: str | None = None,
+                           label: str = "Source hunter") -> SourceHunterResult:
+    """Run the source hunter at ``standard``, escalating to ``advanced`` on non-success.
+
+    Returns whichever ``SourceHunterResult`` we stop at: the standard result when it
+    succeeds, otherwise the advanced result. Centralizes the standard->advanced escalation
+    policy (and its log line) shared by the pipeline, the research agent, and the topic
+    finder; callers read ``.answer`` / ``.status`` / ``.sources`` as they need.
+    """
+    result = answer_with_source_hunter(
+        question, topic=topic, formatted_date=formatted_date, mode="standard",
+    )
+    if result.status == "success":
+        return result
+    print_and_write(f"{label} standard returned {result.status}; trying advanced research reader")
+    return answer_with_source_hunter(
+        question, topic=topic, formatted_date=formatted_date, mode="advanced",
+    )

@@ -23,7 +23,7 @@ from newscaster.rag.retrieve import retrieve_prior_research
 from newscaster.search import search_web
 from newscaster.text_utils import extract_json
 from newscaster.scrapers.topic_finder import result_piper
-from newscaster.source_hunter import answer_with_source_hunter
+from newscaster.source_hunter import answer_with_escalation
 
 
 _ALLOWED_QUESTION_TYPES = {
@@ -354,35 +354,17 @@ def _grounded_search_node(state: ResearchState) -> ResearchState:
         source_hunter_status = ""
         source_hunter_sources: list[dict[str, Any]] = []
         if _config.SOURCE_HUNTER_ENABLED:
-            source_result = answer_with_source_hunter(
+            source_result = answer_with_escalation(
                 question,
                 topic=state.get("topic"),
                 formatted_date=state.get("formatted_date"),
-                mode="standard",
+                label="Research agent source hunter",
             )
             source_hunter_status = source_result.status
             source_hunter_sources = source_result.sources
-            if source_result.status == "success":
-                answer = source_result.answer
-            else:
-                print_and_write(
-                    f"Research agent source hunter returned {source_result.status}; "
-                    "trying advanced research reader"
-                )
-                advanced_result = answer_with_source_hunter(
-                    question,
-                    topic=state.get("topic"),
-                    formatted_date=state.get("formatted_date"),
-                    mode="advanced",
-                )
-                source_hunter_status = advanced_result.status
-                source_hunter_sources = advanced_result.sources
-                if advanced_result.status != "success":
-                    raise RuntimeError(
-                        f"source hunter failed: standard={source_result.status}, "
-                        f"advanced={advanced_result.status}"
-                    )
-                answer = advanced_result.answer
+            if source_result.status != "success":
+                raise RuntimeError(f"source hunter failed: status={source_result.status}")
+            answer = source_result.answer
         else:
             raise RuntimeError("source hunter disabled for research agent grounded_search")
         followups = list(state.get("followups", []))

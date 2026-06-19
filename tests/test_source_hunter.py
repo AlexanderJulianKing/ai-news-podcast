@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 import newscaster.config as cfg
-from newscaster.source_hunter import SourceHunterResult, answer_with_source_hunter
+from newscaster.source_hunter import SourceHunterResult, answer_with_source_hunter, answer_with_escalation
 from newscaster.scrapers import topic_finder
 
 
@@ -63,7 +63,7 @@ def test_tier2_brief_uses_web_search_not_source_hunter():
     # (Gemma 4 + OpenRouter web search), not the heavier fetch-validate source hunter.
     with patch("newscaster.scrapers.topic_finder.openrouter_web_brief",
                return_value="web brief") as mock_brief, \
-         patch("newscaster.scrapers.topic_finder.answer_with_source_hunter") as mock_hunter:
+         patch("newscaster.scrapers.topic_finder.answer_with_escalation") as mock_hunter:
         brief = topic_finder._research_headline_brief("headline", "June 18, 2026")
 
     assert brief == "web brief"
@@ -87,7 +87,7 @@ def test_summarize_headline_does_not_rerun_apparatus_when_unverifiable(monkeypat
     rerunning the entire apparatus on the near-identical retry prompt.
     """
     monkeypatch.setattr(cfg, "SOURCE_HUNTER_ENABLED", True)
-    with patch("newscaster.scrapers.topic_finder.answer_with_source_hunter", return_value=SourceHunterResult(
+    with patch("newscaster.source_hunter.answer_with_source_hunter", return_value=SourceHunterResult(
         answer="No evidence",
         status="no_evidence",
     )) as mock_hunter, \
@@ -109,7 +109,7 @@ def test_summarize_headline_retries_when_answer_denies_story(monkeypatch):
     actually returned evidence.
     """
     monkeypatch.setattr(cfg, "SOURCE_HUNTER_ENABLED", True)
-    with patch("newscaster.scrapers.topic_finder.answer_with_source_hunter", side_effect=[
+    with patch("newscaster.source_hunter.answer_with_source_hunter", side_effect=[
         SourceHunterResult(
             answer="There is no indication that this happened.",
             sources=[{"url": "https://example.com/a"}],
@@ -169,3 +169,26 @@ def test_query_variants_leads_with_topic_for_long_research_prompt():
     long_prompt = "Research this headline thoroughly and report the facts. " + " ".join(["instruction"] * 50)
     variants = _query_variants(long_prompt, "Riverside city council water rate vote", "June 18, 2026")
     assert variants[0] == "Riverside city council water rate vote"
+
+
+def test_answer_with_escalation_escalates_to_advanced_on_non_success():
+    with patch("newscaster.source_hunter.answer_with_source_hunter", side_effect=[
+        SourceHunterResult(answer="No evidence", status="no_evidence"),
+        SourceHunterResult(answer="advanced answer", sources=[{"url": "https://example.com"}], status="success"),
+    ]) as mock_hunter:
+        result = answer_with_escalation("q", topic="t", formatted_date="June 18, 2026")
+
+    assert result.status == "success"
+    assert result.answer == "advanced answer"
+    assert mock_hunter.call_count == 2
+    assert [c.kwargs["mode"] for c in mock_hunter.call_args_list] == ["standard", "advanced"]
+
+
+def test_answer_with_escalation_stops_at_standard_on_success():
+    with patch("newscaster.source_hunter.answer_with_source_hunter", side_effect=[
+        SourceHunterResult(answer="standard answer", status="success"),
+    ]) as mock_hunter:
+        result = answer_with_escalation("q", topic="t")
+
+    assert result.answer == "standard answer"
+    assert mock_hunter.call_count == 1

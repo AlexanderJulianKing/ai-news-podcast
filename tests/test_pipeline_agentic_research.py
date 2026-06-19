@@ -56,7 +56,7 @@ def test_gather_one_topic_uses_adaptive_research(monkeypatch):
              {"headline": "Dam", "url": "https://npr.org/dam", "snippet": "s"}
          ]), \
          patch("newscaster.pipeline.result_piper", side_effect=_fake_result_piper), \
-         patch("newscaster.pipeline.answer_with_source_hunter", return_value=SourceHunterResult(
+         patch("newscaster.source_hunter.answer_with_source_hunter", return_value=SourceHunterResult(
              answer="controlled seed context",
              sources=[{"url": "https://npr.org/dam"}],
              status="success",
@@ -93,7 +93,7 @@ def test_gather_one_topic_falls_back_to_fixed_rounds(monkeypatch):
              {"headline": "Dam", "url": "https://npr.org/dam", "snippet": "s"}
          ]), \
          patch("newscaster.pipeline.result_piper", side_effect=_fake_result_piper), \
-         patch("newscaster.pipeline.answer_with_source_hunter", return_value=SourceHunterResult(
+         patch("newscaster.source_hunter.answer_with_source_hunter", return_value=SourceHunterResult(
              answer="controlled seed context",
              sources=[{"url": "https://npr.org/dam"}],
              status="success",
@@ -128,7 +128,7 @@ def test_gather_one_topic_skips_agent_when_source_hunter_disabled(monkeypatch):
              {"headline": "Dam", "url": "https://npr.org/dam", "snippet": "s"}
          ]), \
          patch("newscaster.pipeline.result_piper", side_effect=_fake_result_piper), \
-         patch("newscaster.pipeline.answer_with_source_hunter", return_value=SourceHunterResult(
+         patch("newscaster.source_hunter.answer_with_source_hunter", return_value=SourceHunterResult(
              answer="No evidence", status="no_evidence",
          )), \
          patch("newscaster.pipeline.run_adaptive_research") as mock_adaptive, \

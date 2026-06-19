@@ -91,7 +91,7 @@ def test_adaptive_loop_min_iterations_forces_one_grounded_search(monkeypatch):
     monkeypatch.setattr(cfg, "AGENTIC_RESEARCH_MAX_ITERATIONS", 5)
     monkeypatch.setattr(cfg, "SOURCE_HUNTER_ENABLED", True)
     with patch("newscaster.research_agent.build_research_memory_note", return_value=""), \
-         patch("newscaster.research_agent.answer_with_source_hunter", return_value=SourceHunterResult(
+         patch("newscaster.source_hunter.answer_with_source_hunter", return_value=SourceHunterResult(
              answer="controlled answer",
              sources=[{"url": "https://example.com"}],
              status="success",
@@ -140,7 +140,7 @@ def test_adversary_runs_after_controller_says_done_then_returns_to_controller(mo
         return '{"status":"done","reason":"enough","confidence":"high"}'
 
     with patch("newscaster.research_agent.build_research_memory_note", return_value=""), \
-         patch("newscaster.research_agent.answer_with_source_hunter", return_value=SourceHunterResult(
+         patch("newscaster.source_hunter.answer_with_source_hunter", return_value=SourceHunterResult(
              answer="adversarial answer",
              sources=[{"url": "https://example.com/adversary"}],
              status="success",
@@ -166,7 +166,7 @@ def test_adaptive_loop_hard_stops_at_max_iterations(monkeypatch):
     monkeypatch.setattr(cfg, "AGENTIC_RESEARCH_MAX_ITERATIONS", 5)
     monkeypatch.setattr(cfg, "SOURCE_HUNTER_ENABLED", True)
     with patch("newscaster.research_agent.build_research_memory_note", return_value=""), \
-         patch("newscaster.research_agent.answer_with_source_hunter", return_value=SourceHunterResult(
+         patch("newscaster.source_hunter.answer_with_source_hunter", return_value=SourceHunterResult(
              answer="answer",
              sources=[{"url": "https://example.com"}],
              status="success",
@@ -246,7 +246,7 @@ def test_adaptive_repeated_tool_failures_stop(monkeypatch):
         })
 
     with patch("newscaster.research_agent.build_research_memory_note", return_value=""), \
-         patch("newscaster.research_agent.answer_with_source_hunter", side_effect=RuntimeError("source hunter down")), \
+         patch("newscaster.source_hunter.answer_with_source_hunter", side_effect=RuntimeError("source hunter down")), \
          patch("newscaster.research_agent.get_llm_response", side_effect=fake_llm):
         result = agent.run_adaptive_research(
             "dam", 0, "March 9, 2026", "2026_03_09", "seed", 1,
