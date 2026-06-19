@@ -188,10 +188,13 @@ def build_research_memory_note(topic: str, formatted_date: str, formatted_date2:
         f"RETRIEVED PRIOR COVERAGE:\n{_format_prior_hits(hits)}"
     )
     try:
+        # Distilling retrieved prior coverage into a structured note is a summarization
+        # task, not deep reasoning, so it runs on the cheap standard model (Gemma) rather
+        # than the heavy controller model (Opus).
         return get_llm_response(
             user_prompt,
             system_prompt=RESEARCH_MEMORY_PROMPT,
-            mode="heavy",
+            mode="standard",
         ).strip()
     except Exception as e:
         print_and_write(f"Research agent memory note failed: {e}; continuing without memory")

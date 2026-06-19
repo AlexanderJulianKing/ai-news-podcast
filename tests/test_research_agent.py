@@ -76,7 +76,7 @@ def test_memory_hits_build_note(monkeypatch):
     assert note == "memory note"
     assert "dam" in mock_ret.call_args[0][0]
     assert "prior dam context" in mock_llm.call_args[0][0]
-    assert mock_llm.call_args.kwargs["mode"] == "heavy"
+    assert mock_llm.call_args.kwargs["mode"] == "standard"
 
 
 def test_memory_retrieval_failure_is_nonfatal(monkeypatch):
