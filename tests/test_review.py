@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from newscaster.review import (
     extract_quotes, verify_quotes, build_source_corpus, faithfulness_flags, stable_fact_flags,
+    verified_stable_fact_flags,
 )
 
 
@@ -98,3 +99,22 @@ def test_stable_fact_flags_none_when_clean():
 def test_stable_fact_flags_fails_open_on_error():
     with patch("newscaster.review.get_llm_response", side_effect=RuntimeError("llm down")):
         assert stable_fact_flags("a script") == []
+
+
+def test_verified_stable_fact_keeps_only_search_confirmed_errors():
+    # Memory proposes two suspects; the search confirms Schmidt is wrong but clears Doerr.
+    memory = "FLAG: Google CEO Eric Schmidt — former CEO\nFLAG: Kleiner Perkins chairman John Doerr — partner"
+    def fake_brief(q):
+        return "WRONG: Sundar Pichai is the current CEO of Google." if "Schmidt" in q else "CORRECT"
+    with patch("newscaster.review.get_llm_response", return_value=memory), \
+         patch("newscaster.review.openrouter_web_brief", side_effect=fake_brief):
+        flags = verified_stable_fact_flags("a script naming Eric Schmidt and John Doerr")
+    assert len(flags) == 1
+    assert "Eric Schmidt" in flags[0] and "Pichai" in flags[0]
+
+
+def test_verified_stable_fact_does_not_flag_when_search_unavailable():
+    # If the verifying search can't run, don't flag — never accuse without confirmation.
+    with patch("newscaster.review.get_llm_response", return_value="FLAG: Google CEO Eric Schmidt — former CEO"), \
+         patch("newscaster.review.openrouter_web_brief", side_effect=RuntimeError("search down")):
+        assert verified_stable_fact_flags("a script") == []

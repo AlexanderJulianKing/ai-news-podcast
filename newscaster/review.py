@@ -29,6 +29,7 @@ from pathlib import Path
 
 from newscaster.llm import get_llm_response
 from newscaster.logging import print_and_write
+from newscaster.search import openrouter_web_brief
 
 # prompts.py instructs the script writer: "Person A said, quote, yadda yadda, endquote".
 _QUOTE_RE = re.compile(r"\bquote\b[\s,:]*(.+?)[\s,:]*\bendquote\b", re.IGNORECASE | re.DOTALL)
@@ -176,6 +177,43 @@ def stable_fact_flags(script_text: str, mode: str = "standard") -> list[str]:
     return [ln.strip() for ln in (out or "").splitlines() if ln.strip().upper().startswith("FLAG:")]
 
 
+def _search_confirms_error(claim: str) -> str | None:
+    """Web-grounded verification of a suspected stable-fact error. Returns the corrected fact when
+    live sources confirm the claim is wrong, else None (correct, or unverifiable — don't flag)."""
+    question = (
+        f'A news script states: "{claim}". Using current, authoritative web sources, is that claim '
+        "factually correct as of now? Reply 'WRONG: <the correct current fact>' if it is incorrect, "
+        "or 'CORRECT' if it is accurate."
+    )
+    try:
+        answer = (openrouter_web_brief(question) or "").strip()
+    except Exception as exc:
+        print_and_write(f"STABLE-FACT search-verify error (non-blocking): {exc}")
+        return None
+    return answer if answer.upper().startswith("WRONG") else None
+
+
+def verified_stable_fact_flags(script_text: str) -> list[str]:
+    """Stable-fact pass with search verification.
+
+    The model proposes suspect title/role errors from memory (stable_fact_flags), then each is
+    confirmed against the live web before it's flagged. This turns advisory memory-guesses into
+    verified flags and filters the model's own mistakes — in testing it cleared Doerr's real
+    "chairman" title and Bernie Sanders while confirming the Schmidt error. Bounded: only the
+    suspects are searched (~1/episode), so it doesn't reintroduce broad search cost. Because the
+    flags are now web-confirmed, this pass is a candidate to graduate from flag-only to blocking.
+    """
+    confirmed = []
+    for suspect in stable_fact_flags(script_text):          # memory: "FLAG: <phrase> — <guess>"
+        claim = suspect.split("—")[0].split(":", 1)[-1].strip()
+        if not claim:
+            continue
+        correction = _search_confirms_error(claim)
+        if correction:
+            confirmed.append(f"FLAG: {claim} — {correction}")
+    return confirmed
+
+
 def review_scripts(date2: str) -> list[tuple[str, str, str]]:
     """Flag (don't block) ungrounded quotes, unsupported claims, and stale facts before TTS.
 
@@ -206,7 +244,7 @@ def review_scripts(date2: str) -> list[tuple[str, str, str]]:
             for flag in faithfulness_flags(text, corpus):
                 flags.append((name, "faithfulness", flag))
                 print_and_write(f"FAITHFULNESS [{name}] {flag}")
-        for flag in stable_fact_flags(text):
+        for flag in verified_stable_fact_flags(text):
             flags.append((name, "stable-fact", flag))
             print_and_write(f"STABLE-FACT [{name}] {flag}")
     if not flags:
