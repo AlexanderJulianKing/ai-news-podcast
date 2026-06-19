@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import newscaster.config as cfg
-from newscaster.search import openrouter_web_search, search_web
+from newscaster.search import openrouter_web_brief, openrouter_web_search, search_web
 
 
 def test_search_web_uses_google_primary(monkeypatch):
@@ -124,6 +124,40 @@ def test_openrouter_web_search_extracts_urls_from_prose(monkeypatch):
     urls = {r["url"] for r in results}
     assert "https://www.federalreserve.gov/news.htm" in urls
     assert "https://apnews.com/article/xyz" in urls
+
+
+def test_openrouter_web_brief_returns_synthesized_content(monkeypatch):
+    monkeypatch.setattr(cfg, "OPENROUTER_API_KEY", "key")
+    monkeypatch.setattr(cfg, "STANDARD_MODEL", "google/gemma-4-31b-it")
+    monkeypatch.setattr(cfg, "SEARCH_AUDIT_LOG_ENABLED", False)
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "choices": [{"message": {
+            "content": "The Fed held rates at 3.5%-3.75%. Sources: NPR.",
+            "annotations": [],
+        }}],
+        "usage": {"cost": 0.0053},
+    }
+    with patch("newscaster.search.requests.post", return_value=response) as mock_post:
+        brief = openrouter_web_brief("Summarize the Fed decision")
+
+    assert brief.startswith("The Fed held rates")
+    payload = mock_post.call_args.kwargs["json"]
+    assert payload["model"] == "google/gemma-4-31b-it"          # cheap model, not the search fallback model
+    assert payload["plugins"][0]["id"] == "web"
+    assert payload["plugins"][0]["engine"] == cfg.SEARCH_OPENROUTER_ENGINE
+
+
+def test_openrouter_web_brief_raises_on_empty(monkeypatch):
+    monkeypatch.setattr(cfg, "OPENROUTER_API_KEY", "key")
+    monkeypatch.setattr(cfg, "SEARCH_AUDIT_LOG_ENABLED", False)
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"choices": [{"message": {"content": "  "}}]}
+    with patch("newscaster.search.requests.post", return_value=response):
+        with pytest.raises(RuntimeError, match="empty completion"):
+            openrouter_web_brief("question")
 
 
 def test_google_official_search_honors_days_prior(monkeypatch):

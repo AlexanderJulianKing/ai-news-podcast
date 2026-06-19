@@ -24,6 +24,7 @@ from newscaster.prompts import (
 )
 from newscaster.llm import get_llm_response, call_with_default, LLMError
 from newscaster.source_hunter import answer_with_source_hunter
+from newscaster.search import openrouter_web_brief
 from newscaster.dedup import (
     load_recent_story_descriptions,
     summarize_story_for_archive,
@@ -259,8 +260,27 @@ def _format_research_briefs(briefs):
 
 
 def _research_headline_brief(headline, formatted_date):
+    """Tier-2 selection brief: one cheap web-grounded LLM call (Gemma 4 + OpenRouter web search).
+
+    This stage only *ranks* headlines by importance, so it does not need the source
+    hunter's fetch-validate-synthesize rigor — the handful of stories that get chosen are
+    fully re-researched in the gather stage. A single grounded call gives Tier-3 a sourced
+    memo for the cost of one search, and (unlike the source hunter, which could lock onto a
+    wrong-but-on-topic page and return no evidence) it reliably surfaces the gist of a real
+    story. Falls back to an UNVERIFIED marker only if the web call fails or comes back empty.
+    """
     research_prompt = TIER2_RESEARCH_PROMPT.format(date=formatted_date, headline=headline)
-    return _research_with_source_hunter(research_prompt, topic=headline, formatted_date=formatted_date)
+    try:
+        brief = openrouter_web_brief(research_prompt)
+    except Exception as e:
+        print_and_write(f'  Tier-2 web brief failed for "{headline}": {e}; marking unverified')
+        brief = ""
+    if brief:
+        return brief
+    return (
+        "UNVERIFIED: Web research did not return a usable brief. "
+        f"Editor should manually verify this topic: {headline}"
+    )
 
 
 def _source_hunter_answer(prompt, topic, formatted_date):
@@ -300,16 +320,6 @@ def _source_hunter_answer(prompt, topic, formatted_date):
         except Exception as e:
             print_and_write(f'  Source hunter brief failed for "{topic}": {e}; marking unverified')
     return None
-
-
-def _research_with_source_hunter(prompt, topic, formatted_date):
-    answer = _source_hunter_answer(prompt, topic, formatted_date)
-    if answer is not None:
-        return answer
-    return (
-        "UNVERIFIED: Source-hunter research did not return accepted current evidence. "
-        f"Editor should manually verify this topic: {topic}"
-    )
 
 
 def topic_finder(formatted_date):

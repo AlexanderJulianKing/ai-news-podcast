@@ -157,6 +157,67 @@ def openrouter_web_search(query: str, num_results: int = 8, days_prior: int = 1)
     return deduped
 
 
+def openrouter_web_brief(question: str, *, model: str | None = None,
+                         max_results: int = 5) -> str:
+    """Answer a research question with a single web-grounded LLM call.
+
+    Uses OpenRouter's web-search plugin to ground a cheap model (Gemma 4 by
+    default) and returns the synthesized brief text. This is the selection-stage
+    counterpart to the source hunter: one cheap call for the gist of a story so
+    the editor can judge its importance, not a fully validated multi-source hunt.
+    Raises on transport/HTTP failure or an empty completion so callers can fall
+    back to an UNVERIFIED marker.
+    """
+    model = model or _config.STANDARD_MODEL
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": question}],
+        "plugins": [{
+            "id": "web",
+            "engine": _config.SEARCH_OPENROUTER_ENGINE,
+            "max_results": max_results,
+            "search_prompt": (
+                "A web search was conducted for a newsroom background brief. "
+                "Prefer recent, reputable, and primary sources."
+            ),
+        }],
+        "usage": {"include": True},
+        "stream": False,
+    }
+    headers = {
+        "Authorization": f"Bearer {_config.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "HTTP-Referer": "http://localhost",
+        "X-Title": "Newscaster Tier-2 Brief",
+    }
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        json=payload,
+        headers=headers,
+        timeout=(10, 90),
+    )
+    response.raise_for_status()
+    data = response.json()
+    message = ((data.get("choices") or [{}])[0].get("message") or {})
+    content = (message.get("content") or "").strip()
+    if not content:
+        raise RuntimeError("OpenRouter web brief returned an empty completion")
+    if getattr(_config, "SEARCH_AUDIT_LOG_ENABLED", False):
+        write_jsonl_log("search_audit", {
+            "event": "openrouter_web_brief",
+            "provider": "openrouter_web",
+            "question": question,
+            "model": model,
+            "engine": _config.SEARCH_OPENROUTER_ENGINE,
+            "max_results": max_results,
+            "brief": content,
+            "annotations": message.get("annotations") or [],
+            "cost": (data.get("usage") or {}).get("cost"),
+        })
+    return content
+
+
 def search_web(query: str, num_results: int = 8, days_prior: int = 1,
                provider: str | None = None) -> list[dict[str, str]]:
     """Search the web with provider fallback and normalized result shape."""

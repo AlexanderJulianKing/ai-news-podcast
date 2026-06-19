@@ -58,48 +58,25 @@ def test_source_hunter_no_evidence_does_not_synthesize(monkeypatch):
     mock_llm.assert_not_called()
 
 
-def test_tier2_brief_uses_source_hunter(monkeypatch):
-    monkeypatch.setattr(cfg, "SOURCE_HUNTER_ENABLED", True)
-    with patch("newscaster.scrapers.topic_finder.answer_with_source_hunter", return_value=SourceHunterResult(
-        answer="source hunter brief",
-        sources=[{"url": "https://example.com/story"}],
-        status="success",
-    )) as mock_hunter, \
-         patch("newscaster.scrapers.topic_finder.get_llm_response") as mock_llm:
+def test_tier2_brief_uses_web_search_not_source_hunter():
+    # Tier-2 only ranks headlines by importance, so it uses one cheap web-grounded call
+    # (Gemma 4 + OpenRouter web search), not the heavier fetch-validate source hunter.
+    with patch("newscaster.scrapers.topic_finder.openrouter_web_brief",
+               return_value="web brief") as mock_brief, \
+         patch("newscaster.scrapers.topic_finder.answer_with_source_hunter") as mock_hunter:
         brief = topic_finder._research_headline_brief("headline", "June 18, 2026")
 
-    assert brief == "source hunter brief"
-    mock_hunter.assert_called_once()
-    mock_llm.assert_not_called()
+    assert brief == "web brief"
+    mock_brief.assert_called_once()
+    mock_hunter.assert_not_called()
 
 
-def test_tier2_brief_uses_advanced_when_standard_has_no_evidence(monkeypatch):
-    monkeypatch.setattr(cfg, "SOURCE_HUNTER_ENABLED", True)
-    with patch("newscaster.scrapers.topic_finder.answer_with_source_hunter", side_effect=[
-        SourceHunterResult(answer="No evidence", status="no_evidence"),
-        SourceHunterResult(answer="advanced brief", sources=[{"url": "https://example.com"}], status="success"),
-    ]) as mock_hunter, \
-         patch("newscaster.scrapers.topic_finder.get_llm_response") as mock_llm:
-        brief = topic_finder._research_headline_brief("headline", "June 18, 2026")
-
-    assert brief == "advanced brief"
-    assert mock_hunter.call_count == 2
-    assert mock_hunter.call_args_list[0].kwargs["mode"] == "standard"
-    assert mock_hunter.call_args_list[1].kwargs["mode"] == "advanced"
-    mock_llm.assert_not_called()
-
-
-def test_tier2_brief_marks_unverified_when_source_hunter_fails(monkeypatch):
-    monkeypatch.setattr(cfg, "SOURCE_HUNTER_ENABLED", True)
-    with patch("newscaster.scrapers.topic_finder.answer_with_source_hunter", return_value=SourceHunterResult(
-        answer="No evidence",
-        status="no_evidence",
-    )), \
-         patch("newscaster.scrapers.topic_finder.get_llm_response") as mock_llm:
+def test_tier2_brief_marks_unverified_when_web_brief_fails():
+    with patch("newscaster.scrapers.topic_finder.openrouter_web_brief",
+               side_effect=RuntimeError("web down")):
         brief = topic_finder._research_headline_brief("headline", "June 18, 2026")
 
     assert brief.startswith("UNVERIFIED:")
-    mock_llm.assert_not_called()
 
 
 def test_summarize_headline_does_not_rerun_apparatus_when_unverifiable(monkeypatch):
