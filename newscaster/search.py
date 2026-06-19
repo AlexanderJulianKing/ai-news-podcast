@@ -15,6 +15,7 @@ import requests
 import newscaster.config as _config
 from newscaster.logging import print_and_write, write_jsonl_log
 from newscaster.scrapers.google_search import google_official_search
+from newscaster.text_utils import extract_json
 
 
 def _normalize_result(headline: str, url: str, snippet: str = "") -> dict[str, str]:
@@ -44,18 +45,9 @@ def _dedupe_results(results: list[dict[str, str]], limit: int) -> list[dict[str,
 
 
 def _extract_json_array(text: str) -> list[dict[str, Any]]:
-    raw = (text or "").strip()
-    if raw.startswith("```"):
-        raw = raw.strip("`").strip()
-        if raw.lower().startswith("json"):
-            raw = raw[4:].strip()
-    start = raw.find("[")
-    end = raw.rfind("]")
-    if start == -1 or end == -1 or end < start:
-        return []
     try:
-        parsed = json.loads(raw[start:end + 1])
-    except json.JSONDecodeError:
+        parsed = extract_json(text, want=list)
+    except (ValueError, json.JSONDecodeError):
         return []
     return parsed if isinstance(parsed, list) else []
 

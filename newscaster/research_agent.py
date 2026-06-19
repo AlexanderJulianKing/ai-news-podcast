@@ -21,6 +21,7 @@ from newscaster.prompts import (
 )
 from newscaster.rag.retrieve import retrieve_prior_research
 from newscaster.search import search_web
+from newscaster.text_utils import extract_json
 from newscaster.scrapers.topic_finder import result_piper
 from newscaster.source_hunter import answer_with_source_hunter
 
@@ -93,16 +94,7 @@ def _format_prior_hits(hits) -> str:
 
 
 def _extract_json_object(text: str) -> dict[str, Any]:
-    raw = (text or "").strip()
-    if raw.startswith("```"):
-        raw = raw.strip("`").strip()
-        if raw.lower().startswith("json"):
-            raw = raw[4:].strip()
-    start = raw.find("{")
-    end = raw.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        raise ValueError("controller response did not contain a JSON object")
-    return json.loads(raw[start:end + 1])
+    return extract_json(text, want=dict)
 
 
 def _normalize_decision(decision: dict[str, Any]) -> dict[str, Any]:

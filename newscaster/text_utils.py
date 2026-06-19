@@ -1,3 +1,4 @@
+import json
 import re
 
 
@@ -61,3 +62,26 @@ def _grounded_response_needs_retry(response_text: str) -> bool:
         return True
     lowered = text.lower()
     return any(phrase in lowered for phrase in GROUNDING_FALSE_NEGATIVE_PHRASES)
+
+
+def extract_json(text: str, want: type = dict):
+    """Extract a JSON value from possibly-fenced LLM output.
+
+    Strips a leading ``` / ```json fence, then parses the substring spanning the
+    first opening to the last closing bracket of the wanted kind (``list`` -> [],
+    anything else -> {}). Raises ``ValueError`` when no such bracket span exists;
+    ``json.JSONDecodeError`` propagates when the span is not valid JSON. Callers
+    decide how to handle failure (return [] / None) and check the parsed type.
+    """
+    opener, closer = ("[", "]") if want is list else ("{", "}")
+    raw = (text or "").strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`").strip()
+        if raw.lower().startswith("json"):
+            raw = raw[4:].strip()
+    start = raw.find(opener)
+    end = raw.rfind(closer)
+    if start == -1 or end == -1 or end < start:
+        kind = "array" if want is list else "object"
+        raise ValueError(f"text did not contain a JSON {kind}")
+    return json.loads(raw[start:end + 1])
