@@ -120,26 +120,24 @@ def _rejected_summary(source: dict[str, Any]) -> dict[str, Any]:
 def _synthesize_answer(question: str, sources: list[dict[str, Any]], formatted_date: str | None,
                        mode: str) -> str:
     system_prompt = (
-        "You are a careful newsroom research assistant. Answer only from the controlled "
-        "source excerpts supplied by the pipeline. Prefer exact names, dates, amounts, "
-        "vote counts, agencies, and official language. If the excerpts support some but not "
-        "all requested facts, answer what they support and note which facts are unsupported. "
-        "If the excerpts do not support any of the requested facts, reply with exactly: NO_ANSWER"
+        "You are a careful newsroom research assistant. Report only what the controlled "
+        "source excerpts establish — never invent, infer, or fill gaps from outside "
+        "knowledge. Prefer exact names, dates, amounts, vote counts, agencies, and official "
+        "language.\n\n"
+        "Respond in two labeled sections:\n"
+        "FINDINGS: the facts from the excerpts that bear on the question. If the excerpts "
+        "establish nothing relevant, write 'None'.\n"
+        "GAPS: the parts of the question the excerpts do NOT answer, phrased precisely "
+        "enough that a follow-up search could target them. If the excerpts fully answer "
+        "the question, write 'None'.\n"
+        "Then a short Sources section listing the URLs you relied on."
     )
     prompt = (
         f"Date context: {formatted_date or 'unknown'}\n"
         f"Question: {question}\n\n"
-        f"Controlled source evidence:\n{_format_sources(sources)}\n\n"
-        "Write a concise but detailed newsroom brief. Include a short Sources section "
-        "with the URLs you relied on."
+        f"Controlled source evidence:\n{_format_sources(sources)}"
     )
     return get_llm_response(prompt, system_prompt=system_prompt, mode=mode, grounding=False)
-
-
-def _is_non_answer(answer: str) -> bool:
-    """True when synthesis could not answer from the excerpts (the NO_ANSWER sentinel)."""
-    up = (answer or "").strip().upper()
-    return up.startswith("NO_ANSWER") or up.startswith("NO ANSWER")
 
 
 def _generate_evidence_contract(question: str, formatted_date: str | None) -> dict[str, Any]:
@@ -287,19 +285,9 @@ def answer_with_source_hunter(question: str, *, topic: str | None = None,
         _audit_source_hunter(question, topic, formatted_date, result)
         return result
 
-    if _is_non_answer(answer):
-        # Sources validated, but synthesis could not actually answer the question. Returning
-        # "success" here would feed a non-answer downstream as if it were usable research.
-        result = SourceHunterResult(
-            answer="Accepted sources did not actually answer the question.",
-            sources=[_source_summary(source) for source in validated_sources],
-            rejected_sources=[_rejected_summary(source) for source in rejected_sources],
-            status="no_evidence",
-            metadata={"attempts": attempts, "synthesis_non_answer": True},
-        )
-        _audit_source_hunter(question, topic, formatted_date, result)
-        return result
-
+    # Validated sources but a partial synthesis (FINDINGS with open GAPS) is still usable
+    # research: callers — especially the research agent's Opus controller — get the grounded
+    # facts plus an explicit gap to target next, rather than having everything discarded.
     result = SourceHunterResult(
         answer=answer,
         sources=[_source_summary(source) for source in validated_sources],

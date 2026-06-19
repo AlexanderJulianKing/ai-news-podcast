@@ -353,20 +353,20 @@ def _grounded_search_node(state: ResearchState) -> ResearchState:
     try:
         source_hunter_status = ""
         source_hunter_sources: list[dict[str, Any]] = []
-        if _config.SOURCE_HUNTER_ENABLED:
-            source_result = answer_with_escalation(
-                question,
-                topic=state.get("topic"),
-                formatted_date=state.get("formatted_date"),
-                label="Research agent source hunter",
-            )
-            source_hunter_status = source_result.status
-            source_hunter_sources = source_result.sources
-            if source_result.status != "success":
-                raise RuntimeError(f"source hunter failed: status={source_result.status}")
-            answer = source_result.answer
-        else:
+        if not _config.SOURCE_HUNTER_ENABLED:
             raise RuntimeError("source hunter disabled for research agent grounded_search")
+        source_result = answer_with_escalation(
+            question,
+            topic=state.get("topic"),
+            formatted_date=state.get("formatted_date"),
+            label="Research agent source hunter",
+        )
+        source_hunter_status = source_result.status
+        source_hunter_sources = source_result.sources
+        # A partial or no-evidence result is still useful, not a failure: the controller
+        # (Opus) sees the findings + gaps in the next turn and decides whether to target the
+        # gap or move on. Only a thrown exception (caught below) ends the loop as a failure.
+        answer = source_result.answer
         followups = list(state.get("followups", []))
         question_type = decision.get("question_type", "source_check")
         action_label = "source_hunter"

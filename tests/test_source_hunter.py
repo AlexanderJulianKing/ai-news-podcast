@@ -127,28 +127,30 @@ def test_summarize_headline_retries_when_answer_denies_story(monkeypatch):
     assert mock_hunter.call_count == 2
 
 
-def test_source_hunter_downgrades_non_answer_to_no_evidence(monkeypatch):
-    """A validated source whose synthesis can't actually answer must not return 'success'."""
+def test_source_hunter_returns_partial_findings_as_success(monkeypatch):
+    """A validated source that only partially answers now returns its FINDINGS + GAPS as
+    success, so the caller (the research agent's Opus) can target the gap, not discard it."""
     monkeypatch.setattr(cfg, "SOURCE_HUNTER_MAX_ITERATIONS", 1)
     monkeypatch.setattr(cfg, "SOURCE_HUNTER_NEARBY_SOURCE_DEPTH", 0)
     raw_evidence = {"sources": [{
         "ok": True, "url": "https://example.com/report", "final_url": "https://example.com/report",
-        "title": "Report", "content_type": "text/html", "char_count": 100, "excerpt": "unrelated text",
+        "title": "Report", "content_type": "text/html", "char_count": 100, "excerpt": "The Fed held rates.",
     }]}
-    validated = {"sources": [raw_evidence["sources"][0] | {"validation": {"score": 5}}], "rejected_sources": []}
+    validated = {"sources": [raw_evidence["sources"][0] | {"validation": {"score": 7}}], "rejected_sources": []}
 
+    partial = "FINDINGS: The Fed held rates steady.\nGAPS: The exact inflation figure is not stated."
     with patch("newscaster.source_hunter._generate_evidence_contract", return_value={}), \
          patch("newscaster.source_hunter.search_web", return_value=[
              {"headline": "Report", "url": "https://example.com/report", "snippet": "s"}
          ]), \
          patch("newscaster.source_hunter.fetch_discovered_evidence", return_value=raw_evidence), \
          patch("newscaster.source_hunter.filter_validated_evidence", return_value=validated), \
-         patch("newscaster.source_hunter.get_llm_response", return_value="NO_ANSWER"):
-        result = answer_with_source_hunter("What is the count?", topic="count", mode="standard")
+         patch("newscaster.source_hunter.get_llm_response", return_value=partial):
+        result = answer_with_source_hunter("What rate and what inflation figure?", topic="fed", mode="standard")
 
-    assert result.status == "no_evidence"
-    assert result.sources, "validated sources should still be reported on a non-answer"
-    assert result.metadata.get("synthesis_non_answer") is True
+    assert result.status == "success"
+    assert "FINDINGS" in result.answer and "GAPS" in result.answer
+    assert result.sources, "validated sources should be reported"
 
 
 def test_query_variants_leads_with_question():

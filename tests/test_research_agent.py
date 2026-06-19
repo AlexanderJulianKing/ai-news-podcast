@@ -254,3 +254,25 @@ def test_adaptive_repeated_tool_failures_stop(monkeypatch):
         )
     assert result.followups == []
     assert result.done_reason.startswith("grounded search failed")
+
+
+def test_grounded_search_records_no_evidence_instead_of_failing(monkeypatch):
+    # Part B: a partial / no-evidence source-hunter result must NOT end the loop as a
+    # failure. Its findings + gaps are recorded so the controller (Opus) can target the
+    # gap next turn or move on. Only a thrown exception is a real failure.
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_ENABLED", True)
+    state = {
+        "last_decision": {"question": "What rate?", "question_type": "source_check"},
+        "topic": "fed", "formatted_date": "June 18, 2026",
+        "iterations": 1, "followups": [], "summary_prompt": "seed",
+    }
+    with patch("newscaster.source_hunter.answer_with_source_hunter", return_value=SourceHunterResult(
+        answer="No accepted source evidence was found for this question.",
+        sources=[], status="no_evidence",
+    )):
+        out = agent._grounded_search_node(state)
+
+    assert out.get("consecutive_failures") == 0       # no-evidence is not a failure
+    assert "done_reason" not in out                    # the loop is not terminated
+    assert len(out["followups"]) == 1
+    assert out["followups"][0]["source_hunter_status"] == "no_evidence"
