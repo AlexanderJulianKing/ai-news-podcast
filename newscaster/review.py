@@ -81,32 +81,47 @@ _AUDIT_PATH = "logs/source_hunter_audit.jsonl"
 
 
 def build_source_corpus(date2: str) -> str:
-    """Ground truth = the source-hunter excerpts persisted during gather (no re-fetch).
+    """Ground truth = the RAW source text the pipeline actually fetched — never the LLM summaries.
 
-    The pipeline already fetched these pages; the source hunter now records each validated
-    source's excerpt in its audit, so we read that rather than re-downloading (and rather
-    than the LLM summaries, which already contain any invented quote). Restricted to the
-    given day's records via the audit timestamp.
+    The summaries are LLM-written and already contain any invented claim, so matching against them
+    would rubber-stamp the fabrication. The corpus is raw page text from two persisted places:
+      1. the scraped articles the script writer read
+         (``segment_summaries/{date}_segment*_article*_source.txt``, written at gather time);
+      2. the source-hunter's validated excerpts (``logs/source_hunter_audit.jsonl``), scoped to the
+         day via the audit timestamp.
+    Together these cover what the writer used, so the faithfulness/quote passes stop false-flagging
+    real, well-sourced claims as "not in source material".
     """
-    if not os.path.exists(_AUDIT_PATH):
-        return ""
-    iso_day = date2.replace("_", "-")  # 2026_06_19 -> audit timestamp prefix 2026-06-19
     texts = []
-    with open(_AUDIT_PATH, encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if not (record.get("timestamp") or "").startswith(iso_day):
-                continue
-            for source in record.get("sources", []):
-                excerpt = source.get("excerpt")
-                if excerpt:
-                    texts.append(excerpt)
+
+    # 1. Raw scraped article text — the bulk of what the writer drew on.
+    for path in sorted(glob.glob(f"segment_summaries/{date2}_segment*_article*_source.txt")):
+        try:
+            content = Path(path).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if content.strip():
+            texts.append(content)
+
+    # 2. Source-hunter validated excerpts for the day.
+    if os.path.exists(_AUDIT_PATH):
+        iso_day = date2.replace("_", "-")  # 2026_06_19 -> audit timestamp prefix 2026-06-19
+        with open(_AUDIT_PATH, encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not (record.get("timestamp") or "").startswith(iso_day):
+                    continue
+                for source in record.get("sources", []):
+                    excerpt = source.get("excerpt")
+                    if excerpt:
+                        texts.append(excerpt)
+
     return "\n\n".join(texts)
 
 

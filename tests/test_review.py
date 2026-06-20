@@ -58,6 +58,20 @@ def test_build_source_corpus_reads_audit_excerpts_for_the_day(tmp_path, monkeypa
     assert "yesterday" not in corpus            # other days are filtered out
 
 
+def test_build_source_corpus_includes_scraped_article_text(tmp_path, monkeypatch):
+    # The corpus also includes the RAW scraped article text the writer read (persisted at gather),
+    # not just source-hunter excerpts — so the faithfulness pass stops false-flagging well-sourced
+    # claims as "not in source material".
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "segment_summaries").mkdir()
+    (tmp_path / "segment_summaries" / "2026_06_20_segment0_article0_source.txt").write_text(
+        "The FTC and four states sued WPATH over allegedly deceptive claims about pediatric care.",
+        encoding="utf-8",
+    )
+    corpus = build_source_corpus("2026_06_20")
+    assert "FTC and four states sued WPATH" in corpus
+
+
 def test_faithfulness_flags_parses_flag_lines():
     out = "FLAG: He said X — not in sources\nsome prose here\nFLAG: the 50% figure — absent from sources"
     with patch("newscaster.review.get_llm_response", return_value=out):

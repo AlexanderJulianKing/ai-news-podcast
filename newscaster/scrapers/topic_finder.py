@@ -145,6 +145,15 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
             outfile.write(summary)
             outfile.close()
 
+            # Persist the RAW scraped page text (NOT the LLM summary, which already contains any
+            # invented claim) so the pre-TTS fact-finder can ground-check the script against what the
+            # writer actually read. Capped to bound corpus size.
+            try:
+                with open('segment_summaries/{}_segment{}_article{}_source.txt'.format(formatted_date2, i, successful_summary_counter), 'w', encoding='utf-8') as src_file:
+                    src_file.write(text[:50000])
+            except OSError as src_err:
+                print_and_write(f'Could not persist raw source text for {url}: {src_err}')
+
             if articles is not None:
                 articles.append({
                     "chunk_id": f"{formatted_date2}_seg{i}_art{successful_summary_counter}",
