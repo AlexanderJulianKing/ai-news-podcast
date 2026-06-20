@@ -27,8 +27,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from newscaster.editor_agent import revise_script
 from newscaster.llm import get_llm_response
-from newscaster.logging import print_and_write
+from newscaster.logging import print_and_write, write_jsonl_log
 from newscaster.search import openrouter_web_brief
 
 # prompts.py instructs the script writer: "Person A said, quote, yadda yadda, endquote".
@@ -250,3 +251,91 @@ def review_scripts(date2: str) -> list[tuple[str, str, str]]:
     if not flags:
         print_and_write("QUOTE-CHECK: no quote / faithfulness / stable-fact issues found.")
     return flags
+
+
+# --- agentic editor: turn confirmed factual-error flags into in-place fixes before TTS ---
+
+def _atomic_write_text(path: str, content: str) -> None:
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        handle.write(content)
+    os.replace(tmp, path)
+
+
+def _format_report(script_flags: list[tuple[str, str]]) -> str:
+    """Render one script's flags as a report the editor can read."""
+    lines = []
+    for ftype, text in script_flags:
+        if ftype == "quote":
+            lines.append(f'FLAG (quote not found verbatim in any source): "{text}"')
+        else:
+            lines.append(text)  # faithfulness / stable-fact are already "FLAG: <phrase> — <why/correction>"
+    return "\n".join(lines)
+
+
+def _audit_edits(date2: str, name: str, outcome) -> None:
+    write_jsonl_log("fact_finder_edits", {
+        "event": "fact_finder_edit",
+        "date": date2,
+        "script": name,
+        "applied": [{"find": e.find, "replace": e.replace, "wrong": e.wrong,
+                     "correct": e.correct, "basis": e.basis} for e in outcome.applied],
+        "rejected": outcome.rejected,
+    })
+
+
+def review_and_revise_scripts(date2: str) -> dict:
+    """Run the fact-finder, then auto-fix confirmed factual discrepancies in place before TTS.
+
+    The three-pass review still logs every flag. For each script that drew flags, an Opus editor
+    — vetted by a GPT-5.5 adversary (see editor_agent) — proposes minimal find/replace fixes ONLY
+    for the flags that are genuine factual errors with a known correct value; verified edits are
+    written back to output_scripts/ so generate_audio() voices the corrected script. Everything the
+    editor can't justify (unsupported, stylistic, uncertain) stays flag-only. Fail-open throughout.
+    """
+    corpus = build_source_corpus(date2)
+    flags = review_scripts(date2)
+    if not flags:
+        return {"flags": 0, "edited_scripts": 0, "edits": 0}
+
+    by_script: dict[str, list[tuple[str, str]]] = {}
+    for name, ftype, text in flags:
+        by_script.setdefault(name, []).append((ftype, text))
+
+    edited_scripts = 0
+    total_edits = 0
+    for name, script_flags in by_script.items():
+        path = f"output_scripts/{name}"
+        try:
+            original = Path(path).read_text(encoding="utf-8")
+        except OSError as exc:
+            print_and_write(f"FACT-FINDER EDITOR: cannot read {path}: {exc}; skipping")
+            continue
+        report = _format_report(script_flags)
+        try:
+            outcome = revise_script(original, report, corpus, label=name)
+        except Exception as exc:  # belt-and-suspenders; revise_script is already fail-open
+            print_and_write(f"FACT-FINDER EDITOR crashed on {name}: {exc}; leaving script unchanged")
+            continue
+        if not outcome.changed:
+            print_and_write(
+                f"FACT-FINDER EDITOR [{name}]: no factual-discrepancy edits applied "
+                f"({len(script_flags)} flag(s); {len(outcome.rejected)} proposal(s) declined)"
+            )
+            continue
+        try:
+            _atomic_write_text(path, outcome.text)
+        except OSError as exc:
+            print_and_write(f"FACT-FINDER EDITOR: failed to write {path}: {exc}; leaving original")
+            continue
+        edited_scripts += 1
+        total_edits += len(outcome.applied)
+        for e in outcome.applied:
+            print_and_write(
+                f'FACT-FINDER EDIT [{name}] "{e.find}" -> "{e.replace}"  '
+                f'({e.correct or e.wrong}; basis: {e.basis})'
+            )
+        _audit_edits(date2, name, outcome)
+
+    print_and_write(f"FACT-FINDER EDITOR: applied {total_edits} fix(es) across {edited_scripts} script(s).")
+    return {"flags": len(flags), "edited_scripts": edited_scripts, "edits": total_edits}

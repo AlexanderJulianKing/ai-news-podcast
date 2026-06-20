@@ -94,6 +94,10 @@ AGENTIC_RESEARCH_MIN_ITERATIONS = 2
 AGENTIC_RESEARCH_ADVERSARY_ENABLED = True
 RAG_RESEARCH_MEMORY_ENABLED = True
 
+# --- Fact-finder auto-edit (agentic editor: fix confirmed factual errors before TTS) ---
+FACT_FINDER_AUTOEDIT_ENABLED = True
+FACT_FINDER_AUTOEDIT_MAX_ROUNDS = 3
+
 # --- Controlled source-hunter research ---
 SOURCE_HUNTER_ENABLED = True
 SOURCE_HUNTER_MAX_ITERATIONS = 3

@@ -693,7 +693,7 @@ def main():
     write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list, tf_result=tf_result)
     try:
         from newscaster import review
-        review.review_scripts(formatted_date2)
+        review.review_and_revise_scripts(formatted_date2)
     except Exception as e:
-        print_and_write(f"Quote/faithfulness gate failed (non-blocking): {e}")
+        print_and_write(f"Fact-finder gate/editor failed (non-blocking): {e}")
     generate_audio(formatted_date2, voices_list)
