@@ -80,70 +80,101 @@ def verify_quotes(script_text: str, corpus_text: str) -> list[QuoteVerdict]:
 _AUDIT_PATH = "logs/source_hunter_audit.jsonl"
 
 
-def build_source_corpus(date2: str) -> str:
-    """Ground truth = the RAW source text the pipeline actually fetched — never the LLM summaries.
+def _source_hunter_excerpts(date2: str) -> list[str]:
+    """The source-hunter's validated raw excerpts for the day, read from the audit (no re-fetch)."""
+    if not os.path.exists(_AUDIT_PATH):
+        return []
+    iso_day = date2.replace("_", "-")  # 2026_06_19 -> audit timestamp prefix 2026-06-19
+    out = []
+    with open(_AUDIT_PATH, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not (record.get("timestamp") or "").startswith(iso_day):
+                continue
+            for source in record.get("sources", []):
+                excerpt = source.get("excerpt")
+                if excerpt:
+                    out.append(excerpt)
+    return out
 
-    The summaries are LLM-written and already contain any invented claim, so matching against them
-    would rubber-stamp the fabrication. The corpus is raw page text from two persisted places:
-      1. the scraped articles the script writer read
-         (``segment_summaries/{date}_segment*_article*_source.txt``, written at gather time);
-      2. the source-hunter's validated excerpts (``logs/source_hunter_audit.jsonl``), scoped to the
-         day via the audit timestamp.
-    Together these cover what the writer used, so the faithfulness/quote passes stop false-flagging
-    real, well-sourced claims as "not in source material".
-    """
-    texts = []
 
-    # 1. Raw scraped article text — the bulk of what the writer drew on.
-    for path in sorted(glob.glob(f"segment_summaries/{date2}_segment*_article*_source.txt")):
+def _article_sources(pattern: str) -> list[str]:
+    """Raw scraped article text (the writer's pages, never the LLM summaries) for matching files."""
+    out = []
+    for path in sorted(glob.glob(pattern)):
         try:
             content = Path(path).read_text(encoding="utf-8")
         except OSError:
             continue
         if content.strip():
-            texts.append(content)
+            out.append(content)
+    return out
 
-    # 2. Source-hunter validated excerpts for the day.
-    if os.path.exists(_AUDIT_PATH):
-        iso_day = date2.replace("_", "-")  # 2026_06_19 -> audit timestamp prefix 2026-06-19
-        with open(_AUDIT_PATH, encoding="utf-8") as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if not (record.get("timestamp") or "").startswith(iso_day):
-                    continue
-                for source in record.get("sources", []):
-                    excerpt = source.get("excerpt")
-                    if excerpt:
-                        texts.append(excerpt)
 
-    return "\n\n".join(texts)
+def build_source_corpus(date2: str) -> str:
+    """Whole-day ground truth = the RAW source text the pipeline fetched (never the LLM summaries,
+    which already contain any invented claim): every scraped article + the source-hunter's validated
+    excerpts. Grounds the overview/intro; segments use the tighter build_segment_corpus.
+    """
+    return "\n\n".join(_article_sources(f"segment_summaries/{date2}_segment*_article*_source.txt")
+                       + _source_hunter_excerpts(date2))
+
+
+def build_segment_corpus(date2: str, idx: int) -> str:
+    """Per-segment ground truth: just THIS segment's scraped articles + the day's source-hunter
+    excerpts. Scoping out the other segments' articles strips irrelevant context, which sharply
+    improves the faithfulness pass's recall on subtle contradictions — a long, noisy corpus drowns
+    them (the model can spot a reversal in two sentences but misses it inside 80k of text).
+    """
+    return "\n\n".join(_article_sources(f"segment_summaries/{date2}_segment{idx}_article*_source.txt")
+                       + _source_hunter_excerpts(date2))
+
+
+_SEGMENT_RE = re.compile(r"_segment_(\d+)\.txt$")
+
+
+def _corpus_for_script(date2: str, name: str, full_corpus: str) -> str:
+    """Segment scripts check against their own scoped corpus; overview/intro use the whole-day one."""
+    m = _SEGMENT_RE.search(name)
+    if m:
+        scoped = build_segment_corpus(date2, int(m.group(1)))
+        if scoped.strip():
+            return scoped
+    return full_corpus
 
 
 _FAITHFULNESS_SYSTEM = (
-    "You are a fact-checking editor. You are given SOURCE MATERIAL (excerpts from the articles "
-    "the newsroom actually read) and a SCRIPT written from them. Find statements in the SCRIPT "
-    "that the SOURCE MATERIAL does not support — especially direct quotes or paraphrased "
-    "statements attributed to a person that the sources do not show them saying, and specific "
-    "facts or numbers absent from the sources. Use ONLY the source material; do NOT use outside "
-    "knowledge, and do NOT flag a claim merely for being phrased differently. Output one line per "
-    "problem as 'FLAG: <script phrase> — <why>'. If everything is supported, output exactly 'NONE'."
+    "You are a fact-checking editor. You are given SOURCE MATERIAL (raw text from the articles the "
+    "newsroom actually read) and a SCRIPT written from it. Flag any SCRIPT statement that CONTRADICTS "
+    "the source — a different action, status, location, direction, time, number, or person — or that "
+    "ATTRIBUTES a statement, quote, or position to the wrong person. Watch especially for CONFLATIONS "
+    "(the script merges two separate source facts into one false claim) and REVERSALS (the source says "
+    "someone DEPARTED but the script says they ARRIVED). Also flag specific facts or quotes with no "
+    "support in the source. Use ONLY the source material; do NOT use outside knowledge, and do NOT flag "
+    "mere rephrasing that preserves the meaning. Ignore the broadcast's own current date and the weather "
+    "— the system supplies those, and the news sources will not contain them. Output one line per problem "
+    "as 'FLAG: <script phrase> — <what the source actually says>'. If everything matches the source, "
+    "output exactly 'NONE'."
 )
 
 
-def faithfulness_flags(script_text: str, corpus_text: str, mode: str = "standard") -> list[str]:
-    """LLM faithfulness pass: flag script claims/quotes the source excerpts don't support.
+def faithfulness_flags(script_text: str, corpus_text: str, mode: str = "advanced") -> list[str]:
+    """LLM faithfulness pass: flag script statements that contradict or aren't supported by the sources.
 
-    Catches the paraphrase/attribution fabrications the mechanical quote check can't — e.g. the
-    overview anchor rewording a real quote ("war of aggression") into an invented one ("fuel for
-    the fire"). Source-grounded only: it must never use world knowledge, since the news postdates
-    any model's training cutoff (a world-knowledge review rejects real current events as fake).
-    Fails open (returns []) on a missing corpus or any error — the gate must never block the run.
+    Targets the contradictions/conflations/misattributions the mechanical quote check can't — e.g. the
+    overview anchor rewording a real quote ("war of aggression") into an invented one ("fuel for the
+    fire"), or saying a VP "arrived" when the source says he "left for". Source-grounded only: it must
+    never use world knowledge, since the news postdates any model's cutoff. Runs on the *advanced* model
+    (GLM): a controlled test showed Gemma reliably misses subtle conflations in a long corpus (0/5 even
+    over a 5x ensemble) while GLM catches them, so model capability — not run count — is what matters.
+    Pair it with a per-segment scoped corpus (build_segment_corpus) to keep the context tight. Fails open
+    (returns []) on a missing corpus or any error — the gate must never block the run.
     """
     corpus = (corpus_text or "").strip()
     script = (script_text or "").strip()
@@ -151,7 +182,7 @@ def faithfulness_flags(script_text: str, corpus_text: str, mode: str = "standard
         return []
     prompt = (
         f"SOURCE MATERIAL:\n{corpus[:160000]}\n\n---\n\nSCRIPT:\n{script}\n\n---\n\n"
-        "List unsupported claims/quotes as 'FLAG: ...' lines, or 'NONE'."
+        "List contradictions, conflations, misattributions, and unsupported claims as 'FLAG: ...' lines, or 'NONE'."
     )
     try:
         out = get_llm_response(prompt, system_prompt=_FAITHFULNESS_SYSTEM, mode=mode)
@@ -244,15 +275,15 @@ def review_scripts(date2: str) -> list[tuple[str, str, str]]:
 
     Wire into pipeline.main(), between write_scripts() and generate_audio().
     """
-    corpus = build_source_corpus(date2)
-    have_corpus = bool(corpus.strip())
-    if not have_corpus:
+    full_corpus = build_source_corpus(date2)
+    if not full_corpus.strip():
         print_and_write("QUOTE-CHECK: no persisted source excerpts yet; running stable-fact pass only.")
     flags: list[tuple[str, str, str]] = []
     for script_path in sorted(glob.glob(f"output_scripts/{date2}_*.txt")):
         name = Path(script_path).name
         text = Path(script_path).read_text(encoding="utf-8")
-        if have_corpus:
+        corpus = _corpus_for_script(date2, name, full_corpus)  # segments check against their own sources
+        if corpus.strip():
             for verdict in verify_quotes(text, corpus):
                 if not verdict.grounded:
                     flags.append((name, "quote", verdict.quote))
@@ -302,13 +333,16 @@ def _audit_edits(date2: str, name: str, outcome) -> None:
 def review_and_revise_scripts(date2: str) -> dict:
     """Run the fact-finder, then auto-fix confirmed factual discrepancies in place before TTS.
 
-    The three-pass review still logs every flag. For each script that drew flags, an Opus editor
-    — vetted by a GPT-5.5 adversary (see editor_agent) — proposes minimal find/replace fixes ONLY
-    for the flags that are genuine factual errors with a known correct value; verified edits are
-    written back to output_scripts/ so generate_audio() voices the corrected script. Everything the
-    editor can't justify (unsupported, stylistic, uncertain) stays flag-only. Fail-open throughout.
+    The three-pass review still logs every flag. For each script with a CORPUS-GROUNDED flag (quote
+    or faithfulness), an Opus editor — vetted by a GPT-5.5 adversary (see editor_agent) — proposes
+    minimal find/replace fixes ONLY for genuine factual discrepancies with a known correct value;
+    verified edits are written back to output_scripts/ so generate_audio() voices the corrected script.
+    Stable-fact (world-knowledge) flags stay ADVISORY and are never auto-edited: their search-verify is
+    defeated by post-cutoff bias, so acting on them can corrupt a correct fact (it tried to "fix" the
+    real "Field Marshal Asim Munir" to "General"). Anything the editor can't justify stays flag-only.
+    Fail-open throughout.
     """
-    corpus = build_source_corpus(date2)
+    full_corpus = build_source_corpus(date2)
     flags = review_scripts(date2)
     if not flags:
         return {"flags": 0, "edited_scripts": 0, "edits": 0}
@@ -320,13 +354,23 @@ def review_and_revise_scripts(date2: str) -> dict:
     edited_scripts = 0
     total_edits = 0
     for name, script_flags in by_script.items():
+        # The editor acts ONLY on corpus-grounded flags (quote + faithfulness): the source is a
+        # reliable ground truth there. Stable-fact flags are world-knowledge and stay advisory —
+        # their search-verify is defeated by post-cutoff bias (it "confirmed" the correct
+        # "Field Marshal Asim Munir" was wrong because the promotion postdates the model's cutoff),
+        # so auto-editing them would corrupt true facts. They are still logged by review_scripts.
+        editable = [(ft, tx) for ft, tx in script_flags if ft != "stable-fact"]
+        if not editable:
+            print_and_write(f"FACT-FINDER EDITOR [{name}]: only advisory stable-fact flag(s); not auto-editing")
+            continue
         path = f"output_scripts/{name}"
         try:
             original = Path(path).read_text(encoding="utf-8")
         except OSError as exc:
             print_and_write(f"FACT-FINDER EDITOR: cannot read {path}: {exc}; skipping")
             continue
-        report = _format_report(script_flags)
+        report = _format_report(editable)
+        corpus = _corpus_for_script(date2, name, full_corpus)  # segment editor checks its own sources
         try:
             outcome = revise_script(original, report, corpus, label=name)
         except Exception as exc:  # belt-and-suspenders; revise_script is already fail-open
