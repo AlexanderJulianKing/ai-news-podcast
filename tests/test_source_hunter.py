@@ -58,6 +58,35 @@ def test_source_hunter_no_evidence_does_not_synthesize(monkeypatch):
     mock_llm.assert_not_called()
 
 
+def test_source_hunter_logs_uncapturable_urls(monkeypatch):
+    # A URL that fails to fetch (a rejected source carrying an `error`) is logged to the dedicated
+    # fetch-failures jsonl for coverage tracking; a validation rejection (fetched fine, just didn't
+    # support the claim) is not.
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_MAX_ITERATIONS", 1)
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_NEARBY_SOURCE_DEPTH", 0)
+    rejected = [
+        {"url": "https://paywalled.example/article", "error": "HTTP 403"},               # fetch failed
+        {"url": "https://offtopic.example/page", "validation": {"reason": "off-topic"}},  # validation rejection
+    ]
+    with patch("newscaster.source_hunter.search_web", return_value=[
+        {"headline": "h", "url": "https://x.example", "snippet": "s"}
+    ]), \
+         patch("newscaster.source_hunter.fetch_discovered_evidence", return_value={"sources": [{"ok": False}]}), \
+         patch("newscaster.source_hunter.filter_validated_evidence", return_value={
+             "sources": [], "rejected_sources": rejected,
+         }), \
+         patch("newscaster.source_hunter._generate_evidence_contract", return_value={}), \
+         patch("newscaster.source_hunter.get_llm_response"), \
+         patch("newscaster.source_hunter.write_jsonl_log") as mock_log:
+        answer_with_source_hunter("did the strait close?", topic="strait", formatted_date="June 21, 2026")
+
+    failures = [call.args[1] for call in mock_log.call_args_list
+                if call.args and call.args[0] == "source_hunter_fetch_failures"]
+    assert len(failures) == 1                                   # only the fetch failure, not the off-topic rejection
+    assert failures[0]["url"] == "https://paywalled.example/article"
+    assert failures[0]["error"] == "HTTP 403"
+
+
 def test_tier2_brief_uses_web_search_not_source_hunter():
     # Tier-2 only ranks headlines by importance, so it uses one cheap web-grounded call
     # (Gemma 4 + OpenRouter web search), not the heavier fetch-validate source hunter.
