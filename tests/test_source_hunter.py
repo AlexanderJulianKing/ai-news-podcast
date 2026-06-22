@@ -223,3 +223,40 @@ def test_answer_with_escalation_stops_at_standard_on_success():
 
     assert result.answer == "standard answer"
     assert mock_hunter.call_count == 1
+
+
+def test_evidence_contract_advisory_for_news_research_only(monkeypatch):
+    """The contract is advisory for news_research, a hard gate for every other category.
+
+    A source that clears the base date/entity/topic checks but trips a contract-derived
+    rejection (here a reject_if rule) must PASS under news_research (contract advisory ->
+    ranking only) and FAIL under any other category. This is the fix for breaking-news
+    recall collapse: a confirmed UK-PM resignation was rejected on every source because the
+    generated contract's source-preference and reject_if rules vetoed real coverage.
+    """
+    from newscaster import source_hunter_primitives as shp
+
+    # Force a contract-derived rejection regardless of the contract's internal slot logic,
+    # so the test pins the GATE behavior (advisory vs hard), not contract generation.
+    monkeypatch.setattr(shp, "_contract_reject_reasons",
+                        lambda *a, **k: ["contract_reject:forced_for_test"])
+
+    question = "What layoffs did Acme Corporation announce on June 22, 2026?"
+    source = {
+        "ok": True,
+        "url": "https://www.nbcnews.com/business/acme-layoffs",
+        "title": "Acme Corporation announces layoffs",
+        "excerpt": ("Acme Corporation announced on June 22, 2026 that it will lay off "
+                    "employees. The Acme Corporation layoffs were confirmed in an official "
+                    "company statement."),
+    }
+    base = {"id": "t", "question": question, "evidence_contract": {}}
+    news = shp.validate_source_for_question({**base, "category": "news_research"}, source)
+    other = shp.validate_source_for_question({**base, "category": "local_government"}, source)
+
+    # The contract rejection is recorded both ways (forensics still see it)...
+    assert "contract_reject:forced_for_test" in news["reasons"]
+    assert "contract_reject:forced_for_test" in other["reasons"]
+    # ...but it only vetoes outside news_research.
+    assert news["passed"] is True, news["reasons"]
+    assert other["passed"] is False, other["reasons"]
