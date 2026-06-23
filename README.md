@@ -2,8 +2,9 @@
 
 **A fully automated daily AI news podcast.** Newscaster scrapes the day's news, uses a from-scratch multi-provider LLM pipeline to select, research, and script the stories, synthesizes multi-voice audio, renders a video, and publishes to YouTube — unattended, every morning.
 
-📺 **See it in action:** [**@NewsFromAlex** on YouTube](https://www.youtube.com/@NewsFromAlex) — 525+ daily episodes, live since September 2024
-📖 **How it works (deep dive):** [**Newscaster explainer**](https://alexanderjulianking.github.io/newscaster_overview.html)
+**See it in action:** [**@NewsFromAlex** on YouTube](https://www.youtube.com/@NewsFromAlex) — 525+ daily episodes, live since September 2024
+
+**How it works (deep dive):** [**Newscaster explainer**](https://alexanderjulianking.github.io/newscaster_overview.html)
 
 Solo project, running in production on a Raspberry Pi.
 
