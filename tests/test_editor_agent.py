@@ -150,7 +150,7 @@ def test_review_and_revise_writes_back(tmp_path, monkeypatch):
     sp.write_text("Google CEO Eric Schmidt spoke today.", encoding="utf-8")
 
     from newscaster import review
-    flags = [("2026_06_19_segment0.txt", "stable-fact", "FLAG: Google CEO Eric Schmidt — WRONG: Pichai is CEO")]
+    flags = [("2026_06_19_segment0.txt", "faithfulness", "FLAG: Google CEO Eric Schmidt — source says former Google CEO")]
     outcome = EditOutcome(
         text="former Google CEO Eric Schmidt spoke today.",
         applied=[Edit(find="Google CEO Eric Schmidt", replace="former Google CEO Eric Schmidt", correct="Pichai")],
@@ -188,3 +188,48 @@ def test_review_and_revise_leaves_file_when_unchanged(tmp_path, monkeypatch):
         result = review.review_and_revise_scripts("2026_06_19")
     assert sp.read_text(encoding="utf-8") == "original text"
     assert result["edited_scripts"] == 0
+
+
+def test_review_and_revise_skips_stable_fact_only(tmp_path, monkeypatch):
+    # World-knowledge stable-fact flags are advisory: the editor must NOT run on a script whose only
+    # flag is stable-fact — its search-verify is defeated by post-cutoff bias and would corrupt a
+    # correct fact (it tried to "fix" the real "Field Marshal Asim Munir" to "General").
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "output_scripts").mkdir()
+    (tmp_path / "logs").mkdir()
+    sp = tmp_path / "output_scripts" / "2026_06_21_segment_0.txt"
+    sp.write_text("Field Marshal Asim Munir spoke today.", encoding="utf-8")
+    from newscaster import review
+    flags = [("2026_06_21_segment_0.txt", "stable-fact", "FLAG: Field Marshal Asim Munir — WRONG: he is a General")]
+    with patch.object(review, "build_source_corpus", return_value="sources"), \
+         patch.object(review, "review_scripts", return_value=flags), \
+         patch.object(review, "revise_script") as mock_revise:
+        result = review.review_and_revise_scripts("2026_06_21")
+    mock_revise.assert_not_called()                                              # editor never ran
+    assert sp.read_text(encoding="utf-8") == "Field Marshal Asim Munir spoke today."  # script untouched
+    assert result["edited_scripts"] == 0
+
+
+def test_review_and_revise_passes_only_corpus_grounded_flags_to_editor(tmp_path, monkeypatch):
+    # A script with both a faithfulness and a stable-fact flag: the editor runs, but the report it
+    # sees contains only the corpus-grounded faithfulness flag — the stable-fact flag is filtered out.
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "output_scripts").mkdir()
+    (tmp_path / "logs").mkdir()
+    sp = tmp_path / "output_scripts" / "2026_06_21_segment_0.txt"
+    sp.write_text("body", encoding="utf-8")
+    from newscaster import review
+    flags = [
+        ("2026_06_21_segment_0.txt", "faithfulness", "FLAG: Vance arrived — source says left for"),
+        ("2026_06_21_segment_0.txt", "stable-fact", "FLAG: Field Marshal Asim Munir — WRONG: General"),
+    ]
+    captured = {}
+    def fake_revise(original, report, corpus, *, label):
+        captured["report"] = report
+        return EditOutcome(text=original, applied=[], rejected=[], changed=False)
+    with patch.object(review, "build_source_corpus", return_value="sources"), \
+         patch.object(review, "review_scripts", return_value=flags), \
+         patch.object(review, "revise_script", side_effect=fake_revise):
+        review.review_and_revise_scripts("2026_06_21")
+    assert "source says left for" in captured["report"]   # corpus-grounded flag reaches the editor
+    assert "Asim Munir" not in captured["report"]          # advisory stable-fact flag filtered out

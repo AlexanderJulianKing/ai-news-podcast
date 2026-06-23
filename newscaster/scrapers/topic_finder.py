@@ -394,8 +394,11 @@ def topic_finder(formatted_date):
         )
 
     # === TIER 1: Triage — score all headlines ===
+    # Opus (heavy), not Gemma: the first cut decides recall. A weak score can drop a good story
+    # before it is ever researched, and nothing downstream recovers it. It is one call over the
+    # whole headline list, so the upgrade costs ~one Opus call per day.
     print_and_write('TIER 1: Triaging headlines')
-    tier1_response = get_llm_response(all_headlines, system_prompt=TIER1_TRIAGE_PROMPT, mode='standard')
+    tier1_response = get_llm_response(all_headlines, system_prompt=TIER1_TRIAGE_PROMPT, mode='heavy')
     print_and_write('Tier 1 raw response:', tier1_response)
 
     scored = _parse_tier1_scores(tier1_response)

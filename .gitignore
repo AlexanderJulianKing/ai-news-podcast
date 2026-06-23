@@ -16,3 +16,18 @@ __pycache__/
 .DS_Store
 .claude/
 benchmarks/*/outputs/
+benchmarks/*/data/
+
+# GarageBand source projects — not used at runtime; contain raw loops / 3rd-party samples
+theme_song/*.band/
+
+# extra credential safety nets
+.env
+*secret*.json
+*-token.json
+
+# internal / dev-tooling docs — kept local, excluded from the public repo
+/CLAUDE.md
+/AGENTS.md
+/PROJECT_PROFILE.md
+docs/superpowers/

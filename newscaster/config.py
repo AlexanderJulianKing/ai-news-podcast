@@ -43,7 +43,6 @@ KEYS = None
 GOOGLE_GENAI_API_KEY = None
 ANTHROPIC_API_KEY = None
 OPENROUTER_API_KEY = None
-XI_API_KEY = None
 GOOGLE_SEARCH_API_KEY = None
 OPENWEATHERMAP_API_KEY = None
 GOOGLE_CSE_ID = None
@@ -110,12 +109,11 @@ SOURCE_HUNTER_MAX_SOURCE_CHARS = 9000
 def init():
     """Load API keys from keys.txt. Must be called before using any key constants."""
     global KEYS, GOOGLE_GENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY
-    global XI_API_KEY, GOOGLE_SEARCH_API_KEY, OPENWEATHERMAP_API_KEY, GOOGLE_CSE_ID
+    global GOOGLE_SEARCH_API_KEY, OPENWEATHERMAP_API_KEY, GOOGLE_CSE_ID
     KEYS = load_keys()
     GOOGLE_GENAI_API_KEY = require_key(KEYS, "google_genai_api")
     ANTHROPIC_API_KEY = require_key(KEYS, "anthropic_api")
     OPENROUTER_API_KEY = require_key(KEYS, "openrouter_api")
-    XI_API_KEY = require_key(KEYS, "XI_API_KEY")
     GOOGLE_SEARCH_API_KEY = require_key(KEYS, "google_search_api")
     OPENWEATHERMAP_API_KEY = require_key(KEYS, "openweathermap_api")
     GOOGLE_CSE_ID = require_key(KEYS, "google_cse_id")

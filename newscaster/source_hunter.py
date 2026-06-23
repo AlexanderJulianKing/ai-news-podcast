@@ -103,7 +103,7 @@ def _source_summary(source: dict[str, Any]) -> dict[str, Any]:
         "content_type": source.get("content_type") or "",
         "char_count": source.get("char_count") or 0,
         "validation_score": validation.get("score"),
-        "validation_reason": validation.get("reason", ""),
+        "validation_reasons": validation.get("reasons", []),
         # Persist the fetched excerpt so downstream faithfulness checks (and forensics) can
         # verify the synthesis against the actual source text the pipeline read, instead of
         # re-fetching. Capped to bound research-sidecar / audit size. The RAG indexer ignores
@@ -117,8 +117,9 @@ def _rejected_summary(source: dict[str, Any]) -> dict[str, Any]:
     return {
         "title": source.get("title") or source.get("candidate_title") or "",
         "url": source.get("final_url") or source.get("url") or "",
+        "canonical_url": source.get("canonical_url") or canonical_url(source.get("url", "")),
         "error": source.get("error", ""),
-        "validation_reason": validation.get("reason", ""),
+        "validation_reasons": validation.get("reasons", []),
     }
 
 
@@ -306,6 +307,28 @@ def answer_with_source_hunter(question: str, *, topic: str | None = None,
 
 def _audit_source_hunter(question: str, topic: str | None, formatted_date: str | None,
                          result: SourceHunterResult) -> None:
+    # Coverage tracking: log every URL the grounded search could NOT capture to its own jsonl,
+    # separate from (and not gated by) the full audit, so "what can't be captured" is trivially
+    # queryable. A fetch failure is a rejected source carrying an `error` (the fetch exception);
+    # validation rejections — fetched fine but didn't support the claim — carry only
+    # `validation_reasons` and are excluded here.
+    fetch_failures = [s for s in result.rejected_sources if s.get("error")]
+    for failure in fetch_failures:
+        write_jsonl_log("source_hunter_fetch_failures", {
+            "event": "fetch_failure",
+            "question": question,
+            "topic": topic,
+            "formatted_date": formatted_date,
+            "url": failure.get("url", ""),
+            "canonical_url": failure.get("canonical_url", ""),
+            "error": failure.get("error", ""),
+        })
+    if fetch_failures:
+        print_and_write(
+            f"SOURCE-HUNTER: {len(fetch_failures)} URL(s) could not be captured "
+            f"(fetch failed); logged to source_hunter_fetch_failures"
+        )
+
     if not getattr(_config, "SOURCE_HUNTER_AUDIT_LOG_ENABLED", False):
         return
     write_jsonl_log("source_hunter_audit", {

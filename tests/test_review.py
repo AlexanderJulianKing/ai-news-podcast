@@ -72,6 +72,33 @@ def test_build_source_corpus_includes_scraped_article_text(tmp_path, monkeypatch
     assert "FTC and four states sued WPATH" in corpus
 
 
+def test_build_segment_corpus_scopes_to_one_segment(tmp_path, monkeypatch):
+    # A segment's corpus = only THAT segment's scraped articles (+ excerpts), not the other segments'
+    # — scoping out the noise is what restores the faithfulness pass's recall on subtle contradictions.
+    from newscaster.review import build_segment_corpus
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "segment_summaries").mkdir()
+    (tmp_path / "segment_summaries" / "2026_06_21_segment0_article0_source.txt").write_text(
+        "Iran and U.S. negotiators met in Switzerland.", encoding="utf-8")
+    (tmp_path / "segment_summaries" / "2026_06_21_segment1_article0_source.txt").write_text(
+        "California is slow to count mail-in ballots.", encoding="utf-8")
+    corp0 = build_segment_corpus("2026_06_21", 0)
+    assert "Iran and U.S. negotiators met in Switzerland" in corp0
+    assert "California is slow to count" not in corp0      # segment 1's sources are scoped out
+
+
+def test_corpus_for_script_routes_segment_vs_overview(tmp_path, monkeypatch):
+    from newscaster.review import _corpus_for_script
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "segment_summaries").mkdir()
+    (tmp_path / "segment_summaries" / "2026_06_21_segment0_article0_source.txt").write_text(
+        "SEGZERO SOURCE", encoding="utf-8")
+    full = "WHOLE DAY CORPUS"
+    assert "SEGZERO SOURCE" in _corpus_for_script("2026_06_21", "2026_06_21_segment_0.txt", full)
+    assert _corpus_for_script("2026_06_21", "2026_06_21_overview.txt", full) == full   # not a segment
+    assert _corpus_for_script("2026_06_21", "2026_06_21_segment_9.txt", full) == full  # no sources -> full
+
+
 def test_faithfulness_flags_parses_flag_lines():
     out = "FLAG: He said X — not in sources\nsome prose here\nFLAG: the 50% figure — absent from sources"
     with patch("newscaster.review.get_llm_response", return_value=out):

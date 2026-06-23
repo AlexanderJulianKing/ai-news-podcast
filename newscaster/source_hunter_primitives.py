@@ -1922,7 +1922,9 @@ def validate_source_for_question(task: Dict[str, Any], source: Dict[str, Any]) -
     score += sum(1 for slot in slot_evaluation.get("slots", []) if slot.get("supported"))
     score += 1 if source.get("ok") else 0
 
-    hard_fail_reasons = {
+    # Base constraints (date / year / time / item / document / entity) always gate — a
+    # source that fails these is genuinely off-target for the question.
+    base_hard = {
         reason for reason in reasons
         if reason.startswith("date_mismatch")
         or reason.startswith("year_mismatch")
@@ -1930,10 +1932,24 @@ def validate_source_for_question(task: Dict[str, Any], source: Dict[str, Any]) -
         or reason.startswith("item_mismatch")
         or reason.startswith("document_mismatch")
         or reason.startswith("entity_mismatch")
-        or reason.startswith("source_preference_mismatch")
+    }
+    # Contract-derived rejections come from the LLM-generated evidence contract
+    # (source-preference rules, reject_if traps, required-slot coverage). That contract is
+    # well-calibrated for precise factual tasks (Fed rate, council votes) but miscalibrated
+    # for breaking news, where it invents slots a confirmed story may not surface, narrows
+    # source preferences past major outlets, and trips "speculative" traps on real coverage —
+    # collapsing recall to zero (a UK-PM resignation confirmed by NBC/CBS/NPR was rejected on
+    # every source). For news_research the contract is therefore ADVISORY: it still shapes
+    # `score` (ranking) but does not veto a source that clears the base checks. For every
+    # other category it remains a hard gate.
+    contract_hard = {
+        reason for reason in reasons
+        if reason.startswith("source_preference_mismatch")
         or reason.startswith("contract_reject")
         or _hard_evidence_missing(reason, slot_lookup, generated_contract)
     }
+    contract_advisory = task.get("category") == "news_research"
+    hard_fail_reasons = base_hard if contract_advisory else base_hard | contract_hard
     passed = not hard_fail_reasons and "topic_mismatch" not in reasons
     return {
         "passed": passed,

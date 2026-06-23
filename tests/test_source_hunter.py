@@ -58,6 +58,35 @@ def test_source_hunter_no_evidence_does_not_synthesize(monkeypatch):
     mock_llm.assert_not_called()
 
 
+def test_source_hunter_logs_uncapturable_urls(monkeypatch):
+    # A URL that fails to fetch (a rejected source carrying an `error`) is logged to the dedicated
+    # fetch-failures jsonl for coverage tracking; a validation rejection (fetched fine, just didn't
+    # support the claim) is not.
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_MAX_ITERATIONS", 1)
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_NEARBY_SOURCE_DEPTH", 0)
+    rejected = [
+        {"url": "https://paywalled.example/article", "error": "HTTP 403"},               # fetch failed
+        {"url": "https://offtopic.example/page", "validation": {"reason": "off-topic"}},  # validation rejection
+    ]
+    with patch("newscaster.source_hunter.search_web", return_value=[
+        {"headline": "h", "url": "https://x.example", "snippet": "s"}
+    ]), \
+         patch("newscaster.source_hunter.fetch_discovered_evidence", return_value={"sources": [{"ok": False}]}), \
+         patch("newscaster.source_hunter.filter_validated_evidence", return_value={
+             "sources": [], "rejected_sources": rejected,
+         }), \
+         patch("newscaster.source_hunter._generate_evidence_contract", return_value={}), \
+         patch("newscaster.source_hunter.get_llm_response"), \
+         patch("newscaster.source_hunter.write_jsonl_log") as mock_log:
+        answer_with_source_hunter("did the strait close?", topic="strait", formatted_date="June 21, 2026")
+
+    failures = [call.args[1] for call in mock_log.call_args_list
+                if call.args and call.args[0] == "source_hunter_fetch_failures"]
+    assert len(failures) == 1                                   # only the fetch failure, not the off-topic rejection
+    assert failures[0]["url"] == "https://paywalled.example/article"
+    assert failures[0]["error"] == "HTTP 403"
+
+
 def test_tier2_brief_uses_web_search_not_source_hunter():
     # Tier-2 only ranks headlines by importance, so it uses one cheap web-grounded call
     # (Gemma 4 + OpenRouter web search), not the heavier fetch-validate source hunter.
@@ -194,3 +223,40 @@ def test_answer_with_escalation_stops_at_standard_on_success():
 
     assert result.answer == "standard answer"
     assert mock_hunter.call_count == 1
+
+
+def test_evidence_contract_advisory_for_news_research_only(monkeypatch):
+    """The contract is advisory for news_research, a hard gate for every other category.
+
+    A source that clears the base date/entity/topic checks but trips a contract-derived
+    rejection (here a reject_if rule) must PASS under news_research (contract advisory ->
+    ranking only) and FAIL under any other category. This is the fix for breaking-news
+    recall collapse: a confirmed UK-PM resignation was rejected on every source because the
+    generated contract's source-preference and reject_if rules vetoed real coverage.
+    """
+    from newscaster import source_hunter_primitives as shp
+
+    # Force a contract-derived rejection regardless of the contract's internal slot logic,
+    # so the test pins the GATE behavior (advisory vs hard), not contract generation.
+    monkeypatch.setattr(shp, "_contract_reject_reasons",
+                        lambda *a, **k: ["contract_reject:forced_for_test"])
+
+    question = "What layoffs did Acme Corporation announce on June 22, 2026?"
+    source = {
+        "ok": True,
+        "url": "https://www.nbcnews.com/business/acme-layoffs",
+        "title": "Acme Corporation announces layoffs",
+        "excerpt": ("Acme Corporation announced on June 22, 2026 that it will lay off "
+                    "employees. The Acme Corporation layoffs were confirmed in an official "
+                    "company statement."),
+    }
+    base = {"id": "t", "question": question, "evidence_contract": {}}
+    news = shp.validate_source_for_question({**base, "category": "news_research"}, source)
+    other = shp.validate_source_for_question({**base, "category": "local_government"}, source)
+
+    # The contract rejection is recorded both ways (forensics still see it)...
+    assert "contract_reject:forced_for_test" in news["reasons"]
+    assert "contract_reject:forced_for_test" in other["reasons"]
+    # ...but it only vetoes outside news_research.
+    assert news["passed"] is True, news["reasons"]
+    assert other["passed"] is False, other["reasons"]
