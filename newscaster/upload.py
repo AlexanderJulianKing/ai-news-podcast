@@ -46,6 +46,8 @@ https://console.cloud.google.com/
 
 VALID_PRIVACY_STATUSES = ("public", "private", "unlisted")
 
+YOUTUBE_TITLE_LIMIT = 100  # YouTube rejects titles longer than this (HTTP 400 invalidTitle)
+
 
 def get_authenticated_service():
     creds = None
@@ -73,6 +75,49 @@ def get_authenticated_service():
     return build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, credentials=creds)
 
 
+def fit_title_to_limit(title, limit=YOUTUBE_TITLE_LIMIT, max_attempts=3):
+    """Keep a YouTube title within `limit` characters.
+
+    YouTube rejects titles over 100 chars (HTTP 400 invalidTitle), and a failed
+    upload is otherwise silent, so a long lead headline can quietly stop an
+    episode from airing. If the built title is too long, ask the LLM for a
+    shorter one, showing the too-long title as an example of what to avoid, and
+    retry a few times. As a last resort, hard-truncate at a word boundary so the
+    episode still airs.
+    """
+    if len(title) <= limit:
+        return title
+
+    too_long = title
+    for _ in range(max_attempts):
+        prompt = (
+            f"A YouTube video title must be {limit} characters or fewer. "
+            f"This title is too long at {len(too_long)} characters:\n\"{too_long}\"\n\n"
+            f"Write a new title for the same news episode that is {limit} characters or fewer. "
+            f"Keep it accurate and keep the leading date if it still fits. "
+            f"Return only the new title, with no quotes or extra text."
+        )
+        try:
+            candidate = get_llm_response(
+                prompt, system_prompt="You are a concise news headline editor.", mode="light")
+        except Exception as exc:
+            print_and_write(f"Title-shortening LLM call failed ({exc}); falling back to truncation.")
+            break
+        candidate = (candidate or "").strip()
+        if candidate:
+            candidate = candidate.splitlines()[0].strip().strip('"').strip("'").strip()
+        if candidate and len(candidate) <= limit:
+            print_and_write(
+                f"Title was {len(title)} chars (over {limit}); shortened to {len(candidate)}: {candidate!r}")
+            return candidate
+        if candidate:
+            too_long = candidate  # show the latest still-too-long attempt on the next try
+
+    cut = title[:limit].rsplit(" ", 1)[0].rstrip() or title[:limit]
+    print_and_write(f"Could not shorten title under {limit} via LLM; truncating to: {cut!r}")
+    return cut
+
+
 def initialize_upload(youtube, options):
     tags = None
     if options.keywords:
@@ -94,6 +139,7 @@ def initialize_upload(youtube, options):
 
     first_title = titles[0].strip()
     real_title = f"{formatted_date} - {first_title}"
+    real_title = fit_title_to_limit(real_title)
     print(titles)
     print('real_title', real_title, type(real_title))
 
