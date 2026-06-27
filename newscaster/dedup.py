@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -192,6 +194,185 @@ def strip_arc_tags(headline: str) -> str:
     for tag in ("[UPDATE]", "[MAJOR ESCALATION]"):
         cleaned = cleaned.replace(tag, "")
     return cleaned.strip()
+
+
+# --- Arc-identity recovery -------------------------------------------------
+# The dedup tagger reliably tags recurring headlines with [UPDATE: slug] /
+# [MAJOR ESCALATION: slug], but the downstream selection prompts strip that
+# prefix, so find_matching_arc() (which only parses the prefix) never recovers
+# the slug. These helpers rebuild the {clean headline -> (tag, slug)} map from
+# the tagger's own output and recover it for a chosen headline that may have
+# been de-tagged and lightly rephrased by the selection LLMs.
+
+# Words too common to carry topic identity; dropped before fuzzy comparison.
+_HEADLINE_STOPWORDS = frozenset({
+    "the", "a", "an", "of", "to", "in", "on", "and", "for", "as", "is", "are",
+    "at", "by", "with", "from", "its", "it", "after", "amid", "over", "into",
+    "his", "her", "their", "new",
+})
+
+# Fuzzy fallback is deliberately strict: a wrong match injects the wrong
+# audience_state (worse than no match), so we only accept near-identical or
+# clear subset/superset headlines.
+_FUZZY_OVERLAP_THRESHOLD = 0.8
+_FUZZY_MIN_SHARED_TOKENS = 3
+
+
+def _normalize_headline_words(headline: str) -> list:
+    """Lowercase, drop the arc tag and punctuation, return the word list."""
+    cleaned = strip_arc_tags(headline or "")
+    cleaned = re.sub(r"[^a-z0-9 ]", " ", cleaned.lower())
+    return cleaned.split()
+
+
+def _headline_key(headline: str) -> str:
+    """Whitespace-normalized, punctuation-free, lowercase key for exact matching."""
+    return " ".join(_normalize_headline_words(headline))
+
+
+def _content_tokens(headline: str) -> set:
+    """Distinctive content tokens (stopwords removed, trailing plural 's' folded)."""
+    return {
+        w.rstrip("s")
+        for w in _normalize_headline_words(headline)
+        if w not in _HEADLINE_STOPWORDS and len(w) > 2
+    }
+
+
+def build_headline_arc_map(tagged_text: str) -> dict:
+    """Parse the dedup tagger's output into {clean-headline-key: (tag_type, slug)}.
+
+    Only lines that carry an [UPDATE: slug] / [MAJOR ESCALATION: slug] prefix are
+    included; section headers and untagged new stories are skipped.
+    """
+    mapping = {}
+    for line in (tagged_text or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        info = find_matching_arc(line)
+        if not info:
+            continue
+        key = _headline_key(line)
+        if key:
+            mapping[key] = info
+    return mapping
+
+
+def recover_arc_for_headline(headline: str, headline_arc_map: dict, threshold: float = _FUZZY_OVERLAP_THRESHOLD):
+    """Recover (tag_type, slug) for a chosen, possibly de-tagged headline.
+
+    Exact normalized match first; then a strict overlap-coefficient fuzzy match
+    against the (small) set of tagged headlines. Returns None when nothing clears
+    the bar — the caller then creates a fresh arc, exactly as before this fix.
+    """
+    if not headline_arc_map:
+        return None
+    key = _headline_key(headline)
+    if not key:
+        return None
+    if key in headline_arc_map:
+        return headline_arc_map[key]
+
+    chosen_tokens = _content_tokens(headline)
+    if len(chosen_tokens) < _FUZZY_MIN_SHARED_TOKENS:
+        return None
+    best_info = None
+    best_overlap = 0.0
+    for cand_key, info in headline_arc_map.items():
+        cand_tokens = _content_tokens(cand_key)
+        if not cand_tokens:
+            continue
+        shared = chosen_tokens & cand_tokens
+        if len(shared) < _FUZZY_MIN_SHARED_TOKENS:
+            continue
+        # Overlap coefficient: rewards subset/superset rephrasings without
+        # penalizing length differences the way Jaccard would.
+        overlap = len(shared) / min(len(chosen_tokens), len(cand_tokens))
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_info = info
+    return best_info if best_overlap >= threshold else None
+
+
+def _build_arc_candidates(headline_arc_map: dict, ledger: dict) -> dict:
+    """{slug: (tag_type, topic)} for the day's tagged arcs, deduped by slug.
+
+    Topic comes from the ledger when available (more descriptive for the LLM),
+    falling back to the slug itself.
+    """
+    candidates = {}
+    for tag_type, slug in (headline_arc_map or {}).values():
+        if slug in candidates:
+            continue
+        arc = (ledger or {}).get("arcs", {}).get(slug) or {}
+        topic = arc.get("topic") or slug.replace("_", " ")
+        candidates[slug] = (tag_type, topic)
+    return candidates
+
+
+def _parse_arc_slug(response: str, candidate_slugs) -> str | None:
+    """Return the single candidate slug named in the response, else None.
+
+    Zero or multiple matches both yield None — the safe (no-link) outcome.
+    """
+    text = (response or "").lower()
+    hits = [s for s in candidate_slugs if re.search(r"\b" + re.escape(s.lower()) + r"\b", text)]
+    return hits[0] if len(hits) == 1 else None
+
+
+def llm_recover_arc(headline: str, headline_arc_map: dict, ledger: dict):
+    """Scoped LLM fallback for heavy paraphrases the string matcher misses.
+
+    Asks one cheap light-model call to match the headline to exactly one of the
+    day's tracked arcs, or NONE. Gated by a token-overlap pre-filter so clearly
+    unrelated (brand-new) headlines never pay for the call. Returns (tag, slug)
+    only on a confident, in-candidate match; None otherwise.
+    """
+    candidates = _build_arc_candidates(headline_arc_map, ledger)
+    if not candidates:
+        return None
+
+    # Cheap gate: only consult the LLM when the headline shares a distinctive
+    # token with some candidate (its topic or slug words). A brand-new story
+    # shares nothing and short-circuits to None without a wasted NONE call.
+    chosen_tokens = _content_tokens(headline)
+    if not chosen_tokens:
+        return None
+
+    def _candidate_tokens(slug, topic):
+        return _content_tokens(topic) | _content_tokens(slug.replace("_", " "))
+
+    if not any(chosen_tokens & _candidate_tokens(slug, topic) for slug, (_t, topic) in candidates.items()):
+        return None
+
+    from newscaster.llm import call_with_default  # lazy: avoids import cycle
+    from newscaster.prompts import ARC_MATCH_PROMPT
+
+    listing = "\n".join(f"- {slug}: {topic}" for slug, (_t, topic) in candidates.items())
+    user_prompt = f"Tracked arcs:\n{listing}\n\nHeadline: {strip_arc_tags(headline).strip()}\n\nAnswer:"
+    response = call_with_default(
+        "NONE", user_prompt, system_prompt=ARC_MATCH_PROMPT, mode="light",
+        _log_label=f"arc-match[{strip_arc_tags(headline).strip()[:40]}]",
+    )
+    slug = _parse_arc_slug(response, list(candidates.keys()))
+    if slug:
+        return (candidates[slug][0], slug)
+    return None
+
+
+def resolve_arc_identity(headline: str, headline_arc_map: dict, ledger: dict = None, *, use_llm: bool = True):
+    """Full arc-identity resolution: deterministic string match first, then the
+    scoped LLM fallback for paraphrases, then any tag that survived on the
+    headline. Returns (tag_type, slug) or None."""
+    info = recover_arc_for_headline(headline, headline_arc_map)
+    if info:
+        return info
+    if use_llm:
+        info = llm_recover_arc(headline, headline_arc_map, ledger)
+        if info:
+            return info
+    return find_matching_arc(headline)
 
 
 def load_recent_story_descriptions(window_days: int = 7):

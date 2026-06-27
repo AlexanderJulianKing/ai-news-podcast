@@ -304,6 +304,20 @@ TIER3_OVERVIEW_PICK_PROMPT = (
 )
 
 
+ARC_MATCH_PROMPT = (
+    "You are matching one news headline to an ongoing story arc the show is already tracking.\n"
+    "Below is a list of tracked arcs as 'slug: description'. Decide whether the headline is a "
+    "CONTINUATION of the SAME real-world story as exactly one of them.\n\n"
+    "Answer with the exact slug of the single matching arc, or NONE.\n"
+    "Rules:\n"
+    "- Match only the SAME event/story, not merely the same topic. Two different earthquakes, "
+    "two different court rulings, or two different strikes are NOT a match.\n"
+    "- If the headline matches none of them, or you are unsure, answer NONE. A wrong match is "
+    "worse than no match.\n"
+    "- Output only the slug or the word NONE. No explanation.\n"
+)
+
+
 SLUG_GENERATION_PROMPT = (
     "Given this news headline, produce a 2-4 word snake_case identifier that captures the core topic. "
     "Output ONLY the slug, nothing else.\n\n"

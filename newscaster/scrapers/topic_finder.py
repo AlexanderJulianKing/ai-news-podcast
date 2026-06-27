@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -36,6 +38,8 @@ from newscaster.dedup import (
     update_arc,
     find_matching_arc,
     strip_arc_tags,
+    build_headline_arc_map,
+    resolve_arc_identity,
 )
 from newscaster.scrapers.calmatters import calmatters_scraper
 from newscaster.scrapers.dropsite import dropsite_scraper
@@ -173,15 +177,32 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
     return summary_prompt, successful_summary_counter
 
 
-def summarize_headline_with_grounding(headline: str) -> str:
-    """Backward-compatible name; this now uses controlled source-hunter research."""
+def summarize_headline_with_grounding(headline: str, audience_state: str | None = None) -> str:
+    """Backward-compatible name; this now uses controlled source-hunter research.
+
+    When ``audience_state`` is supplied, this side story is a continuation of an
+    arc the audience has already heard. The grounding prompt then carries what
+    listeners already know plus an instruction to report only what is new, so the
+    overview stops re-explaining the same background day after day.
+    """
     headline_clean = (headline or '').strip()
     if not headline_clean:
         return 'UNVERIFIED: Empty headline received. Please provide a valid headline to summarize.'
 
+    continuation_block = ""
+    if audience_state and audience_state.strip():
+        continuation_block = (
+            "\nCONTINUATION: This show has covered this story before. Listeners already know:\n"
+            f"{audience_state.strip()}\n"
+            "- Report ONLY what is genuinely new since then (the latest developments, numbers, rulings, or turns).\n"
+            "- Do NOT re-explain background the audience already has.\n"
+            "- If there is no meaningful new development, say so in one sentence rather than restating old facts.\n"
+        )
+
     base_prompt = (
         f"Headline: {headline_clean}\n"
         f"Date: {_today_str()}\n"
+        f"{continuation_block}"
         "Instructions:\n"
         "- Use controlled source-hunter research to pull multiple reputable sources published today or within the past 48 hours.\n"
         "- Summarize the key facts in 3-5 sentences, attributing details to named outlets or officials.\n"
@@ -215,10 +236,22 @@ def summarize_headline_with_grounding(headline: str) -> str:
     )
 
 
-def overview_process(overview):
+def _audience_state_for_arc(arc_info, ledger):
+    """audience_state of an already-resolved arc, or None."""
+    if not arc_info or not ledger:
+        return None
+    _tag_type, slug = arc_info
+    arc = ledger.get("arcs", {}).get(slug)
+    if not arc:
+        return None
+    return arc.get("audience_state") or None
+
+
+def overview_process(overview, headline_arc_map=None, ledger=None):
     story_overviews = ''
     overview_headlines = []
     overview_briefs = []
+    overview_arc_infos = []  # parallel to overview_briefs; reused by the archival step
     for i in range(5):
         number = str(i + 1)
         headline_finder_prompt = f'Find story number {number}. Only give the headline of that story.'
@@ -229,18 +262,26 @@ def overview_process(overview):
             print_and_write(f'Headline extraction failed in overview for story {number}: {e}')
             continue
 
+        # Resolve the arc ONCE here so the audience_state lookup (for writing) and the
+        # later ledger archival agree and don't each pay for a separate LLM match.
+        arc_info = resolve_arc_identity(headline_n, headline_arc_map, ledger) if headline_arc_map else None
+        prior_state = _audience_state_for_arc(arc_info, ledger)
+        if prior_state:
+            print_and_write(f'Side story "{strip_arc_tags(headline_n).strip()[:60]}" is a continuation; injecting prior audience_state')
+
         story_finder_prompt = "Tell me more about the story behind this headline from today's paper. Include as many details as possible :\n" + headline_n
         try:
             print_and_write(story_finder_prompt)
-            story = summarize_headline_with_grounding(headline_n)
+            story = summarize_headline_with_grounding(headline_n, audience_state=prior_state)
             print_and_write(story)
             story_overviews = story_overviews + '\n' + story
             overview_headlines.append(headline_n)
             overview_briefs.append((headline_n, story))
+            overview_arc_infos.append(arc_info)
         except Exception as e:
             print_and_write(f'Overview source-hunter research failed: {e}')
 
-    return story_overviews, overview_headlines, overview_briefs
+    return story_overviews, overview_headlines, overview_briefs, overview_arc_infos
 
 
 import re
@@ -393,6 +434,15 @@ def topic_finder(formatted_date):
             _log_label='dedup-headlines-history',
         )
 
+    # Capture the dedup tagger's [UPDATE: slug] / [MAJOR ESCALATION: slug] verdicts
+    # NOW, before the Tier-3 selection prompts strip those prefixes. Without this,
+    # find_matching_arc() downstream sees only de-tagged headlines, never recovers a
+    # slug, and every recurring story spawns a fresh single-episode arc — defeating
+    # both the main-story update framing and side-story continuity. Only the ledger
+    # branch emits slugs, so the history-only branch yields an (empty) map harmlessly.
+    headline_arc_map = build_headline_arc_map(all_headlines)
+    print_and_write(f'Built headline->arc map with {len(headline_arc_map)} tagged continuations')
+
     # === TIER 1: Triage — score all headlines ===
     # Opus (heavy), not Gemma: the first cut decides recall. A weak score can drop a good story
     # before it is ever researched, and nothing downstream recovers it. It is one call over the
@@ -455,7 +505,9 @@ def topic_finder(formatted_date):
     overview = get_llm_response(research_document, system_prompt=overview_prompt, mode='standard')
     print_and_write('\noverview1:', overview)
 
-    overview_raw, overview_headlines, overview_briefs = overview_process(overview)
+    overview_raw, overview_headlines, overview_briefs, overview_arc_infos = overview_process(
+        overview, headline_arc_map=headline_arc_map, ledger=ledger
+    )
     print_and_write('\noverview2:', overview_raw)
 
     overview_text = get_llm_response(overview_raw, system_prompt=OVERVIEW_ANCHOR_PROMPT, mode='standard')
@@ -467,8 +519,10 @@ def topic_finder(formatted_date):
     important_raw = important_headline.strip('\"').strip('\'').strip()
     everyman_raw = everyman_headline.strip('\"').strip('\'').strip()
 
-    important_arc_info = find_matching_arc(important_raw)
-    everyman_arc_info = find_matching_arc(everyman_raw)
+    # Recover the arc slug the dedup tagger assigned (deterministic string match,
+    # then a scoped LLM match for paraphrases, then any surviving inline tag).
+    important_arc_info = resolve_arc_identity(important_raw, headline_arc_map, ledger)
+    everyman_arc_info = resolve_arc_identity(everyman_raw, headline_arc_map, ledger)
 
     important_clean = strip_arc_tags(important_raw)
     everyman_clean = strip_arc_tags(everyman_raw)
@@ -537,7 +591,8 @@ def topic_finder(formatted_date):
     # Archive side stories in ledger
     for i, (oh_headline, oh_brief) in enumerate(overview_briefs):
         oh_clean = strip_arc_tags(oh_headline).strip()
-        oh_arc_info = find_matching_arc(oh_headline)
+        # Reuse the arc resolved during overview_process (resolved once, no re-call).
+        oh_arc_info = overview_arc_infos[i] if i < len(overview_arc_infos) else None
         if oh_arc_info:
             tag_type, slug = oh_arc_info
             if slug in ledger["arcs"]:
