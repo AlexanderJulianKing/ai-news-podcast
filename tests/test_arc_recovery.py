@@ -87,3 +87,55 @@ def test_recover_returns_none_for_heavy_paraphrase():
 
 def test_recover_with_empty_map_is_none():
     assert recover_arc_for_headline("anything", {}) is None
+
+
+# --- Real production tagger output: Gemma wraps tags in markdown (bullets,
+# headings, bold, numbers), so the tag is NEVER at the literal start of a line.
+# These lines are copied from the 2026-06-28 llm audit log.
+REAL_GEMMA_OUTPUT = """Here are the de-duplicated headlines:
+
+NPR:
+*   **[MAJOR ESCALATION: us_iran_strikes_4] Conflict in the Middle East:** US airstrikes again hit Iran as Tehran strikes Bahrain and Kuwait, further imperiling the interim deal.
+*   **[UPDATE: europe_heat_wave_2] Climate & Weather:** Central Europe sizzles as heat records are smashed in Switzerland, Denmark, and the Czech Republic.
+*   **FIFA World Cup:** Egypt advances past the group stage after a 1-1 draw with Iran.
+*   **[UPDATE: inflation_record_high] Economy:** A key inflation gauge surges to a 3-year high, and mortgage rates continue to climb.
+
+The Associated Press:
+### **2. [UPDATE: venezuela_earthquake_2] Desperate Search for Survivors in Venezuela**
+"""
+
+
+def test_build_map_parses_markdown_wrapped_tags():
+    m = build_headline_arc_map(REAL_GEMMA_OUTPUT)
+    # Four tagged lines; the untagged FIFA bullet and section headers excluded.
+    assert ("MAJOR ESCALATION", "us_iran_strikes_4") in m.values()
+    assert ("UPDATE", "europe_heat_wave_2") in m.values()
+    assert ("UPDATE", "inflation_record_high") in m.values()
+    assert ("UPDATE", "venezuela_earthquake_2") in m.values()
+    assert len(m) == 4
+
+
+def test_recover_real_main_pick_from_markdown_output():
+    # The exact 2026-06-28 lead headline the picker chose, de-tagged.
+    m = build_headline_arc_map(REAL_GEMMA_OUTPUT)
+    chosen = ("Conflict in the Middle East: US airstrikes again hit Iran as Tehran "
+              "strikes Bahrain and Kuwait, further imperiling the interim deal.")
+    assert recover_arc_for_headline(chosen, m) == ("MAJOR ESCALATION", "us_iran_strikes_4")
+
+
+def test_untagged_markdown_headline_is_not_swallowed_into_neighbor():
+    # The untagged FIFA bullet sits between two tagged lines; it must NOT be folded
+    # into the europe_heat_wave_2 key, and an Egypt/FIFA headline must not match it.
+    m = build_headline_arc_map(REAL_GEMMA_OUTPUT)
+    assert recover_arc_for_headline("Egypt advances past the group stage at the World Cup", m) is None
+
+
+def test_build_map_splits_multiple_tags_on_one_line():
+    # Gemma sometimes crams several tagged items onto one line (semicolon-joined).
+    one_line = (
+        "World roundup: [UPDATE: alpha_story] Alpha vote passes the House; "
+        "[MAJOR ESCALATION: bravo_story] Bravo conflict erupts into open war"
+    )
+    m = build_headline_arc_map(one_line)
+    assert recover_arc_for_headline("Alpha vote passes the House", m) == ("UPDATE", "alpha_story")
+    assert recover_arc_for_headline("Bravo conflict erupts into open war", m) == ("MAJOR ESCALATION", "bravo_story")

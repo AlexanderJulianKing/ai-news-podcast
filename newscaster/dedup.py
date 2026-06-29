@@ -239,23 +239,38 @@ def _content_tokens(headline: str) -> set:
     }
 
 
+_ARC_TAG_RE = re.compile(r"\[(UPDATE|MAJOR ESCALATION):\s*([^\]]+)\]")
+
+
 def build_headline_arc_map(tagged_text: str) -> dict:
     """Parse the dedup tagger's output into {clean-headline-key: (tag_type, slug)}.
 
-    Only lines that carry an [UPDATE: slug] / [MAJOR ESCALATION: slug] prefix are
-    included; section headers and untagged new stories are skipped.
+    The tagger (Gemma) decorates its output with markdown — bullets ('* **'),
+    headings ('### **2.'), bold, numbering — so a tag is almost never at the
+    literal start of a line. We therefore find every [UPDATE: slug] /
+    [MAJOR ESCALATION: slug] tag wherever it sits, and take its headline as the
+    text running from the end of that tag up to the NEXT tag or the next newline,
+    whichever comes first (so neighbouring untagged headlines aren't swallowed and
+    several tagged items crammed onto one line each get their own entry).
+
+    This only reads the tagger's own verdicts; it does not decide sameness — that
+    judgment stays with the tagger.
     """
+    text = tagged_text or ""
+    matches = list(_ARC_TAG_RE.finditer(text))
     mapping = {}
-    for line in (tagged_text or "").splitlines():
-        line = line.strip()
-        if not line:
+    for idx, m in enumerate(matches):
+        tag_type, slug = m.group(1), m.group(2).strip()
+        if not slug:
             continue
-        info = find_matching_arc(line)
-        if not info:
-            continue
-        key = _headline_key(line)
+        start = m.end()
+        next_tag = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+        nl = text.find("\n", start)
+        next_nl = nl if nl != -1 else len(text)
+        headline_text = text[start:min(next_tag, next_nl)]
+        key = _headline_key(headline_text)
         if key:
-            mapping[key] = info
+            mapping[key] = (tag_type, slug)
     return mapping
 
 
