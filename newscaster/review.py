@@ -78,10 +78,26 @@ def verify_quotes(script_text: str, corpus_text: str) -> list[QuoteVerdict]:
 # --- the gate (sketch): hooks into pipeline.main() between write_scripts and generate_audio ---
 
 _AUDIT_PATH = "logs/source_hunter_audit.jsonl"
+_EDITOR_SNIPPET_CHARS = 24000
+_SNIPPET_CHUNK_CHARS = 3500
+_SNIPPET_CHUNK_OVERLAP = 350
+_SNIPPET_MAX_CHUNKS = 8
+_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9'_-]*", re.IGNORECASE)
+_STOPWORDS = {
+    "about", "after", "again", "against", "also", "another", "because", "been", "being",
+    "between", "before", "could", "from", "have", "into", "just", "more", "only", "over",
+    "said", "says", "source", "sources", "that", "their", "there", "these", "they", "this",
+    "those", "through", "under", "were", "what", "when", "where", "which", "while", "with",
+    "without", "would",
+}
 
 
 def _source_hunter_excerpts(date2: str) -> list[str]:
-    """The source-hunter's validated raw excerpts for the day, read from the audit (no re-fetch)."""
+    """Fallback: source-hunter's validated raw excerpts for the day from the global audit.
+
+    This audit mixes candidate-story and selected-story research, so review code should prefer
+    the selected segment research artifacts when they exist.
+    """
     if not os.path.exists(_AUDIT_PATH):
         return []
     iso_day = date2.replace("_", "-")  # 2026_06_19 -> audit timestamp prefix 2026-06-19
@@ -104,6 +120,62 @@ def _source_hunter_excerpts(date2: str) -> list[str]:
     return out
 
 
+def _dedupe_texts(texts: list[str]) -> list[str]:
+    seen = set()
+    out = []
+    for text in texts:
+        normalized = (text or "").strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        out.append(normalized)
+    return out
+
+
+def _segment_research_path(date2: str, idx: int) -> Path:
+    return Path(f"segment_summaries/{date2}_segment{idx}_research.json")
+
+
+def _segment_research(date2: str, idx: int) -> dict:
+    try:
+        return json.loads(_segment_research_path(date2, idx).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _segment_research_excerpts(date2: str, idx: int) -> list[str]:
+    """Source-hunter excerpts used by the selected-story research agent for one segment."""
+    research = _segment_research(date2, idx)
+    excerpts = []
+    for followup in research.get("followups") or []:
+        if not isinstance(followup, dict):
+            continue
+        for source in followup.get("source_hunter_sources") or []:
+            if not isinstance(source, dict):
+                continue
+            excerpt = source.get("excerpt")
+            if excerpt:
+                excerpts.append(excerpt)
+    return _dedupe_texts(excerpts)
+
+
+def _selected_segment_indices(date2: str) -> list[int]:
+    indices = []
+    pattern = f"segment_summaries/{date2}_segment*_research.json"
+    for path in sorted(glob.glob(pattern)):
+        match = re.search(r"_segment(\d+)_research\.json$", path)
+        if match:
+            indices.append(int(match.group(1)))
+    return indices
+
+
+def _selected_research_excerpts(date2: str) -> list[str]:
+    excerpts = []
+    for idx in _selected_segment_indices(date2):
+        excerpts.extend(_segment_research_excerpts(date2, idx))
+    return _dedupe_texts(excerpts)
+
+
 def _article_sources(pattern: str) -> list[str]:
     """Raw scraped article text (the writer's pages, never the LLM summaries) for matching files."""
     out = []
@@ -117,36 +189,218 @@ def _article_sources(pattern: str) -> list[str]:
     return out
 
 
+def _gather_manifest(date2: str) -> dict:
+    path = Path(f"segment_summaries/{date2}_GATHER_MANIFEST.json")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _side_story_briefs(date2: str) -> list[tuple[str, str]]:
+    manifest = _gather_manifest(date2)
+    briefs = []
+    for item in manifest.get("side_story_briefs") or []:
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            headline, brief = item[0], item[1]
+        elif isinstance(item, dict):
+            headline = item.get("headline") or item.get("title") or ""
+            brief = item.get("brief") or item.get("summary") or item.get("text") or ""
+        else:
+            continue
+        headline = str(headline or "").strip()
+        brief = str(brief or "").strip()
+        if headline or brief:
+            briefs.append((headline, brief))
+    return briefs
+
+
+def _matched_source_hunter_excerpts(date2: str, headlines: list[str]) -> list[str]:
+    """Source-hunter excerpts whose audit topic matches selected side-story headlines."""
+    if not os.path.exists(_AUDIT_PATH):
+        return []
+    keys = [_normalize(headline) for headline in headlines if _normalize(headline)]
+    if not keys:
+        return []
+    iso_day = date2.replace("_", "-")
+    excerpts = []
+    with open(_AUDIT_PATH, encoding="utf-8") as handle:
+        for line in handle:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not (record.get("timestamp") or "").startswith(iso_day):
+                continue
+            topic_key = _normalize(record.get("topic") or "")
+            if not topic_key:
+                continue
+            if not any(key in topic_key or topic_key in key for key in keys):
+                continue
+            for source in record.get("sources", []):
+                if not isinstance(source, dict):
+                    continue
+                excerpt = source.get("excerpt")
+                if excerpt:
+                    title = str(source.get("title") or record.get("topic") or "source").strip()
+                    excerpts.append(f"SOURCE: {title}\n{excerpt}")
+    return _dedupe_texts(excerpts)
+
+
+def build_overview_corpus(date2: str) -> str:
+    """Ground the overview in the side-story briefs the overview writer actually used."""
+    briefs = _side_story_briefs(date2)
+    chunks = []
+    chunks.extend(_matched_source_hunter_excerpts(date2, [headline for headline, _ in briefs]))
+    for headline, brief in briefs:
+        if headline or brief:
+            chunks.append(f"SIDE STORY: {headline}\n{brief}".strip())
+    return "\n\n".join(_dedupe_texts(chunks))
+
+
 def build_source_corpus(date2: str) -> str:
-    """Whole-day ground truth = the RAW source text the pipeline fetched (never the LLM summaries,
-    which already contain any invented claim): every scraped article + the source-hunter's validated
-    excerpts. Grounds the overview/intro; segments use the tighter build_segment_corpus.
+    """Selected-story ground truth = raw source text for stories that made the episode.
+
+    This intentionally excludes source-hunter evidence gathered for candidate stories that were
+    never selected. Those candidates live in the global audit and are useful diagnostically, but
+    they add large, irrelevant context to the pre-TTS review prompts.
     """
+    selected = (_article_sources(f"segment_summaries/{date2}_segment*_article*_source.txt")
+                + _selected_research_excerpts(date2))
+    if selected:
+        return "\n\n".join(_dedupe_texts(selected))
     return "\n\n".join(_article_sources(f"segment_summaries/{date2}_segment*_article*_source.txt")
                        + _source_hunter_excerpts(date2))
 
 
 def build_segment_corpus(date2: str, idx: int) -> str:
-    """Per-segment ground truth: just THIS segment's scraped articles + the day's source-hunter
-    excerpts. Scoping out the other segments' articles strips irrelevant context, which sharply
+    """Per-segment ground truth: just THIS segment's scraped articles + research-agent excerpts.
+
+    Scoping out the other segments' articles and unrelated candidate-story source-hunter excerpts
     improves the faithfulness pass's recall on subtle contradictions — a long, noisy corpus drowns
     them (the model can spot a reversal in two sentences but misses it inside 80k of text).
     """
-    return "\n\n".join(_article_sources(f"segment_summaries/{date2}_segment{idx}_article*_source.txt")
-                       + _source_hunter_excerpts(date2))
+    scoped = (_article_sources(f"segment_summaries/{date2}_segment{idx}_article*_source.txt")
+              + _segment_research_excerpts(date2, idx))
+    if scoped:
+        return "\n\n".join(_dedupe_texts(scoped))
+    return "\n\n".join(_article_sources(f"segment_summaries/{date2}_segment{idx}_article*_source.txt"))
 
 
 _SEGMENT_RE = re.compile(r"_segment_(\d+)\.txt$")
 
 
 def _corpus_for_script(date2: str, name: str, full_corpus: str) -> str:
-    """Segment scripts check against their own scoped corpus; overview/intro use the whole-day one."""
+    """Return source corpus for scripts that actually carry source-grounded news copy."""
     m = _SEGMENT_RE.search(name)
     if m:
         scoped = build_segment_corpus(date2, int(m.group(1)))
         if scoped.strip():
             return scoped
+    if name.endswith("_overview.txt"):
+        return build_overview_corpus(date2)
+    if name.endswith("_intro1.txt") or name.endswith("_intro2.txt") or name.endswith("_outro.txt"):
+        return ""
     return full_corpus
+
+
+def _content_tokens(text: str) -> set[str]:
+    tokens = set()
+    for token in _TOKEN_RE.findall((text or "").lower()):
+        token = token.strip("'_-")
+        if len(token) < 3 or token in _STOPWORDS:
+            continue
+        tokens.add(token)
+    return tokens
+
+
+def _source_chunks(corpus: str, *, chunk_chars: int = _SNIPPET_CHUNK_CHARS,
+                   overlap: int = _SNIPPET_CHUNK_OVERLAP) -> list[str]:
+    text = (corpus or "").strip()
+    if not text:
+        return []
+    sections = [s.strip() for s in re.split(r"\n{2,}", text) if s.strip()]
+    chunks = []
+    for section in sections:
+        if len(section) <= chunk_chars:
+            chunks.append(section)
+            continue
+        step = max(1, chunk_chars - overlap)
+        for start in range(0, len(section), step):
+            chunk = section[start:start + chunk_chars].strip()
+            if chunk:
+                chunks.append(chunk)
+            if start + chunk_chars >= len(section):
+                break
+    return chunks
+
+
+def _snippet_corpus_for_report(report: str, corpus: str, *, max_chars: int = _EDITOR_SNIPPET_CHARS) -> str:
+    """Return the source chunks most relevant to a fact-finder report.
+
+    The editor only needs evidence for the flagged claims, not the entire source corpus. This is
+    intentionally lexical and deterministic: it cannot invent support, and if it finds nothing we
+    leave the caller to decide whether to skip or fall back.
+    """
+    query_tokens = _content_tokens(report)
+    chunks = _source_chunks(corpus)
+    if not query_tokens or not chunks:
+        return ""
+
+    chunk_token_sets = [_content_tokens(chunk) for chunk in chunks]
+
+    def score_tokens(tokens: set[str], chunk_tokens: set[str]) -> int:
+        overlap = tokens & chunk_tokens
+        if not overlap:
+            return 0
+        return (len(overlap) * 10) + sum(1 for token in overlap if len(token) >= 7)
+
+    selected_indices = []
+    seen_indices = set()
+    for line in (ln.strip() for ln in (report or "").splitlines() if ln.strip()):
+        line_tokens = _content_tokens(line)
+        if not line_tokens:
+            continue
+        best = None
+        for index, chunk_tokens in enumerate(chunk_token_sets):
+            if index in seen_indices:
+                continue
+            score = score_tokens(line_tokens, chunk_tokens)
+            if score and (best is None or score > best[0]):
+                best = (score, index)
+        if best is not None:
+            seen_indices.add(best[1])
+            selected_indices.append(best[1])
+            if len(selected_indices) >= _SNIPPET_MAX_CHUNKS:
+                break
+
+    scored = []
+    for index, chunk_tokens in enumerate(chunk_token_sets):
+        if index in seen_indices:
+            continue
+        score = score_tokens(query_tokens, chunk_tokens)
+        if score:
+            scored.append((score, index))
+
+    if not selected_indices and not scored:
+        return ""
+    selected = [chunks[index] for index in selected_indices]
+    for _, index in sorted(scored, key=lambda item: (-item[0], item[1])):
+        if len(selected) >= _SNIPPET_MAX_CHUNKS:
+            break
+        selected.append(chunks[index])
+
+    out = []
+    total = 0
+    for chunk in selected:
+        if total >= max_chars:
+            break
+        remaining = max_chars - total
+        trimmed = chunk[:remaining].strip()
+        if trimmed:
+            out.append(trimmed)
+            total += len(trimmed) + 2
+    return "\n\n".join(_dedupe_texts(out))
 
 
 _FAITHFULNESS_SYSTEM = (
@@ -319,6 +573,33 @@ def _format_report(script_flags: list[tuple[str, str]]) -> str:
     return "\n".join(lines)
 
 
+def _absence_only_report(report: str) -> bool:
+    lines = [ln.strip().lower() for ln in (report or "").splitlines() if ln.strip()]
+    if not lines:
+        return False
+    absence_markers = (
+        "no support",
+        "not found",
+        "unsupported",
+        "absent",
+        "not in any source",
+        "not in the source",
+        "not in sources",
+    )
+    contradiction_markers = (
+        "source says",
+        "source consistently says",
+        "wrong:",
+        "should be",
+    )
+    for line in lines:
+        if not any(marker in line for marker in absence_markers):
+            return False
+        if "source only says" in line or any(marker in line for marker in contradiction_markers):
+            return False
+    return True
+
+
 def _audit_edits(date2: str, name: str, outcome) -> None:
     write_jsonl_log("fact_finder_edits", {
         "event": "fact_finder_edit",
@@ -371,8 +652,25 @@ def review_and_revise_scripts(date2: str) -> dict:
             continue
         report = _format_report(editable)
         corpus = _corpus_for_script(date2, name, full_corpus)  # segment editor checks its own sources
+        snippet_corpus = _snippet_corpus_for_report(report, corpus)
+        if snippet_corpus:
+            print_and_write(
+                f"FACT-FINDER EDITOR [{name}]: using {len(snippet_corpus)} chars of relevant source snippets "
+                f"from {len(corpus)} chars"
+            )
+        elif _absence_only_report(report):
+            print_and_write(
+                f"FACT-FINDER EDITOR [{name}]: only unsupported/absent-source flag(s); "
+                "skipping auto-edit"
+            )
+            continue
+        else:
+            print_and_write(
+                f"FACT-FINDER EDITOR [{name}]: no relevant snippets found; "
+                "running editor with report-only evidence"
+            )
         try:
-            outcome = revise_script(original, report, corpus, label=name)
+            outcome = revise_script(original, report, snippet_corpus, label=name)
         except Exception as exc:  # belt-and-suspenders; revise_script is already fail-open
             print_and_write(f"FACT-FINDER EDITOR crashed on {name}: {exc}; leaving script unchanged")
             continue

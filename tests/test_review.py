@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from newscaster.review import (
     extract_quotes, verify_quotes, build_source_corpus, faithfulness_flags, stable_fact_flags,
-    verified_stable_fact_flags,
+    verified_stable_fact_flags, build_overview_corpus, _snippet_corpus_for_report,
 )
 
 
@@ -87,16 +87,121 @@ def test_build_segment_corpus_scopes_to_one_segment(tmp_path, monkeypatch):
     assert "California is slow to count" not in corp0      # segment 1's sources are scoped out
 
 
+def test_build_overview_corpus_uses_side_story_briefs(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "segment_summaries").mkdir()
+    (tmp_path / "segment_summaries" / "2026_07_08_GATHER_MANIFEST.json").write_text(
+        json.dumps({
+            "side_story_briefs": [
+                ["Explosions rock Damascus", "FINDINGS: Eighteen people were injured."],
+                {"headline": "Greenland dispute", "brief": "FINDINGS: Denmark says Greenland is not for sale."},
+            ],
+            "topics": ["main story should not be overview corpus"],
+        }),
+        encoding="utf-8",
+    )
+
+    corpus = build_overview_corpus("2026_07_08")
+
+    assert "SIDE STORY: Explosions rock Damascus" in corpus
+    assert "Eighteen people were injured" in corpus
+    assert "Greenland is not for sale" in corpus
+    assert "main story should not be overview corpus" not in corpus
+
+
+def test_build_overview_corpus_prefers_matched_source_hunter_excerpts(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "segment_summaries").mkdir()
+    (tmp_path / "logs").mkdir()
+    date2 = "2026_07_08"
+    (tmp_path / "segment_summaries" / f"{date2}_GATHER_MANIFEST.json").write_text(
+        json.dumps({
+            "side_story_briefs": [
+                ["Explosions rock Damascus", "FINDINGS: side-story brief"],
+            ],
+        }),
+        encoding="utf-8",
+    )
+    (tmp_path / "logs" / "source_hunter_audit.jsonl").write_text(
+        json.dumps({
+            "timestamp": "2026-07-08T04:00:00",
+            "topic": "Explosions rock Damascus",
+            "sources": [{"title": "Reuters", "excerpt": "Raw report says eighteen people were injured."}],
+        }) + "\n" +
+        json.dumps({
+            "timestamp": "2026-07-08T04:01:00",
+            "topic": "U.S.-Iran Ceasefire Declared Over",
+            "sources": [{"title": "CBS", "excerpt": "Main-story excerpt should not be in overview corpus."}],
+        }) + "\n",
+        encoding="utf-8",
+    )
+
+    corpus = build_overview_corpus(date2)
+
+    assert "Raw report says eighteen people were injured" in corpus
+    assert "FINDINGS: side-story brief" in corpus
+    assert "Main-story excerpt" not in corpus
+
+
 def test_corpus_for_script_routes_segment_vs_overview(tmp_path, monkeypatch):
     from newscaster.review import _corpus_for_script
     monkeypatch.chdir(tmp_path)
     (tmp_path / "segment_summaries").mkdir()
     (tmp_path / "segment_summaries" / "2026_06_21_segment0_article0_source.txt").write_text(
         "SEGZERO SOURCE", encoding="utf-8")
+    (tmp_path / "segment_summaries" / "2026_06_21_GATHER_MANIFEST.json").write_text(
+        json.dumps({"side_story_briefs": [["Side headline", "SIDE STORY SOURCE"]]}),
+        encoding="utf-8",
+    )
     full = "WHOLE DAY CORPUS"
     assert "SEGZERO SOURCE" in _corpus_for_script("2026_06_21", "2026_06_21_segment_0.txt", full)
-    assert _corpus_for_script("2026_06_21", "2026_06_21_overview.txt", full) == full   # not a segment
+    assert _corpus_for_script("2026_06_21", "2026_06_21_overview.txt", full) == "SIDE STORY: Side headline\nSIDE STORY SOURCE"
     assert _corpus_for_script("2026_06_21", "2026_06_21_segment_9.txt", full) == full  # no sources -> full
+
+
+def test_corpus_for_script_skips_overview_when_no_side_corpus(tmp_path, monkeypatch):
+    from newscaster.review import _corpus_for_script
+    monkeypatch.chdir(tmp_path)
+    assert _corpus_for_script("2026_06_21", "2026_06_21_overview.txt", "MAIN STORY CORPUS") == ""
+
+
+def test_snippet_corpus_for_report_selects_relevant_source_chunks():
+    corpus = (
+        "SIDE STORY: SpaceX\n"
+        "SpaceX shares fell to one hundred fifty-two dollars after analyst downgrades.\n\n"
+        "SIDE STORY: Greenland\n"
+        "Prime Minister Mette Frederiksen said Greenland is not for sale.\n\n"
+        "SIDE STORY: Weather\n"
+        "A heat wave continued across the desert Southwest."
+    )
+    report = "FLAG: Greenland is not for sale — source says Mette Frederiksen said this"
+
+    snippets = _snippet_corpus_for_report(report, corpus, max_chars=500)
+
+    assert "Mette Frederiksen" in snippets
+    assert "SpaceX shares" not in snippets
+
+
+def test_snippet_corpus_for_report_covers_multiple_flag_topics():
+    corpus = "\n\n".join([
+        "SIDE STORY: Syria\nFrance discussed rebuilding Syria's central bank and airport.",
+        "SIDE STORY: Greenland\nPrime Minister Mette Frederiksen said Greenland is not for sale.",
+        "SIDE STORY: Manhattan\nThe former Pfizer headquarters tower has roughly 1,600 units.",
+        "SIDE STORY: SpaceX\nSpaceX shares fell after analysts discussed IPO target ranges.",
+    ])
+    report = "\n".join([
+        "FLAG: Syria central bank deal - source says France discussed rebuilding",
+        "FLAG: Greenland sale claim - source says Frederiksen rejected it",
+        "FLAG: Manhattan tower units - source says former Pfizer headquarters",
+        "FLAG: SpaceX IPO targets - source says analysts discussed ranges",
+    ])
+
+    snippets = _snippet_corpus_for_report(report, corpus, max_chars=1000)
+
+    assert "central bank" in snippets
+    assert "Mette Frederiksen" in snippets
+    assert "former Pfizer" in snippets
+    assert "SpaceX shares" in snippets
 
 
 def test_faithfulness_flags_parses_flag_lines():

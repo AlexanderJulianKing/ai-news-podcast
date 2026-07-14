@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 import newscaster.config as cfg
@@ -233,3 +234,126 @@ def test_review_and_revise_passes_only_corpus_grounded_flags_to_editor(tmp_path,
         review.review_and_revise_scripts("2026_06_21")
     assert "source says left for" in captured["report"]   # corpus-grounded flag reaches the editor
     assert "Asim Munir" not in captured["report"]          # advisory stable-fact flag filtered out
+
+
+def test_review_and_revise_passes_relevant_snippets_to_editor(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "output_scripts").mkdir()
+    (tmp_path / "logs").mkdir()
+    sp = tmp_path / "output_scripts" / "2026_06_21_segment_0.txt"
+    sp.write_text("Vance arrived in Kyiv.", encoding="utf-8")
+    from newscaster import review
+    flags = [("2026_06_21_segment_0.txt", "faithfulness", "FLAG: Vance arrived — source says Vance left for Kyiv")]
+    full_corpus = (
+        "UNRELATED " * 5000
+        + "\n\nSOURCE: wire\nVice President Vance left for Kyiv on Tuesday, according to officials."
+    )
+    captured = {}
+    def fake_revise(original, report, corpus, *, label):
+        captured["corpus"] = corpus
+        return EditOutcome(text=original, applied=[], rejected=[], changed=False)
+    with patch.object(review, "build_source_corpus", return_value=full_corpus), \
+         patch.object(review, "review_scripts", return_value=flags), \
+         patch.object(review, "revise_script", side_effect=fake_revise):
+        review.review_and_revise_scripts("2026_06_21")
+
+    assert "Vance left for Kyiv" in captured["corpus"]
+    assert len(captured["corpus"]) < len(full_corpus)
+
+
+def test_review_and_revise_skips_absence_only_flags_without_snippets(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "output_scripts").mkdir()
+    (tmp_path / "logs").mkdir()
+    sp = tmp_path / "output_scripts" / "2026_06_21_overview.txt"
+    sp.write_text("Unsupported overview claim.", encoding="utf-8")
+    from newscaster import review
+    flags = [("2026_06_21_overview.txt", "faithfulness", "FLAG: Unsupported overview claim — no support in the source")]
+    with patch.object(review, "build_source_corpus", return_value="unrelated corpus"), \
+         patch.object(review, "review_scripts", return_value=flags), \
+         patch.object(review, "revise_script") as mock_revise:
+        result = review.review_and_revise_scripts("2026_06_21")
+
+    mock_revise.assert_not_called()
+    assert result["edited_scripts"] == 0
+
+
+# --- review corpus scoping ---
+
+def _write_segment_research(tmp_path, date2, idx, *excerpts):
+    path = tmp_path / "segment_summaries" / f"{date2}_segment{idx}_research.json"
+    payload = {
+        "date": date2,
+        "slot": idx,
+        "topic": f"selected topic {idx}",
+        "followups": [{
+            "question": "follow-up",
+            "source_hunter_sources": [
+                {"title": f"source {i}", "excerpt": excerpt}
+                for i, excerpt in enumerate(excerpts)
+            ],
+        }],
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_build_segment_corpus_uses_selected_research_excerpts(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "segment_summaries").mkdir()
+    (tmp_path / "logs").mkdir()
+    date2 = "2026_07_06"
+    (tmp_path / "segment_summaries" / f"{date2}_segment0_article0_source.txt").write_text(
+        "segment zero article", encoding="utf-8"
+    )
+    _write_segment_research(tmp_path, date2, 0, "selected segment zero excerpt")
+    (tmp_path / "logs" / "source_hunter_audit.jsonl").write_text(
+        json.dumps({
+            "timestamp": "2026-07-06T04:00:00",
+            "sources": [{"excerpt": "unselected candidate excerpt"}],
+        }) + "\n",
+        encoding="utf-8",
+    )
+
+    from newscaster import review
+    corpus = review.build_segment_corpus(date2, 0)
+
+    assert "segment zero article" in corpus
+    assert "selected segment zero excerpt" in corpus
+    assert "unselected candidate excerpt" not in corpus
+
+
+def test_build_source_corpus_uses_only_selected_story_research(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "segment_summaries").mkdir()
+    (tmp_path / "logs").mkdir()
+    date2 = "2026_07_06"
+    for idx in (0, 1):
+        (tmp_path / "segment_summaries" / f"{date2}_segment{idx}_article0_source.txt").write_text(
+            f"segment {idx} article", encoding="utf-8"
+        )
+        _write_segment_research(tmp_path, date2, idx, f"selected segment {idx} excerpt")
+    (tmp_path / "logs" / "source_hunter_audit.jsonl").write_text(
+        json.dumps({
+            "timestamp": "2026-07-06T04:00:00",
+            "sources": [{"excerpt": "candidate-only excerpt"}],
+        }) + "\n",
+        encoding="utf-8",
+    )
+
+    from newscaster import review
+    corpus = review.build_source_corpus(date2)
+
+    assert "segment 0 article" in corpus
+    assert "segment 1 article" in corpus
+    assert "selected segment 0 excerpt" in corpus
+    assert "selected segment 1 excerpt" in corpus
+    assert "candidate-only excerpt" not in corpus
+
+
+def test_intro_and_outro_skip_source_grounded_corpus(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    from newscaster import review
+    assert review._corpus_for_script("2026_07_06", "2026_07_06_intro1.txt", "full") == ""
+    assert review._corpus_for_script("2026_07_06", "2026_07_06_intro2.txt", "full") == ""
+    assert review._corpus_for_script("2026_07_06", "2026_07_06_outro.txt", "full") == ""
+    assert review._corpus_for_script("2026_07_06", "2026_07_06_overview.txt", "full") == ""
