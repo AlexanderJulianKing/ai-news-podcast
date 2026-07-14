@@ -178,9 +178,12 @@ def text2speech(date_str, voices_list):
                         else:
                             text = thing
 
-                        if '[' in text:
-                            pass
-                        elif len(text) > 2:
+                        if text.strip().startswith('[') and text.strip().endswith(']'):
+                            continue
+                        else:
+                            text = text.replace('[', '').replace(']', '')
+
+                        if len(text) > 2:
                             outfile_name = '{}_segment_{}_line_{}.wav'.format(OUTPUT_PATH, i, j)
                             print_and_write()
                             print_and_write(speaker, outfile_name, text)
@@ -198,8 +201,6 @@ def text2speech(date_str, voices_list):
                                 else:
                                     segment_audio += AudioSegment.from_mp3(outfile_name)
                                     segment_audio += AudioSegment.silent(duration=0.7 * _SECOND)
-                        else:
-                            pass
 
                     segment_audio.export('{}_segment_{}.mp3'.format(OUTPUT_PATH, i), format="mp3")
         else:
