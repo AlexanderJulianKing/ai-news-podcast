@@ -13,6 +13,7 @@ logs/
 output_video.mp4
 __pycache__/
 *.pyc
+venv/
 .DS_Store
 .claude/
 benchmarks/*/outputs/
