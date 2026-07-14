@@ -222,6 +222,38 @@ def test_claude_empty_text_block_raises_malformed():
             claude_mod.claude("p", model_to_use="claude-x")
 
 
+def test_claude_include_usage_returns_token_breakdown():
+    fake_block = MagicMock()
+    fake_block.type = 'text'
+    fake_block.text = 'ok'
+    fake_message = MagicMock()
+    fake_message.content = [fake_block]
+    fake_message.usage = {
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "cache_creation_input_tokens": 80,
+        "cache_read_input_tokens": 40,
+        "cache_creation": {
+            "ephemeral_5m_input_tokens": 80,
+            "ephemeral_1h_input_tokens": 0,
+        },
+    }
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value = fake_message
+
+    with patch.object(claude_mod.anthropic, 'Anthropic', return_value=fake_client):
+        text, usage = claude_mod.claude("p", model_to_use="claude-opus-4-8", include_usage=True)
+
+    assert text == "ok"
+    assert usage["input_tokens"] == 100
+    assert usage["output_tokens"] == 20
+    assert usage["cache_creation_input_tokens"] == 80
+    assert usage["cache_read_input_tokens"] == 40
+    assert usage["total_input_tokens"] == 220
+    assert usage["total_tokens"] == 240
+    assert usage["estimated_cost_usd"] == 0.00152
+
+
 # ---- segments.py content-shape exhaustion ----
 
 def test_segments_content_shape_exhaustion_skips_slot_instead_of_aborting(tmp_path, monkeypatch):

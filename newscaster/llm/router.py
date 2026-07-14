@@ -27,7 +27,8 @@ from newscaster.llm.errors import (
 
 
 def _audit_llm_event(event, spec, user_prompt, system_prompt, *, call_id, phase,
-                     attempt=None, latency_seconds=None, response=None, error=None):
+                     attempt=None, latency_seconds=None, response=None, error=None,
+                     usage=None):
     if not getattr(_config, "LLM_AUDIT_LOG_ENABLED", False):
         return
     payload = {
@@ -48,6 +49,20 @@ def _audit_llm_event(event, spec, user_prompt, system_prompt, *, call_id, phase,
         payload["user_prompt"] = user_prompt
     if response is not None and getattr(_config, "LLM_AUDIT_LOG_RESPONSES", False):
         payload["response"] = response
+    if usage is not None:
+        payload["usage"] = usage
+        for key in (
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "total_input_tokens",
+            "total_tokens",
+            "estimated_cost_usd",
+            "cost",
+        ):
+            if key in usage:
+                payload[key] = usage[key]
     if error is not None:
         payload["error"] = str(error)
         payload["error_type"] = type(error).__name__
@@ -118,7 +133,7 @@ def _dispatch(spec, user_prompt, system_prompt):
         )
 
     if provider == 'anthropic':
-        return claude(user_prompt, model, system_prompt)
+        return claude(user_prompt, model, system_prompt, include_usage=True)
 
     if provider == 'openrouter':
         return get_openrouter_response(
@@ -127,6 +142,7 @@ def _dispatch(spec, user_prompt, system_prompt):
             spec.get('name', model),
             spec.get('reasoning', False),
             system_prompt=system_prompt,
+            include_usage=True,
             tools=spec.get('tools'),
         )
 
@@ -152,7 +168,12 @@ def _call_with_retry(spec, user_prompt, system_prompt, *, call_id=None, phase="p
     for attempt in range(_config.MAX_RETRIES):
         started = time.perf_counter()
         try:
-            response = _dispatch(spec, user_prompt, system_prompt)
+            dispatch_result = _dispatch(spec, user_prompt, system_prompt)
+            usage = None
+            if isinstance(dispatch_result, tuple) and len(dispatch_result) == 2:
+                response, usage = dispatch_result
+            else:
+                response = dispatch_result
             _audit_llm_event(
                 "success",
                 spec,
@@ -163,6 +184,7 @@ def _call_with_retry(spec, user_prompt, system_prompt, *, call_id=None, phase="p
                 attempt=attempt + 1,
                 latency_seconds=time.perf_counter() - started,
                 response=response,
+                usage=usage,
             )
             return response
         except LLMNonRetryableError as e:

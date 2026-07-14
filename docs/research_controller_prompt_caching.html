@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Controller Prompt Caching Design</title>
+  <style>
+    :root {
+      --ink: #17202c;
+      --muted: #586678;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --line: #cad4e1;
+      --blue: #245f9f;
+      --blue-soft: #e8f2ff;
+      --green: #28724f;
+      --green-soft: #e7f5ed;
+      --amber: #8a5b00;
+      --amber-soft: #fff3d6;
+      --red: #9a3535;
+      --red-soft: #ffeded;
+      --slate: #344154;
+      --slate-soft: #edf1f6;
+      --teal: #0f766e;
+      --teal-soft: #e5f5f3;
+      --shadow: 0 14px 34px rgba(25, 38, 58, 0.08);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    header {
+      background: #1d3145;
+      color: #fff;
+      border-bottom: 6px solid #4d9b71;
+    }
+
+    .wrap {
+      width: min(1240px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: 48px 0 34px;
+    }
+
+    h1 {
+      max-width: 980px;
+      margin: 0 0 12px;
+      font-size: clamp(32px, 5vw, 56px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .lede {
+      max-width: 980px;
+      margin: 0;
+      color: #dce7f3;
+      font-size: clamp(16px, 2vw, 20px);
+    }
+
+    main {
+      padding: 32px 0 56px;
+    }
+
+    section {
+      margin: 0 0 30px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .panel.bad {
+      border-top: 6px solid var(--red);
+    }
+
+    .panel.good {
+      border-top: 6px solid var(--green);
+    }
+
+    .note-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .note {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 14px;
+    }
+
+    .note strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .flow {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .step {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px 12px 12px 14px;
+      background: var(--slate-soft);
+    }
+
+    .step::after {
+      content: "";
+      position: absolute;
+      left: 24px;
+      bottom: -13px;
+      width: 2px;
+      height: 12px;
+      background: var(--line);
+    }
+
+    .step:last-child::after {
+      display: none;
+    }
+
+    .step .label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 24px;
+      border-radius: 999px;
+      padding: 0 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--slate);
+    }
+
+    .cache {
+      background: var(--green-soft);
+      border-color: #a8d7bd;
+    }
+
+    .cache .badge {
+      background: var(--green);
+    }
+
+    .miss {
+      background: var(--red-soft);
+      border-color: #e5b4b4;
+    }
+
+    .miss .badge {
+      background: var(--red);
+    }
+
+    .mutable {
+      background: var(--amber-soft);
+      border-color: #e0c06b;
+    }
+
+    .mutable .badge {
+      background: var(--amber);
+    }
+
+    .static {
+      background: var(--blue-soft);
+      border-color: #a9c8eb;
+    }
+
+    .static .badge {
+      background: var(--blue);
+    }
+
+    .tool {
+      background: var(--teal-soft);
+      border-color: #9bd2cb;
+    }
+
+    .tool .badge {
+      background: var(--teal);
+    }
+
+    .mini {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      color: #243244;
+    }
+
+    .loop {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .loop-box {
+      min-height: 96px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 14px;
+    }
+
+    .arrow {
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 24px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    th {
+      background: #eaf0f7;
+      font-size: 14px;
+      color: #263548;
+    }
+
+    @media (max-width: 860px) {
+      .grid,
+      .note-row,
+      .loop {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        transform: rotate(90deg);
+        justify-self: start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap hero">
+      <h1>Research Controller Prompt Caching</h1>
+      <p class="lede">A comparison of the current agent loop and a cache-friendly design for Claude Opus controller calls.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="note-row" aria-label="summary">
+      <div class="note">
+        <strong>Segment rewrite logs</strong>
+        <p class="mini">Retained logs show only one clear segment-generation run. It had two segments, and both reached three drafts. That is not enough evidence to say this happens often now.</p>
+      </div>
+      <div class="note">
+        <strong>Controller evidence</strong>
+        <p class="mini">The audit logs show repeated Opus controller turns for the same topic, with the user prompt growing from hundreds of characters to thousands within minutes.</p>
+      </div>
+      <div class="note">
+        <strong>Likely path</strong>
+        <p class="mini">Measure Anthropic usage first, then test caching on the controller loop after reshaping the prompt into append-only blocks.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Current Controller Loop</h2>
+      <div class="grid">
+        <div class="panel bad">
+          <h3>Prompt Shape Today</h3>
+          <p class="mini">One large user text string is rebuilt every controller turn by <span class="mono">_controller_payload</span>.</p>
+          <div class="flow">
+            <div class="step static">
+              <div class="label"><span class="badge">S</span> System prompt</div>
+              <div class="mini">Stable controller instructions. Too small by itself to be a strong cache target.</div>
+            </div>
+            <div class="step miss">
+              <div class="label"><span class="badge">1</span> Mutable run state</div>
+              <div class="mini"><span class="mono">ITERATIONS_COMPLETED</span>, <span class="mono">REMAINING_BUDGET</span>, article count, min iterations.</div>
+            </div>
+            <div class="step miss">
+              <div class="label"><span class="badge">2</span> Memory, adversary, recent Q&amp;A</div>
+              <div class="mini">Some fields are stable, some grow, and all are inside the same text prefix.</div>
+            </div>
+            <div class="step miss">
+              <div class="label"><span class="badge">3</span> Current evidence blob</div>
+              <div class="mini">The largest part, but it is rebuilt as one block after earlier mutable fields.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel bad">
+          <h3>Why Caching Is Weak</h3>
+          <div class="loop">
+            <div class="loop-box">
+              <strong>Turn N</strong>
+              <p class="mini">Cache writes a hash of the whole prefix up to the breakpoint.</p>
+            </div>
+            <div class="arrow">→</div>
+            <div class="loop-box">
+              <strong>Turn N+1</strong>
+              <p class="mini">Early counters and combined text changed, so the prefix hash changes before reaching the reusable evidence.</p>
+            </div>
+          </div>
+          <p class="mini">Top-level automatic caching would probably write cache entries, but repeated reads are not guaranteed because the prompt is not arranged as a stable prefix plus changing suffix.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cache-Friendly Controller Loop</h2>
+      <div class="grid">
+        <div class="panel good">
+          <h3>Proposed Prompt Shape</h3>
+          <p class="mini">Send Claude content blocks instead of one text blob. Put append-only evidence before mutable control state.</p>
+          <div class="flow">
+            <div class="step static">
+              <div class="label"><span class="badge">S</span> System prompt</div>
+              <div class="mini">Controller rules remain stable across all turns.</div>
+            </div>
+            <div class="step cache">
+              <div class="label"><span class="badge">A</span> Story frame block</div>
+              <div class="mini">Topic, date, fixed budget policy, initial memory note if available.</div>
+            </div>
+            <div class="step cache">
+              <div class="label"><span class="badge">B</span> Seed evidence block</div>
+              <div class="mini">Initial summary/evidence. Mark cacheable when it is large enough.</div>
+            </div>
+            <div class="step cache">
+              <div class="label"><span class="badge">C</span> Research result blocks</div>
+              <div class="mini">Append one block per completed source-hunter answer. Put <span class="mono">cache_control</span> on the newest reusable block.</div>
+            </div>
+            <div class="step mutable">
+              <div class="label"><span class="badge">D</span> Decision state suffix</div>
+              <div class="mini">Iteration number, remaining budget, instruction to return the next JSON decision. Not cached.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel good">
+          <h3>Expected Cache Behavior</h3>
+          <div class="loop">
+            <div class="loop-box">
+              <strong>Turn N</strong>
+              <p class="mini">Writes cache through latest append-only evidence block.</p>
+            </div>
+            <div class="arrow">→</div>
+            <div class="loop-box">
+              <strong>Turn N+1</strong>
+              <p class="mini">Reads prior blocks from cache, processes only the new research block and small decision suffix.</p>
+            </div>
+          </div>
+          <p class="mini">This is most useful when a story takes several controller iterations and the evidence exceeds the Opus 4.8 cacheable threshold.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Implementation Sketch</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Current</th>
+            <th>Cache-friendly change</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Claude adapter</td>
+            <td><span class="mono">claude(user_prompt: str, system_prompt: str)</span></td>
+            <td>Accept either a plain string or a list of Anthropic content blocks.</td>
+          </tr>
+          <tr>
+            <td>Controller payload</td>
+            <td>One formatted string from <span class="mono">_controller_payload</span>.</td>
+            <td>New builder returns ordered blocks: story frame, seed evidence, one block per Q&amp;A, mutable state suffix.</td>
+          </tr>
+          <tr>
+            <td>Cache breakpoint</td>
+            <td>No <span class="mono">cache_control</span>.</td>
+            <td>Add <span class="mono">{ "type": "ephemeral" }</span> to the latest reusable evidence block, not to the mutable suffix.</td>
+          </tr>
+          <tr>
+            <td>Logging</td>
+            <td>Provider/model/event/prompt text only.</td>
+            <td>Record Anthropic usage: input, output, cache creation, cache reads, and estimated cost by model.</td>
+          </tr>
+          <tr>
+            <td>Rollout</td>
+            <td>All Opus controller calls are uncached.</td>
+            <td>Gate behind config, run A/B for several days, compare cache read tokens and total Anthropic spend.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Example Claude Request</h2>
+      <div class="panel">
+        <p class="mini">The controller request would stop sending one big string. Instead it would send a list of content blocks. The reusable evidence blocks appear before the small mutable decision state.</p>
+        <pre class="mono">client.messages.create(
+    model="claude-opus-4-8",
+    max_tokens=16000,
+    thinking={"type": "adaptive"},
+    extra_body={"output_config": {"effort": "high"}},
+    system=[
+        {
+            "type": "text",
+            "text": RESEARCH_CONTROLLER_PROMPT,
+        }
+    ],
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": (
+                        "STORY FRAME\n"
+                        "Topic: Federal Reserve June 2026 interest rate decision\n"
+                        "Date: June 18, 2026\n"
+                        "Minimum iterations: 2\n"
+                        "Maximum iterations: 5\n"
+                    ),
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        "INITIAL EVIDENCE\n"
+                        "The seed evidence and initial summaries go here..."
+                    ),
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        "COMPLETED RESEARCH 1\n"
+                        "Question: What did the FOMC announce?\n"
+                        "Answer: The source hunter found..."
+                    ),
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        "COMPLETED RESEARCH 2\n"
+                        "Question: What reasons did officials give?\n"
+                        "Answer: The source hunter found..."
+                    ),
+                    "cache_control": {"type": "ephemeral"},
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        "DECISION STATE\n"
+                        "Iterations completed: 2\n"
+                        "Remaining budget: 3\n"
+                        "Article count: 1\n\n"
+                        "Return the next controller decision as JSON."
+                    ),
+                },
+            ],
+        }
+    ],
+)</pre>
+        <p class="mini">On the next controller call, the first four blocks stay byte-for-byte identical and can be read from cache. Only a new research block and the final decision-state suffix need fresh processing.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Decision</h2>
+      <div class="panel">
+        <p>Segment caching is not proven by the logs we have. Controller caching is more structurally promising, but only after reshaping the prompt. The first engineering step should be usage logging; the second should be a small controller-only caching experiment.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

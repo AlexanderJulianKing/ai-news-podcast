@@ -1,7 +1,9 @@
 """Tests for newscaster.llm.router mode-based LLM routing."""
+import json
 from unittest.mock import patch
 import pytest
 
+import newscaster.config as _config
 from newscaster.llm.router import get_llm_response
 
 
@@ -77,3 +79,33 @@ def test_adversary_routes_to_gpt55_high_reasoning():
     assert mock_openrouter.call_args.args[1] == 'openai/gpt-5.5'
     assert mock_openrouter.call_args.args[2] == 'GPT-5.5 Adversary'
     assert mock_openrouter.call_args.args[3] == 'high'
+
+
+def test_router_audit_logs_usage_fields(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(_config, "LLM_AUDIT_LOG_ENABLED", True)
+    monkeypatch.setattr(_config, "LLM_AUDIT_LOG_PROMPTS", False)
+    usage = {
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "cache_creation_input_tokens": 80,
+        "cache_read_input_tokens": 40,
+        "total_input_tokens": 220,
+        "total_tokens": 240,
+        "estimated_cost_usd": 0.00102,
+    }
+    with patch('newscaster.llm.router.claude', return_value=('ok', usage)):
+        assert get_llm_response('test prompt', mode='heavy') == 'ok'
+
+    records = [
+        json.loads(line)
+        for line in (tmp_path / "logs" / "llm_audit.jsonl").read_text().splitlines()
+    ]
+    assert records[-1]["event"] == "success"
+    assert records[-1]["provider"] == "anthropic"
+    assert records[-1]["usage"] == usage
+    assert records[-1]["input_tokens"] == 100
+    assert records[-1]["output_tokens"] == 20
+    assert records[-1]["cache_creation_input_tokens"] == 80
+    assert records[-1]["cache_read_input_tokens"] == 40
+    assert records[-1]["estimated_cost_usd"] == 0.00102
