@@ -239,6 +239,23 @@ SCORE: X | HEADLINE: Y | REASON: Z
 Where X is the numeric score (1-10), Y is the headline repeated verbatim, and Z is a one-sentence justification. Sort from highest to lowest score."""
 
 
+TIER1_CALIFORNIA_TRIAGE_PROMPT = """Rate each headline below on a scale of 1-10 for relevance to an average person in California.
+
+Use these criteria:
+- Direct California impact: Does this happen in California, directly affect Californians, or involve California institutions, laws, infrastructure, companies, schools, housing, climate, disasters, courts, immigration, technology, agriculture, energy, or state/local politics?
+- Everyday-life impact: Would this materially affect daily life for Californians — prices, jobs, housing, transit, health care, schools, public safety, taxes, utilities, weather, water, wildfire risk, air quality, or rights?
+- West Coast / Pacific relevance: Does it strongly affect the West Coast, Pacific states, Mexico border, Pacific trade, ports, tech sector, entertainment industry, or climate conditions Californians experience?
+- Federal stories with California exposure: Does a national policy, court ruling, agency action, or economic shift have unusually large consequences for California because of the state's size, industries, immigrant population, military bases, universities, or environment?
+- Specificity and verification: Prefer concrete, specific developments over vague topics or thinly sourced claims.
+
+Do NOT rank a foreign-only story highly unless the headline states a concrete California or U.S. domestic impact. Do NOT rank a generic national political fight highly unless it has a clear everyday-life or California-specific consequence.
+
+For each headline, output exactly one line in this format:
+SCORE: X | HEADLINE: Y | REASON: Z
+
+Where X is the numeric score (1-10), Y is the headline repeated verbatim, and Z is a one-sentence justification focused on the California/everyday-life angle. Sort from highest to lowest score."""
+
+
 TIER2_RESEARCH_PROMPT = """You are a newsroom researcher preparing a background brief on {date}.
 
 Research the following headline and produce a 150-250 word memo covering:

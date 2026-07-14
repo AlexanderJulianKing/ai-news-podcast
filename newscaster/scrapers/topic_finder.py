@@ -19,6 +19,7 @@ from newscaster.prompts import (
     REPETITION_REMOVER_TEMPLATE,
     LEDGER_REPETITION_REMOVER_TEMPLATE,
     TIER1_TRIAGE_PROMPT,
+    TIER1_CALIFORNIA_TRIAGE_PROMPT,
     TIER2_RESEARCH_PROMPT,
     TIER3_IMPORTANT_STORY_PROMPT,
     TIER3_EVERYMAN_STORY_PROMPT,
@@ -39,11 +40,17 @@ from newscaster.dedup import (
     find_matching_arc,
     strip_arc_tags,
     build_headline_arc_map,
+    recover_arc_for_headline,
     resolve_arc_identity,
 )
 from newscaster.scrapers.calmatters import calmatters_scraper
 from newscaster.scrapers.dropsite import dropsite_scraper
 from newscaster.scrapers.web import scrape_text
+
+
+_NATIONAL_SHORTLIST_LIMIT = 10
+_CALIFORNIA_SHORTLIST_LIMIT = 5
+_MERGED_SHORTLIST_LIMIT = 13
 
 
 @dataclass
@@ -301,6 +308,48 @@ def _parse_tier1_scores(response):
     return results
 
 
+def _restore_triage_arc_tags(scored: list[dict], headline_arc_map: dict) -> list[dict]:
+    """Restore continuation tags that a triage model stripped from headlines.
+
+    The dedup stage owns the UPDATE/MAJOR ESCALATION decision. Tier 1 only scores
+    those candidates, but an LLM can ignore the instruction to repeat headlines
+    verbatim and drop their tag prefixes. Reattach the dedup verdict before any
+    shortlist or research step so Tier 3 still sees the continuation policy.
+    """
+    restored = []
+    for item in scored or []:
+        restored_item = dict(item)
+        headline = str(restored_item.get('headline') or '').strip()
+        arc_info = recover_arc_for_headline(headline, headline_arc_map)
+        if arc_info:
+            tag_type, slug = arc_info
+            restored_item['headline'] = f'[{tag_type}: {slug}] {strip_arc_tags(headline)}'
+        restored.append(restored_item)
+    return restored
+
+
+def _headline_dedupe_key(headline: str) -> str:
+    clean = strip_arc_tags(headline or "")
+    clean = clean.lower()
+    clean = re.sub(r"[^a-z0-9]+", " ", clean)
+    return re.sub(r"\s+", " ", clean).strip()
+
+
+def _merge_shortlists(primary: list[str], secondary: list[str], limit: int = _MERGED_SHORTLIST_LIMIT) -> list[str]:
+    """Preserve the national shortlist, then add California-specific recalls up to a small cap."""
+    merged = []
+    seen = set()
+    for headline in list(primary or []) + list(secondary or []):
+        key = _headline_dedupe_key(headline)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        merged.append(headline)
+        if len(merged) >= limit:
+            break
+    return merged
+
+
 def _format_research_briefs(briefs):
     """Assemble individual research memos into a single document."""
     sections = []
@@ -452,16 +501,68 @@ def topic_finder(formatted_date):
     print_and_write('Tier 1 raw response:', tier1_response)
 
     scored = _parse_tier1_scores(tier1_response)
+    scored_with_arc_tags = _restore_triage_arc_tags(scored, headline_arc_map)
+    restored_tag_count = sum(
+        original['headline'] != restored['headline']
+        for original, restored in zip(scored, scored_with_arc_tags)
+    )
+    scored = scored_with_arc_tags
+    if restored_tag_count:
+        print_and_write(f'Restored {restored_tag_count} arc tag(s) stripped by Tier 1 triage')
     print_and_write(f'Tier 1 parsed {len(scored)} headlines')
 
     if len(scored) < 5:
         print_and_write('Tier 1 parsing returned < 5 results, passing all headlines to Tier 3')
-        shortlisted_headlines = [line.strip() for line in all_headlines.split('\n') if line.strip()]
+        national_shortlist = [line.strip() for line in all_headlines.split('\n') if line.strip()]
+        california_shortlist = []
+        shortlisted_headlines = national_shortlist
     else:
-        shortlisted_headlines = [s['headline'] for s in scored[:10]]
+        national_shortlist = [s['headline'] for s in scored[:_NATIONAL_SHORTLIST_LIMIT]]
+
+        # Separate California recall pass. The national triage optimizes for broad importance; a
+        # California-relevant story can be below the national top 10 and would otherwise never be
+        # researched. Keep this small so Tier 2 does not double.
+        print_and_write('TIER 1B: Triaging California/everyday-life headlines')
+        tier1_california_response = get_llm_response(
+            all_headlines,
+            system_prompt=TIER1_CALIFORNIA_TRIAGE_PROMPT,
+            mode='heavy',
+        )
+        print_and_write('Tier 1 California raw response:', tier1_california_response)
+        california_scored = _parse_tier1_scores(tier1_california_response)
+        california_scored_with_arc_tags = _restore_triage_arc_tags(
+            california_scored, headline_arc_map
+        )
+        restored_california_tag_count = sum(
+            original['headline'] != restored['headline']
+            for original, restored in zip(california_scored, california_scored_with_arc_tags)
+        )
+        california_scored = california_scored_with_arc_tags
+        if restored_california_tag_count:
+            print_and_write(
+                f'Restored {restored_california_tag_count} arc tag(s) stripped by Tier 1B triage'
+            )
+        print_and_write(f'Tier 1 California parsed {len(california_scored)} headlines')
+        if len(california_scored) < 3:
+            print_and_write('Tier 1 California parsing returned < 3 results; using national shortlist only')
+            california_shortlist = []
+        else:
+            california_shortlist = [s['headline'] for s in california_scored[:_CALIFORNIA_SHORTLIST_LIMIT]]
+
+        shortlisted_headlines = _merge_shortlists(
+            national_shortlist,
+            california_shortlist,
+            limit=_MERGED_SHORTLIST_LIMIT,
+        )
+
+    for i, h in enumerate(national_shortlist, 1):
+        print_and_write(f'  National shortlisted {i}: {h}')
+
+    for i, h in enumerate(california_shortlist, 1):
+        print_and_write(f'  California shortlisted {i}: {h}')
 
     for i, h in enumerate(shortlisted_headlines, 1):
-        print_and_write(f'  Shortlisted {i}: {h}')
+        print_and_write(f'  Merged shortlisted {i}: {h}')
 
     # === TIER 2: Research — controlled briefs per headline ===
     print_and_write('TIER 2: Researching shortlisted headlines')
