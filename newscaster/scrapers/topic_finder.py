@@ -348,7 +348,8 @@ def _apply_main_story_arc_cooldown(
             if episode.get('coverage') != 'main':
                 continue
             try:
-                covered = date.fromisoformat(str(episode.get('date') or ''))
+                covered_key = str(episode.get('date') or '').replace('_', '-')
+                covered = date.fromisoformat(covered_key)
             except ValueError:
                 continue
             days_since = (today - covered).days

@@ -100,7 +100,7 @@ def test_main_story_arc_cooldown_downgrades_recent_major_escalations():
         "arcs": {
             "us_iran_escalation_2": {
                 "episodes": [
-                    {"date": "2026-07-14", "coverage": "main"},
+                    {"date": "2026_07_14", "coverage": "main"},
                 ]
             }
         }
