@@ -51,7 +51,6 @@ from newscaster.scrapers.web import scrape_text
 _NATIONAL_SHORTLIST_LIMIT = 10
 _CALIFORNIA_SHORTLIST_LIMIT = 5
 _MERGED_SHORTLIST_LIMIT = 13
-_MAIN_STORY_ARC_COOLDOWN_DAYS = 3
 
 
 @dataclass
@@ -329,51 +328,6 @@ def _restore_triage_arc_tags(scored: list[dict], headline_arc_map: dict) -> list
     return restored
 
 
-def _apply_main_story_arc_cooldown(
-    tagged_text: str,
-    ledger: dict,
-    today: date,
-    cooldown_days: int = _MAIN_STORY_ARC_COOLDOWN_DAYS,
-) -> tuple[str, int, list[str]]:
-    """Downgrade repeated major-escalation tags for recently featured arcs.
-
-    The dedup model is allowed to recognize genuine new developments, but it can
-    call each successive day of an ongoing war a MAJOR ESCALATION. A recent main
-    segment therefore gets a deterministic cooldown: developments remain eligible
-    for the overview as UPDATEs, but cannot consume another full segment yet.
-    """
-    recent_main_arcs = set()
-    for slug, arc in (ledger or {}).get('arcs', {}).items():
-        for episode in arc.get('episodes') or []:
-            if episode.get('coverage') != 'main':
-                continue
-            try:
-                covered_key = str(episode.get('date') or '').replace('_', '-')
-                covered = date.fromisoformat(covered_key)
-            except ValueError:
-                continue
-            days_since = (today - covered).days
-            if 0 <= days_since <= cooldown_days:
-                recent_main_arcs.add(slug)
-                break
-
-    downgraded_slugs = []
-
-    def downgrade(match):
-        slug = match.group(1).strip()
-        if slug not in recent_main_arcs:
-            return match.group(0)
-        downgraded_slugs.append(slug)
-        return f'[UPDATE: {slug}]'
-
-    cooled_text = re.sub(
-        r'\[MAJOR ESCALATION:\s*([^\]]+)\]',
-        downgrade,
-        tagged_text or '',
-    )
-    return cooled_text, len(downgraded_slugs), sorted(set(downgraded_slugs))
-
-
 def _headline_dedupe_key(headline: str) -> str:
     clean = strip_arc_tags(headline or "")
     clean = clean.lower()
@@ -527,18 +481,6 @@ def topic_finder(formatted_date):
         all_headlines = call_with_default(
             all_headlines, all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard',
             _log_label='dedup-headlines-history',
-        )
-
-    all_headlines, cooldown_count, cooldown_slugs = _apply_main_story_arc_cooldown(
-        all_headlines,
-        ledger,
-        today,
-    )
-    if cooldown_count:
-        print_and_write(
-            f'Downgraded {cooldown_count} major-escalation headline(s) under the '
-            f'{_MAIN_STORY_ARC_COOLDOWN_DAYS}-day main-story cooldown: '
-            + ', '.join(cooldown_slugs)
         )
 
     # Capture the dedup tagger's [UPDATE: slug] / [MAJOR ESCALATION: slug] verdicts

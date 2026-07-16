@@ -1,8 +1,6 @@
-from datetime import date
-
 from newscaster.dedup import build_headline_arc_map
+from newscaster.prompts import LEDGER_REPETITION_REMOVER_TEMPLATE, REPETITION_REMOVER_TEMPLATE
 from newscaster.scrapers.topic_finder import (
-    _apply_main_story_arc_cooldown,
     _merge_shortlists,
     _parse_tier1_scores,
     _restore_triage_arc_tags,
@@ -89,54 +87,11 @@ def test_restore_triage_arc_tags_preserves_major_escalation_verdict():
     assert restored[0]["headline"] == tagged
 
 
-def test_main_story_arc_cooldown_downgrades_recent_major_escalations():
-    text = (
-        "[MAJOR ESCALATION: us_iran_escalation_2] U.S. restarts its blockade\n"
-        "[MAJOR ESCALATION: us_iran_escalation_2] U.S. expands its strikes\n"
-        "[UPDATE: us_iran_escalation_2] Congress debates war powers\n"
-        "A genuinely new story"
-    )
-    ledger = {
-        "arcs": {
-            "us_iran_escalation_2": {
-                "episodes": [
-                    {"date": "2026_07_14", "coverage": "main"},
-                ]
-            }
-        }
-    }
-
-    cooled, count, slugs = _apply_main_story_arc_cooldown(
-        text,
-        ledger,
-        date(2026, 7, 16),
-    )
-
-    assert "[MAJOR ESCALATION: us_iran_escalation_2]" not in cooled
-    assert cooled.count("[UPDATE: us_iran_escalation_2]") == 3
-    assert count == 2
-    assert slugs == ["us_iran_escalation_2"]
-
-
-def test_main_story_arc_cooldown_allows_arc_after_window_expires():
-    text = "[MAJOR ESCALATION: us_iran_escalation_2] A truly new phase begins"
-    ledger = {
-        "arcs": {
-            "us_iran_escalation_2": {
-                "episodes": [
-                    {"date": "2026-07-12", "coverage": "main"},
-                    {"date": "2026-07-15", "coverage": "side"},
-                ]
-            }
-        }
-    }
-
-    cooled, count, slugs = _apply_main_story_arc_cooldown(
-        text,
-        ledger,
-        date(2026, 7, 16),
-    )
-
-    assert cooled == text
-    assert count == 0
-    assert slugs == []
+def test_major_escalation_prompt_sets_a_qualitative_threshold():
+    for prompt in (LEDGER_REPETITION_REMOVER_TEMPLATE, REPETITION_REMOVER_TEMPLATE):
+        assert "MAJOR ESCALATION — RARE" in prompt
+        assert "Another round of strikes" in prompt
+        assert "renewed or enforced blockades" in prompt
+        assert "congressional notifications" in prompt
+        assert "not merely its intensity, scale, or latest details" in prompt
+        assert "When uncertain, classify it as UPDATE" in prompt
