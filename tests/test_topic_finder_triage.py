@@ -90,8 +90,8 @@ def test_restore_triage_arc_tags_preserves_major_escalation_verdict():
 def test_major_escalation_prompt_sets_a_qualitative_threshold():
     for prompt in (LEDGER_REPETITION_REMOVER_TEMPLATE, REPETITION_REMOVER_TEMPLATE):
         assert "MAJOR ESCALATION — RARE" in prompt
-        assert "Another round of strikes" in prompt
-        assert "renewed or enforced blockades" in prompt
-        assert "congressional notifications" in prompt
-        assert "not merely its intensity, scale, or latest details" in prompt
-        assert "When uncertain, classify it as UPDATE" in prompt
+        assert "restart a war after a durable ceasefire" in prompt
+        assert "months without active fighting" in prompt
+        assert "recent daily exchanges is an UPDATE" in prompt
+        assert "The same action can be a MAJOR ESCALATION or an UPDATE" in prompt
+        assert "Recency and the audience's last known state matter" in prompt

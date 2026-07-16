@@ -9,7 +9,9 @@ every story spawns a fresh single-episode arc. These helpers rebuild the
 recover it for a chosen headline, so arcs accumulate episodes again.
 """
 
-from newscaster.dedup import build_headline_arc_map, recover_arc_for_headline
+from datetime import date
+
+from newscaster.dedup import build_headline_arc_map, format_arcs_for_dedup, recover_arc_for_headline
 
 
 # A realistic slice of dedup-tagger output (June 27 production): some lines carry
@@ -22,6 +24,33 @@ TAGGED_TEXT = """NPR:
 A Trump commission urges 'bridges' between church and state in sweeping draft report
 The Associated Press:
 """
+
+
+def test_dedup_arc_context_includes_recent_main_coverage():
+    today = date.today().strftime("%Y_%m_%d")
+    ledger = {
+        "arcs": {
+            "us_iran_escalation": {
+                "last_covered": today,
+                "topic": "Ongoing U.S.-Iran conflict",
+                "audience_state": "The countries are already exchanging strikes.",
+                "episodes": [
+                    {"date": "2026_07_10", "coverage": "main", "headline": "First exchange"},
+                    {"date": "2026_07_11", "coverage": "side", "headline": "Diplomatic reaction"},
+                    {"date": "2026_07_12", "coverage": "main", "headline": "Second exchange"},
+                    {"date": "2026_07_13", "coverage": "main", "headline": "Third exchange"},
+                ],
+            }
+        }
+    }
+
+    context = format_arcs_for_dedup(ledger)
+
+    assert "Recent main coverage:" in context
+    assert "2026_07_10: First exchange" in context
+    assert "2026_07_12: Second exchange" in context
+    assert "2026_07_13: Third exchange" in context
+    assert "Diplomatic reaction" not in context
 
 
 def test_build_map_keeps_only_tagged_lines():

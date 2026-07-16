@@ -85,7 +85,23 @@ def format_arcs_for_dedup(ledger: dict, window_days: int = 14) -> str:
             continue
         audience_state = arc.get("audience_state", "")
         topic = arc.get("topic", "")
-        line = f"[ARC: {slug}] Topic: {topic} | Last covered: {last_covered} | Audience knows: {audience_state}"
+        recent_main = []
+        for episode in arc.get("episodes") or []:
+            if episode.get("coverage") != "main":
+                continue
+            episode_date = str(episode.get("date") or "").strip()
+            headline = str(episode.get("headline") or "").strip()
+            if episode_date and headline:
+                recent_main.append((episode_date, headline))
+        recent_main.sort(key=lambda item: item[0])
+        recent_main_text = "; ".join(
+            f"{episode_date}: {headline[:140]}"
+            for episode_date, headline in recent_main[-5:]
+        ) or "none"
+        line = (
+            f"[ARC: {slug}] Topic: {topic} | Last covered: {last_covered} | "
+            f"Recent main coverage: {recent_main_text} | Audience knows: {audience_state}"
+        )
         lines.append(line)
     return "\n".join(lines)
 
