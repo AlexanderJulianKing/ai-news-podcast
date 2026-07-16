@@ -1,5 +1,8 @@
+from datetime import date
+
 from newscaster.dedup import build_headline_arc_map
 from newscaster.scrapers.topic_finder import (
+    _apply_main_story_arc_cooldown,
     _merge_shortlists,
     _parse_tier1_scores,
     _restore_triage_arc_tags,
@@ -84,3 +87,56 @@ def test_restore_triage_arc_tags_preserves_major_escalation_verdict():
     )
 
     assert restored[0]["headline"] == tagged
+
+
+def test_main_story_arc_cooldown_downgrades_recent_major_escalations():
+    text = (
+        "[MAJOR ESCALATION: us_iran_escalation_2] U.S. restarts its blockade\n"
+        "[MAJOR ESCALATION: us_iran_escalation_2] U.S. expands its strikes\n"
+        "[UPDATE: us_iran_escalation_2] Congress debates war powers\n"
+        "A genuinely new story"
+    )
+    ledger = {
+        "arcs": {
+            "us_iran_escalation_2": {
+                "episodes": [
+                    {"date": "2026-07-14", "coverage": "main"},
+                ]
+            }
+        }
+    }
+
+    cooled, count, slugs = _apply_main_story_arc_cooldown(
+        text,
+        ledger,
+        date(2026, 7, 16),
+    )
+
+    assert "[MAJOR ESCALATION: us_iran_escalation_2]" not in cooled
+    assert cooled.count("[UPDATE: us_iran_escalation_2]") == 3
+    assert count == 2
+    assert slugs == ["us_iran_escalation_2"]
+
+
+def test_main_story_arc_cooldown_allows_arc_after_window_expires():
+    text = "[MAJOR ESCALATION: us_iran_escalation_2] A truly new phase begins"
+    ledger = {
+        "arcs": {
+            "us_iran_escalation_2": {
+                "episodes": [
+                    {"date": "2026-07-12", "coverage": "main"},
+                    {"date": "2026-07-15", "coverage": "side"},
+                ]
+            }
+        }
+    }
+
+    cooled, count, slugs = _apply_main_story_arc_cooldown(
+        text,
+        ledger,
+        date(2026, 7, 16),
+    )
+
+    assert cooled == text
+    assert count == 0
+    assert slugs == []
