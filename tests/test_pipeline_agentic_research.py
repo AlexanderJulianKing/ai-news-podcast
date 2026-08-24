@@ -7,6 +7,22 @@ from newscaster.research_agent import AdaptiveResearchResult
 from newscaster.source_hunter import SourceHunterResult
 
 
+# A super summary long enough to clear the degeneracy guard in pipeline.py. Real
+# ones run several thousand characters; a two-word stub is now correctly rejected.
+SUPER_SUMMARY = (
+    "According to reporting from NPR and the Associated Press, federal inspectors "
+    "raised concerns about the dam after a routine review found seepage along the "
+    "eastern embankment. State officials said the reservoir was drawn down by twelve "
+    "feet as a precaution while engineers completed a structural assessment. The "
+    "county emergency manager told reporters that no evacuation order had been "
+    "issued, though residents in the valley below were advised to review their "
+    "emergency plans. Local coverage noted that the structure was built in nineteen "
+    "sixty-two and last received a major rehabilitation eleven years ago. Engineers "
+    "expect the assessment to conclude within two weeks, after which the agency will "
+    "decide whether permanent repairs are required before the winter rain season."
+)
+
+
 def _fake_result_piper(summary_prompt, counter, topic, result, slot, date, articles=None):
     if articles is not None:
         articles.append({
@@ -49,7 +65,7 @@ def test_gather_one_topic_uses_adaptive_research(monkeypatch):
         if grounding:
             return "grounded context"
         captured["synthesis_prompt"] = prompt
-        return "super summary"
+        return SUPER_SUMMARY
 
     with patch("newscaster.pipeline.time.sleep"), \
          patch("newscaster.pipeline.search_web", return_value=[
@@ -69,7 +85,7 @@ def test_gather_one_topic_uses_adaptive_research(monkeypatch):
             "follow up", "challenging", articles=articles, followups=followups,
         )
 
-    assert out == "super summary"
+    assert out == SUPER_SUMMARY
     mock_adaptive.assert_called_once()
     assert "controlled seed context" in captured["adaptive_prompt"]
     assert captured["synthesis_prompt"] == "adapted prompt"
@@ -86,7 +102,7 @@ def test_gather_one_topic_falls_back_to_fixed_rounds(monkeypatch):
         if grounding:
             return "grounded context"
         captured["synthesis_prompt"] = prompt
-        return "super summary"
+        return SUPER_SUMMARY
 
     with patch("newscaster.pipeline.time.sleep"), \
          patch("newscaster.pipeline.search_web", return_value=[
@@ -107,7 +123,7 @@ def test_gather_one_topic_falls_back_to_fixed_rounds(monkeypatch):
             "follow up", "challenging", articles=[], followups=[],
         )
 
-    assert out == "super summary"
+    assert out == SUPER_SUMMARY
     mock_fixed.assert_called_once()
     assert captured["synthesis_prompt"] == "fixed prompt"
 
@@ -121,7 +137,7 @@ def test_gather_one_topic_skips_agent_when_source_hunter_disabled(monkeypatch):
 
     def fake_llm(prompt, system_prompt="You are an intelligent assistant.",
                  mode="light", grounding=False, url_context=False):
-        return "super summary"
+        return SUPER_SUMMARY
 
     with patch("newscaster.pipeline.time.sleep"), \
          patch("newscaster.pipeline.search_web", return_value=[
@@ -140,6 +156,6 @@ def test_gather_one_topic_skips_agent_when_source_hunter_disabled(monkeypatch):
             "follow up", "challenging", articles=[], followups=[],
         )
 
-    assert out == "super summary"
+    assert out == SUPER_SUMMARY
     mock_adaptive.assert_not_called()
     mock_fixed.assert_called_once()

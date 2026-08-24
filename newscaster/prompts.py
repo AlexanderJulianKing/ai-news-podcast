@@ -147,7 +147,13 @@ OVERVIEW_ANCHOR_PROMPT = (
     "To obtain more information about the road crash, it would be necessary to access news sources that are not included "
     'in the search results provided. It is recommended to check reputable news outlets, such as BBC News, Al Jazeera, or CNN, '
     'for updates on the incident. " do not include it. Some bits of information might be covered multiple times in this text. '
-    'Cover each bit of information only once. Do not repeat yourself. Be sure to include every story. Make it 500 words. '
+    'Cover each bit of information only once. Do not repeat yourself. '
+    'Cover every story that has real reporting behind it, and give each one its own paragraph of at '
+    'least ninety words stating the specific who, what, when, where, and any figures involved. The last '
+    'story must be as detailed as the first; do not taper off or compress the later ones. Do not aim for '
+    'a total length: write however many words the stories actually need. If a story is marked UNVERIFIED, '
+    'or its brief has no findings, leave it out of the broadcast entirely rather than mentioning it '
+    'vaguely. Never substitute a joke or a turn of phrase for a fact you do not have. '
     "Numbers should be written in word form, like 'two hundred fifty five'. "
     'Also use wordplay and puns whenever you can. Do NOT put puns or wordplay in quotation marks — just use them naturally in the sentence.'
 )

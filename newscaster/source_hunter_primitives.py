@@ -13,7 +13,7 @@ import os
 import re
 import subprocess
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
@@ -571,6 +571,69 @@ def _clean_lines(text: str) -> List[str]:
     return lines
 
 
+_PUBLISHED_META_ATTRS = (
+    {"property": "article:published_time"},
+    {"name": "article:published_time"},
+    {"property": "og:published_time"},
+    {"itemprop": "datePublished"},
+    {"name": "datePublished"},
+    {"name": "pubdate"},
+    {"name": "publish-date"},
+    {"name": "date"},
+)
+_JSONLD_PUBLISHED_RE = re.compile(r'"datePublished"\s*:\s*"(\d{4}-\d{2}-\d{2})')
+_ISO_DATE_RE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+
+
+def _first_iso_date(value: str) -> Optional[str]:
+    """First real yyyy-mm-dd inside ``value``, or None."""
+    if not value:
+        return None
+    match = _ISO_DATE_RE.search(value)
+    if not match:
+        return None
+    year, month, day = (int(part) for part in match.groups())
+    try:
+        datetime(year, month, day)
+    except ValueError:
+        return None
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def extract_published_date(content: bytes) -> Optional[str]:
+    """Publication date (yyyy-mm-dd) from page metadata, or None.
+
+    Must run on the RAW bytes: ``_html_to_text`` decomposes <script>, which would
+    destroy the JSON-LD block many outlets use. Most news pages keep the publish
+    date here rather than in the visible body text, so reading it is the only way
+    to tell a story from today apart from one from five months ago.
+    """
+    try:
+        soup = BeautifulSoup(content, "html.parser")
+    except Exception:
+        soup = None
+    if soup is not None:
+        for attrs in _PUBLISHED_META_ATTRS:
+            tag = soup.find("meta", attrs=attrs)
+            if tag and tag.get("content"):
+                iso = _first_iso_date(str(tag.get("content")))
+                if iso:
+                    return iso
+        time_tag = soup.find("time")
+        if time_tag is not None:
+            iso = _first_iso_date(
+                str(time_tag.get("datetime") or time_tag.get_text(" ", strip=True))
+            )
+            if iso:
+                return iso
+    try:
+        raw = content.decode("utf-8", "ignore") if isinstance(content, bytes) else str(content)
+    except Exception:
+        return None
+    match = _JSONLD_PUBLISHED_RE.search(raw)
+    return match.group(1) if match else None
+
+
 def _html_to_text(content: bytes, base_url: str = "") -> Tuple[str, str, List[Dict[str, str]]]:
     soup = BeautifulSoup(content, "html.parser")
     for tag in soup(["script", "style", "noscript", "svg"]):
@@ -710,6 +773,7 @@ def fetch_source_text(url: str, timeout: int = 30) -> Dict[str, Any]:
         "content_type": content_type,
         "status_code": response.status_code,
         "text": text,
+        "published_date": extract_published_date(response.content),
         "char_count": len(text),
         "fetch_mode": fetch_mode,
         "links": links,
@@ -1419,6 +1483,7 @@ def fetch_controlled_evidence(
                     "content_type": fetched["content_type"],
                     "char_count": fetched["char_count"],
                     "fetch_mode": fetched.get("fetch_mode", "direct"),
+                    "published_date": fetched.get("published_date"),
                     "excerpt": excerpt,
                     "excerpt_chars": len(excerpt),
                     "links": fetched.get("links", []),
@@ -1753,6 +1818,76 @@ def _date_present(text: str, date_info: Dict[str, Any]) -> bool:
     ))
 
 
+# --- as-of date gating -------------------------------------------------------
+# A source whose fetched text never states a date cannot be shown to be stale.
+# News pages routinely carry the publication date in metadata, a <time> element,
+# or as a relative string ("2 hours ago"), none of which survive text extraction.
+# Gating those on the question's as-of date rejected 78% of the coverage the
+# hunter had already fetched and read, which is what drove the overview's side
+# stories to `no_evidence`. So the date gate applies only to sources that state a
+# date, with a few days of slack for time zones and for stories the show reaches
+# a day or two late.
+DATE_WINDOW_BACK_DAYS = 3
+DATE_WINDOW_FORWARD_DAYS = 1
+# Reject sources whose publication date cannot be established at all, from either
+# page metadata or the body text. Recency is the whole point of a news source, so
+# "we cannot tell how old this is" is treated as a failure rather than a pass.
+REQUIRE_KNOWN_PUBLISH_DATE = True
+
+_MONTH_WORDS = sorted(
+    set(list(MONTHS) + [name[:3] for name in MONTHS]), key=len, reverse=True
+)
+_ANY_DATE_RE = re.compile(
+    r"\b(?:" + "|".join(_MONTH_WORDS) + r")\.?\s+\d{1,2}\b"
+    r"|\b\d{4}-\d{2}-\d{2}"  # no trailing \b: ISO stamps run straight into "T09:00"
+    r"|\b\d{1,2}/\d{1,2}/\d{2,4}\b",
+    re.IGNORECASE,
+)
+
+
+def _text_states_a_date(text: str) -> bool:
+    """True when the text names a date we could actually compare against."""
+    return bool(_ANY_DATE_RE.search(text or ""))
+
+
+def _date_present_in_window(text: str, date_info: Dict[str, Any],
+                            back_days: int = DATE_WINDOW_BACK_DAYS,
+                            forward_days: int = DATE_WINDOW_FORWARD_DAYS) -> bool:
+    """True when the text names any date inside the recency window around ``date_info``."""
+    try:
+        base = datetime(date_info["year"], date_info["month"], date_info["day"])
+    except (KeyError, TypeError, ValueError):
+        return _date_present(text, date_info)
+    for offset in range(-forward_days, back_days + 1):
+        shifted = base - timedelta(days=offset)
+        if _date_present(
+            text, {"month": shifted.month, "day": shifted.day, "year": shifted.year}
+        ):
+            return True
+    return False
+
+
+def _iso_within_window(published_iso: str,
+                       hard_dates: List[Dict[str, Any]],
+                       back_days: int = DATE_WINDOW_BACK_DAYS,
+                       forward_days: int = DATE_WINDOW_FORWARD_DAYS) -> bool:
+    """True when a yyyy-mm-dd publish date sits inside the window of any hard date."""
+    try:
+        year, month, day = (int(part) for part in published_iso.split("-")[:3])
+        published = datetime(year, month, day)
+    except (ValueError, AttributeError):
+        return True  # unparseable: fall back to the other checks rather than veto
+    for info in hard_dates:
+        try:
+            base = datetime(info["year"], info["month"], info["day"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        delta = (base - published).days
+        if -forward_days <= delta <= back_days:
+            return True
+    return False
+
+
 def _time_present(text: str, wanted_time: str) -> bool:
     hay = normalize_text(text)
     wanted = normalize_text(wanted_time).replace(".", "")
@@ -1840,10 +1975,27 @@ def validate_source_for_question(task: Dict[str, Any], source: Dict[str, Any]) -
 
     hard_dates = [date for date in constraints["dates"] if not date.get("soft")]
     if hard_dates:
+        # Exact matches still drive `score` below, so ranking is unchanged.
         matched_dates = [_date_present(text, date) for date in hard_dates]
         matched["dates"] = matched_dates
         if not any(matched_dates):
-            reasons.append("date_mismatch")
+            published = source.get("published_date")
+            if published:
+                matched["published_date"] = published
+                if not _iso_within_window(published, hard_dates):
+                    reasons.append("date_mismatch")
+            elif _text_states_a_date(text):
+                if not any(
+                    _date_present_in_window(text, date) for date in hard_dates
+                ):
+                    reasons.append("date_mismatch")
+            elif REQUIRE_KNOWN_PUBLISH_DATE:
+                # Nothing in the metadata and nothing in the body says when this
+                # was written. A headline like "California fire" matches a story
+                # from yesterday and one from six years ago equally well, so an
+                # undateable source is not evidence that something happened
+                # today. Flip this constant to relax the rule.
+                reasons.append("date_unknown")
 
     if constraints["times"]:
         matched_times = [_time_present(text, time_value) for time_value in constraints["times"]]
@@ -1927,6 +2079,7 @@ def validate_source_for_question(task: Dict[str, Any], source: Dict[str, Any]) -
     base_hard = {
         reason for reason in reasons
         if reason.startswith("date_mismatch")
+        or reason.startswith("date_unknown")
         or reason.startswith("year_mismatch")
         or reason.startswith("time_mismatch")
         or reason.startswith("item_mismatch")

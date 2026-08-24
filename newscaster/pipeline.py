@@ -326,6 +326,68 @@ def gather_news(formatted_date, formatted_date2):
     return tf_result
 
 
+def _degenerate_reason(text):
+    """Detect a collapsed LLM response (repetition loop, empty, or stub).
+
+    Returns a reason string when the text is unusable, else None. On 2026-08-24 the
+    standard model emitted the word "our" for 16,384 tokens here; that became a
+    story summary, and the meta-reply the script writer produced from it aired.
+    Thresholds are tuned for SUPER summaries (medians ~4,000-5,000 chars), not for
+    the much shorter per-article summaries.
+    """
+    import collections
+
+    if not text or not text.strip():
+        return "empty response"
+    words = text.split()
+    if len(words) < 80:
+        return "too short ({} words)".format(len(words))
+    uniq_ratio = len(set(w.lower() for w in words)) / len(words)
+    if uniq_ratio < 0.15:
+        return "unique-word ratio {:.3f} below 0.15".format(uniq_ratio)
+    longest = run = 1
+    prev = None
+    for w in words:
+        if w == prev:
+            run += 1
+            longest = max(longest, run)
+        else:
+            run, prev = 1, w
+    if longest > 25:
+        return "same word repeated {}x consecutively".format(longest)
+    top, count = collections.Counter(w.lower() for w in words).most_common(1)[0]
+    if count / len(words) > 0.25:
+        return "word '{}' is {:.0%} of the output".format(top, count / len(words))
+    return None
+
+
+def _super_summary_with_retry(summary_prompt, summary_prompt_alpha, topic_index):
+    """Run the super-summary call, escalating models if the output collapses."""
+    last_reason = None
+    for mode in ("standard", "advanced", "heavy"):
+        candidate = get_llm_response(
+            summary_prompt, system_prompt=summary_prompt_alpha, mode=mode
+        )
+        reason = _degenerate_reason(candidate)
+        if reason is None:
+            if mode != "standard":
+                print_and_write(
+                    "SUPER SUMMARY [slot={}]: recovered on mode={}".format(topic_index, mode)
+                )
+            return candidate
+        last_reason = reason
+        print_and_write(
+            "SUPER SUMMARY DEGENERATE [slot={}, mode={}]: {}; retrying on next model".format(
+                topic_index, mode, reason
+            )
+        )
+    raise LLMError(
+        "super summary collapsed on every model for slot {} (last: {})".format(
+            topic_index, last_reason
+        )
+    )
+
+
 def _augment_with_prior_research(super_summary, formatted_date2):
     """Fold dated prior coverage into the draft summary. Gated + fail-safe:
     returns the un-augmented draft when disabled, on no hits, or on any error."""
@@ -498,7 +560,9 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
 
     print_and_write('SUPER SUMMARY LENGTH:', len(summary_prompt))
 
-    super_summary = get_llm_response(summary_prompt, system_prompt=summary_prompt_alpha, mode='standard')
+    super_summary = _super_summary_with_retry(
+        summary_prompt, summary_prompt_alpha, topic_index
+    )
     print_and_write('SUPER SUMMARY ITERATION 1:', super_summary, '\n')
 
     irrelevance_full_prompt = irrelevance_prompt + super_summary
