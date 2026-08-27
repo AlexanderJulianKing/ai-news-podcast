@@ -1868,6 +1868,16 @@ def _date_present_in_window(text: str, date_info: Dict[str, Any],
     return False
 
 
+def _as_of_hard_dates(as_of: Optional[str]) -> List[Dict[str, Any]]:
+    """Hard-date constraints parsed from a task's as-of date string, or []."""
+    if not as_of:
+        return []
+    try:
+        return [d for d in extract_constraints(str(as_of))["dates"] if not d.get("soft")]
+    except Exception:
+        return []
+
+
 def _iso_within_window(published_iso: str,
                        hard_dates: List[Dict[str, Any]],
                        back_days: int = DATE_WINDOW_BACK_DAYS,
@@ -1975,6 +1985,20 @@ def validate_source_for_question(task: Dict[str, Any], source: Dict[str, Any]) -
         }
 
     hard_dates = [date for date in constraints["dates"] if not date.get("soft")]
+    # Always append the task's as-of date as an extra anchor. On the research-agent
+    # path the question text has no literal date, so without this the whole date
+    # block is skipped and main-story sources get no recency validation at all. On
+    # the overview path it duplicates the question's own date (harmless). Appending
+    # rather than replacing also fixes an event-anchor trap: a question about an
+    # Aug 22 event asked on Aug 27 must not reject fresh Aug 27 coverage.
+    for extra in _as_of_hard_dates(task.get("as_of")):
+        if not any(
+            h.get("year") == extra["year"]
+            and h.get("month") == extra["month"]
+            and h.get("day") == extra["day"]
+            for h in hard_dates
+        ):
+            hard_dates.append(extra)
     if hard_dates:
         # Exact matches still drive `score` below, so ranking is unchanged.
         matched_dates = [_date_present(text, date) for date in hard_dates]

@@ -186,6 +186,10 @@ def answer_with_source_hunter(question: str, *, topic: str | None = None,
         "id": "production_source_hunter",
         "question": question,
         "category": "news_research",
+        # The as-of date rides on the task so the validator's recency gate applies
+        # even when the question text carries no literal date (the research-agent
+        # path); previously only the overview path's "Date:" scaffold activated it.
+        "as_of": formatted_date,
         "evidence_contract": _generate_evidence_contract(question, formatted_date),
     }
     seen: set[str] = set()

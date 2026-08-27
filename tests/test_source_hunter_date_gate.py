@@ -221,3 +221,69 @@ def test_stale_metadata_blocks_through_production_path():
     result = validate_source_for_question(_task(), src)
     assert "date_mismatch" in result["reasons"]
     assert not result["passed"]
+
+
+# --- as-of gating on the research-agent path -------------------------------
+# Research-agent questions carry no literal "Month D, YYYY", so hard_dates was
+# empty and the ENTIRE date block was skipped: main-story sources got no
+# recency validation. The task-level as_of field closes that hole.
+RESEARCH_Q = ("Has the California Legislature approved the emergency funding "
+              "for gender-affirming care before the session ended in late August?")
+
+
+def _research_task(as_of="August 17, 2026"):
+    task = {"id": "t", "question": RESEARCH_Q, "category": "news_research",
+            "evidence_contract": {}}
+    if as_of is not None:
+        task["as_of"] = as_of
+    return task
+
+
+def _rsource(excerpt, published=None):
+    s = {"ok": True, "title": "Legislature weighs emergency funding",
+         "final_url": "https://example.com/legislature-emergency-funding",
+         "excerpt": excerpt}
+    if published is not None:
+        s["published_date"] = published
+    return s
+
+
+def test_research_path_was_ungated_and_now_is_not():
+    stale = _rsource("Talks over the funding continued.", published="2022-06-10")
+    # without as_of: no hard dates, date block skipped entirely (old behavior)
+    assert not any(r.startswith("date") for r in
+                   validate_source_for_question(_research_task(as_of=None), stale)["reasons"])
+    # with as_of: the same stale source is rejected
+    assert "date_mismatch" in validate_source_for_question(_research_task(), stale)["reasons"]
+
+
+def test_research_path_fresh_metadata_passes():
+    fresh = _rsource("Lawmakers moved the bill forward.", published="2026-08-16")
+    assert not any(r.startswith("date") for r in
+                   validate_source_for_question(_research_task(), fresh)["reasons"])
+
+
+def test_research_path_undated_rejected():
+    undated = _rsource("Lawmakers moved the bill forward.")
+    result = validate_source_for_question(_research_task(), undated)
+    assert "date_unknown" in result["reasons"]
+    assert not result["passed"]
+
+
+def test_event_anchor_does_not_reject_fresh_coverage():
+    """A question naming a past event date must not veto fresh coverage of it."""
+    task = {"id": "t", "category": "news_research", "evidence_contract": {},
+            "as_of": "August 17, 2026",
+            "question": "What happened during the raid on August 12, 2026?"}
+    fresh = _rsource("Officials described the August 12 raid.", published="2026-08-17")
+    assert not any(r.startswith("date") for r in
+                   validate_source_for_question(task, fresh)["reasons"])
+
+
+def test_as_of_none_or_garbage_is_harmless():
+    src = _rsource("Lawmakers moved the bill forward.", published="2022-01-01")
+    for as_of in (None, "", "not a date"):
+        task = {"id": "t", "question": RESEARCH_Q, "category": "news_research",
+                "evidence_contract": {}, "as_of": as_of}
+        reasons = validate_source_for_question(task, src)["reasons"]
+        assert not any(r.startswith("date") for r in reasons)
