@@ -1690,11 +1690,32 @@ def nearby_source_candidates(
     return dedupe_url_candidates([candidate for _, candidate in candidates], limit=limit)
 
 
+# Month names in the European languages the show's international stories most often
+# source from (French, Spanish, German, Italian, Portuguese, Dutch). Accented and
+# unaccented forms both, since normalize_text lowercases but keeps accents. Names
+# identical to English (april, mai/may overlap, september, etc.) dedupe below.
+_INTL_MONTHS: Dict[int, tuple] = {
+    1: ("janvier", "enero", "januar", "gennaio", "janeiro", "januari"),
+    2: ("février", "fevrier", "febrero", "februar", "febbraio", "fevereiro", "februari"),
+    3: ("mars", "marzo", "märz", "marz", "março", "marco", "maart"),
+    4: ("avril", "abril", "aprile"),
+    5: ("mai", "mayo", "maggio", "maio", "mei"),
+    6: ("juin", "junio", "juni", "giugno", "junho"),
+    7: ("juillet", "julio", "juli", "luglio", "julho"),
+    8: ("août", "aout", "agosto", "augustus"),
+    9: ("septembre", "septiembre", "settembre", "setembro"),
+    10: ("octobre", "octubre", "oktober", "ottobre", "outubro"),
+    11: ("novembre", "noviembre", "novembro"),
+    12: ("décembre", "decembre", "diciembre", "dezember", "dicembre", "dezembro"),
+}
+
+
 def _date_variants(month: int, day: int, year: int) -> List[str]:
     month_name = [name for name, value in MONTHS.items() if value == month][0]
     month_cap = month_name.title()
     month_abbr = month_cap[:3]
-    return [
+    yy = year % 100
+    variants = [
         f"{month_name} {day}, {year}",
         f"{month_cap} {day}, {year}",
         f"{month_abbr} {day}, {year}",
@@ -1702,7 +1723,30 @@ def _date_variants(month: int, day: int, year: int) -> List[str]:
         f"{month}/{day}/{year}",
         f"{month:02d}/{day:02d}/{year}",
         f"{year}-{month:02d}-{day:02d}",
+        # Two-digit years: how US court stamps write dates ("Filed 08/26/26").
+        f"{month}/{day}/{yy:02d}",
+        f"{month:02d}/{day:02d}/{yy:02d}",
     ]
+    # Day-first word forms: "26 August 2026" (UK/international English), plus the
+    # same date in the major European languages ("26 août 2026",
+    # "26 de agosto de 2026"). Matching is substring-in-normalized-text, so one
+    # lowercase casing suffices.
+    for name in dict.fromkeys(
+        [month_name, month_abbr.lower(), *_INTL_MONTHS.get(month, ())]
+    ):
+        variants.append(f"{day} {name} {year}")
+        variants.append(f"{day} de {name} de {year}")
+        variants.append(f"{day}. {name} {year}")
+    # Day-first numeric ("26/8/2026", "26.08.2026") only when the day exceeds 12,
+    # where day-first is the only possible reading. "5/8/2026" stays ambiguous
+    # between May 8 and Aug 5, so it is deliberately NOT matched day-first.
+    if day > 12:
+        for sep in ("/", "."):
+            variants.append(f"{day}{sep}{month}{sep}{year}")
+            variants.append(f"{day:02d}{sep}{month:02d}{sep}{year}")
+            variants.append(f"{day}{sep}{month}{sep}{yy:02d}")
+            variants.append(f"{day:02d}{sep}{month:02d}{sep}{yy:02d}")
+    return list(dict.fromkeys(variants))
 
 
 ENTITY_SUFFIXES = (
@@ -1836,12 +1880,18 @@ DATE_WINDOW_FORWARD_DAYS = 1
 REQUIRE_KNOWN_PUBLISH_DATE = True
 
 _MONTH_WORDS = sorted(
-    set(list(MONTHS) + [name[:3] for name in MONTHS]), key=len, reverse=True
+    set(list(MONTHS))
+    | {name[:3] for name in MONTHS}
+    | {name for names in _INTL_MONTHS.values() for name in names},
+    key=len, reverse=True,
 )
+_MONTH_ALT = "|".join(re.escape(w) for w in _MONTH_WORDS)
 _ANY_DATE_RE = re.compile(
-    r"\b(?:" + "|".join(_MONTH_WORDS) + r")\.?\s+\d{1,2}\b"
+    r"\b(?:" + _MONTH_ALT + r")\.?\s+\d{1,2}\b"          # "August 26"
+    r"|\b\d{1,2}\.?\s+(?:de\s+)?(?:" + _MONTH_ALT + r")\b"  # "26 August", "26 de agosto"
     r"|\b\d{4}-\d{2}-\d{2}"  # no trailing \b: ISO stamps run straight into "T09:00"
-    r"|\b\d{1,2}/\d{1,2}/\d{2,4}\b",
+    r"|\b\d{1,2}/\d{1,2}/\d{2,4}\b"
+    r"|\b\d{1,2}\.\d{1,2}\.\d{2,4}\b",                  # "26.08.2026"
     re.IGNORECASE,
 )
 

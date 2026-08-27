@@ -287,3 +287,54 @@ def test_as_of_none_or_garbage_is_harmless():
                 "evidence_contract": {}, "as_of": as_of}
         reasons = validate_source_for_question(task, src)["reasons"]
         assert not any(r.startswith("date") for r in reasons)
+
+
+# --- international and court-stamp date formats ----------------------------
+# A fresh Brussels-style story was losing its closest sources: a criminal
+# complaint stamped "Filed 08/26/26" was judged stale (two-digit years were
+# detected but unmatchable), and day-first European / non-English dates were
+# invisible entirely.
+from newscaster.source_hunter_primitives import _date_present_in_window  # noqa: E402,F811
+
+AUG17 = {"month": 8, "day": 17, "year": 2026}
+
+
+def test_court_stamp_two_digit_year():
+    assert _date_present_in_window("CRIMINAL COMPLAINT  Filed 08/16/26", AUG17)
+    reasons = _reasons("UNITED STATES DISTRICT COURT  Filed 03/25/26  COMPLAINT")
+    assert "date_mismatch" in reasons  # stale two-digit stamps still rejected
+
+
+def test_day_first_english():
+    assert _date_present_in_window("Published 16 August 2026 by staff", AUG17)
+    assert not _date_present_in_window("Published 16 August 2024 by staff", AUG17)
+
+
+def test_european_languages():
+    assert _date_present_in_window("Publié le 16 août 2026", AUG17)
+    assert _date_present_in_window("publie le 16 aout 2026", AUG17)          # unaccented
+    assert _date_present_in_window("16 de agosto de 2026", AUG17)            # es/pt
+    assert _date_present_in_window("Veröffentlicht am 16. august 2026", AUG17)  # de
+
+
+def test_day_first_numeric_unambiguous_only():
+    assert _date_present_in_window("gepubliceerd 16/8/2026", AUG17)
+    assert _date_present_in_window("Stand: 16.08.2026", AUG17)
+    # day <= 12 stays ambiguous between month-first and day-first: not matched
+    aug5 = {"month": 8, "day": 5, "year": 2026}
+    assert not _date_present_in_window("updated 5/8/2026", aug5)   # could be May 8
+    assert _date_present_in_window("updated 8/5/2026", aug5)       # US month-first
+
+
+def test_detector_sees_new_formats():
+    for text in ("Publié le 16 août 2026", "16 de agosto de 2026",
+                 "Filed 08/16/26", "Stand: 16.08.2026", "16 August 2026"):
+        assert _text_states_a_date(text), text
+    assert not _text_states_a_date("Talks resumed in Doha, officials said.")
+
+
+def test_french_source_now_passes_the_gate():
+    """The Brussels scenario: fresh French coverage was date_unknown before."""
+    reasons = _reasons("Publie le 16 aout 2026. La police a confirme les faits "
+                       "concernant Gaza ceasefire talks resume.")
+    assert not any(r.startswith("date") for r in reasons)
