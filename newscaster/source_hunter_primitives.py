@@ -1527,6 +1527,7 @@ def fetch_discovered_evidence(
                     "content_type": fetched["content_type"],
                     "char_count": fetched["char_count"],
                     "fetch_mode": fetched.get("fetch_mode", "direct"),
+                    "published_date": fetched.get("published_date"),
                     "excerpt": excerpt,
                     "excerpt_chars": len(excerpt),
                     "links": fetched.get("links", []),

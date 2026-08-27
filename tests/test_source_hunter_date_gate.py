@@ -174,3 +174,50 @@ def test_undated_search_result_is_also_rejected():
     result = validate_source_for_question(_task(), source)
     assert "date_unknown" in result["reasons"]
     assert not result["passed"]
+
+
+# --- production-path propagation ------------------------------------------
+# The Aug-24 fix originally landed its published_date line in
+# fetch_controlled_evidence (benchmark-only); production uses
+# fetch_discovered_evidence, so the metadata rescue was silently absent on
+# the live path. These tests go through the REAL production function with a
+# mocked fetch, so a repeat of that mis-wiring fails loudly.
+from unittest.mock import patch as _patch  # noqa: E402
+from newscaster.source_hunter_primitives import fetch_discovered_evidence  # noqa: E402
+
+
+def _fetched(published):
+    return {"url": "https://example.com/gaza-ceasefire-talks-resume",
+            "title": "Gaza ceasefire talks resume",
+            "content_type": "text/html", "status_code": 200,
+            "text": "Talks resumed in Doha, officials said.",
+            "published_date": published, "char_count": 38, "links": []}
+
+
+def _discover(published):
+    with _patch("newscaster.source_hunter_primitives.fetch_source_text",
+                return_value=_fetched(published)):
+        out = fetch_discovered_evidence(
+            {"question": QUESTION, "evidence_contract": {}},
+            [{"url": "https://example.com/gaza-ceasefire-talks-resume",
+              "title": "t", "reason": "", "source": "content"}],
+        )
+    return out["sources"][0]
+
+
+def test_discovered_evidence_carries_published_date():
+    assert _discover("2026-08-16")["published_date"] == "2026-08-16"
+
+
+def test_metadata_rescue_works_through_production_path():
+    src = _discover("2026-08-16")  # body text is undated; date only in metadata
+    result = validate_source_for_question(_task(), src)
+    assert "date_unknown" not in result["reasons"]
+    assert "date_mismatch" not in result["reasons"]
+
+
+def test_stale_metadata_blocks_through_production_path():
+    src = _discover("2026-03-25")
+    result = validate_source_for_question(_task(), src)
+    assert "date_mismatch" in result["reasons"]
+    assert not result["passed"]
