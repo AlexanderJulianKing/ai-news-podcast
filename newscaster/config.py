@@ -125,6 +125,30 @@ RESEARCH_DEGRADED_UNVERIFIED_FRACTION = 0.75
 # to be credited as that headline's source ('Reported by:' in the brief).
 SOURCE_ATTRIBUTION_MIN_OVERLAP = 0.6
 
+# --- Headline ingestion ---
+# Front pages are read with an event-first prompt (one sentence: who did what,
+# when) and asked for up to this many items. The old "latest headlines" prompt let
+# the model choose, and it chose about eight; that is where Navier-Stokes (09-08)
+# and METR's Hugging Face findings (08-26) were lost before Tier 1 ever saw them.
+SCRAPE_MAX_ITEMS = 20
+
+# Specialist watch: AI labs and independent evaluators, read from RSS and passed
+# through an event test (newscaster/scrapers/watchlist.py). Nominate-only: items
+# join the pool as one more source with no special weight. Entries are (name, url)
+# for RSS/Atom, or (name, url, kind); Anthropic publishes no feed, so its /news
+# listing page is parsed directly (kind "anthropic-news").
+WATCHLIST_ENABLED = True
+WATCHLIST_LOOKBACK_HOURS = 72
+WATCHLIST_MAX_ITEMS_PER_FEED = 8
+WATCHLIST_FEEDS = [
+    ('OpenAI', 'https://openai.com/news/rss.xml'),
+    ('Anthropic', 'https://www.anthropic.com/news', 'anthropic-news'),
+    ('Google DeepMind', 'https://deepmind.google/blog/rss.xml'),
+    ('METR', 'https://metr.org/feed.xml'),
+    ('AI Incident Database', 'https://incidentdatabase.ai/rss.xml'),
+    ('Import AI', 'https://importai.substack.com/feed'),
+]
+
 
 def init():
     """Load API keys from keys.txt. Must be called before using any key constants."""

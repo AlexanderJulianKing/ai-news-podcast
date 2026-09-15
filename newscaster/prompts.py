@@ -478,6 +478,31 @@ COVERAGE_NOTES_HEADER = (
 )
 
 
+# Event-first front-page extraction. Validated live on 2026-09-15: 20 items from AP
+# and 22 from NPR against ~8 each under the old "latest headlines" prompt, with no
+# invented consequences once the "who must respond" clause was removed (with it,
+# the model filled the slot with fluff such as "local artists must now find
+# alternative stages"). Forced-reaction judgment belongs to Tier 1 and 3, on facts.
+EVENT_SCRAPER_PROMPT = (
+    "List every distinct news item published today, {date}, up to {max_items} items. "
+    "Write each item as ONE plain sentence stating WHO did WHAT, and WHEN if the source gives a date. "
+    "Name the specific actors, places, numbers and dates that appear in the source. Report only what the "
+    "source states: do not add consequences, reactions or significance that the source does not itself "
+    "report. Do not use section labels, category names or bold. Do not describe a mood or a 'growing "
+    "concern'; state the event that caused it. One item per line, no numbering.\n"
+    "If nothing was published today, say so and name the source.\n"
+)
+
+EVENT_SCRAPER_TIMESTAMP_RULES = (
+    "If the page uses relative timestamps like 'Now' or 'minutes ago', assume they refer to today ({date}) "
+    "unless the text explicitly says otherwise. Explicit date stamps that fall within the last 24 hours "
+    "should also be treated as today's items. Ignore sections that are clearly labeled as historical "
+    "retrospectives such as 'Today in History'.\n"
+)
+
+EVENT_SCRAPER_GROUNDED_TAIL = "Source: {source}.\n"
+
+
 HEADLINE_MAKER_PROMPT = 'Please make a headline for the given story.'
 
 

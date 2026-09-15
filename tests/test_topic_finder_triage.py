@@ -104,3 +104,34 @@ def test_restore_triage_arc_tags_preserves_side_covered_verdict():
     scored = [{"score": 7, "headline": "Trump downplays need to regulate AI", "reason": "r"}]
     restored = _restore_triage_arc_tags(scored, arc_map)
     assert restored[0]["headline"] == "[SIDE-COVERED: ai_safety_cyberattacks] Trump downplays need to regulate AI"
+
+
+def test_merge_shortlists_collapses_same_arc_and_rephrasings():
+    national = [
+        "[SIDE-COVERED: trump_voting_lawsuit] The Supreme Court rejected the Trump administration's bid to impose new mail-ballot rules",
+        "[SIDE-COVERED: trump_voting_lawsuit] Supreme Court justices blocked a plan by Donald Trump to restrict mail ballots",
+        "NATO jets shot down a drone over Lithuania on September 15, 2026",
+        "The Kennedy Center board voted to close most of the performing arts venue on September 15, 2026",
+        "The Kennedy Center's board of directors voted to close the arts center during a meeting on Tuesday",
+        "[SIDE-COVERED: trump_voting_lawsuit] The Supreme Court upheld a lower court ruling that bars the Postal Service change",
+    ]
+    merged = _merge_shortlists(national, [], limit=13)
+    assert merged == [national[0], national[2], national[3]]
+
+
+def test_merge_shortlists_keeps_distinct_stories_that_share_a_name():
+    national = [
+        "Trump calls on Ukraine to halt strikes on Russian diesel fuel",
+        "Trump hits the campaign trail to rally GOP candidates for the midterms",
+        "Trump renames Lake Ontario to Lake America on federal maps",
+    ]
+    assert _merge_shortlists(national, [], limit=13) == national
+
+
+def test_merge_shortlists_does_not_merge_unrelated_events_that_share_a_date_tail():
+    national = [
+        "Saudi Arabia shut down its oil pipeline today, September 15, 2026",
+        "Senator Mitch McConnell returned to the Senate today, September 15, 2026",
+        "The Kennedy Center board voted to close the venue today, September 15, 2026",
+    ]
+    assert _merge_shortlists(national, [], limit=13) == national

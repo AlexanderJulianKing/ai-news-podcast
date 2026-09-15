@@ -26,6 +26,9 @@ from newscaster.prompts import (
     TIER3_OVERVIEW_PICK_PROMPT,
     RESEARCH_DEGRADED_NOTICE,
     COVERAGE_NOTES_HEADER,
+    EVENT_SCRAPER_PROMPT,
+    EVENT_SCRAPER_TIMESTAMP_RULES,
+    EVENT_SCRAPER_GROUNDED_TAIL,
 )
 from newscaster.llm import get_llm_response, call_with_default, LLMError
 from newscaster.source_hunter import answer_with_escalation
@@ -50,6 +53,7 @@ from newscaster.dedup import (
 )
 from newscaster.scrapers.calmatters import calmatters_scraper
 from newscaster.scrapers.dropsite import dropsite_scraper
+from newscaster.scrapers.watchlist import watchlist_scraper
 from newscaster.scrapers.web import scrape_text
 
 
@@ -340,15 +344,58 @@ def _headline_dedupe_key(headline: str) -> str:
     return re.sub(r"\s+", " ", clean).strip()
 
 
+# Two shortlist entries are the same story when the tagger gave them the same arc
+# slug, or when their story tokens overlap this much. Date words are dropped first:
+# every event sentence now ends "today, September 15, 2026", and those tokens would
+# otherwise count as shared content between unrelated stories.
+_SHORTLIST_DUPLICATE_OVERLAP = 0.6
+_SHORTLIST_DUPLICATE_MIN_SHARED = 4
+_DATE_TOKENS = frozenset({
+    "today", "yesterday", "tonight", "monday", "tuesday", "wednesday", "thursday", "friday",
+    "saturday", "sunday", "january", "february", "march", "april", "may", "june", "july",
+    "august", "september", "october", "november", "december",
+})
+
+
+def _story_tokens(headline: str) -> set:
+    return {t for t in _content_tokens(headline) if t not in _DATE_TOKENS and not t.isdigit()}
+
+
+def _is_same_story(headline: str, kept: list[tuple]) -> bool:
+    arc = find_matching_arc(headline)
+    slug = arc[1] if arc else None
+    tokens = _story_tokens(headline)
+    for kept_slug, kept_tokens in kept:
+        if slug and kept_slug and slug == kept_slug:
+            return True
+        if not tokens or not kept_tokens:
+            continue
+        shared = tokens & kept_tokens
+        if len(shared) >= _SHORTLIST_DUPLICATE_MIN_SHARED and \
+                len(shared) / min(len(tokens), len(kept_tokens)) >= _SHORTLIST_DUPLICATE_OVERLAP:
+            return True
+    return False
+
+
 def _merge_shortlists(primary: list[str], secondary: list[str], limit: int = _MERGED_SHORTLIST_LIMIT) -> list[str]:
-    """Preserve the national shortlist, then add California-specific recalls up to a small cap."""
+    """Preserve the national shortlist, then add California-specific recalls up to a small cap.
+
+    With every source now contributing up to 20 event sentences, one story arrives
+    in several wordings (five Supreme Court mail-ballot lines on 2026-09-15). Keep
+    the first, highest-scored wording of each story so Tier 2 researches 13
+    stories, not 13 sentences. Exact repeats are caught by key; rephrasings by arc
+    slug or token overlap.
+    """
     merged = []
-    seen = set()
+    seen_keys = set()
+    kept = []   # (slug or None, story tokens) for each kept headline
     for headline in list(primary or []) + list(secondary or []):
         key = _headline_dedupe_key(headline)
-        if not key or key in seen:
+        if not key or key in seen_keys or _is_same_story(headline, kept):
             continue
-        seen.add(key)
+        seen_keys.add(key)
+        arc = find_matching_arc(headline)
+        kept.append((arc[1] if arc else None, _story_tokens(headline)))
         merged.append(headline)
         if len(merged) >= limit:
             break
@@ -481,6 +528,72 @@ def _source_hunter_answer(prompt, topic, formatted_date):
     return None
 
 
+def _gather_headline_sections(formatted_date):
+    """Scrape every source into (display header, source name, text) sections.
+
+    Front pages are read with the event-first prompt: one plain sentence per item
+    saying who did what and when, up to SCRAPE_MAX_ITEMS. The specialist watch is
+    appended last when enabled. It nominates only; downstream tiers weigh its items
+    exactly like an AP line. Any failure there is logged and the run continues.
+    """
+    max_items = getattr(_config, 'SCRAPE_MAX_ITEMS', 20)
+    event_prompt = EVENT_SCRAPER_PROMPT.format(date=formatted_date, max_items=max_items)
+    timestamp_rules = EVENT_SCRAPER_TIMESTAMP_RULES.format(date=formatted_date)
+
+    print_and_write('scraping NPR')
+    npr_headlines = call_with_default(
+        '', event_prompt + EVENT_SCRAPER_GROUNDED_TAIL.format(source="NPR's morning news brief and homepage (npr.org)"),
+        grounding=True, _log_label='scrape-npr',
+    ) + '\n'
+    print_and_write('scraping AP')
+    ap_headlines = call_with_default(
+        '', event_prompt + timestamp_rules + 'https://apnews.com',
+        url_context=True, _log_label='scrape-ap',
+    ) + '\n'
+    print_and_write('scraping DN')
+    dn_headlines = call_with_default(
+        '', event_prompt + EVENT_SCRAPER_GROUNDED_TAIL.format(source='Democracy Now (https://www.democracynow.org)'),
+        grounding=True, _log_label='scrape-dn',
+    ) + '\n'
+    print_and_write('scraping PP')
+    pp_headlines = call_with_default(
+        '', event_prompt + timestamp_rules + 'https://www.propublica.org',
+        url_context=True, _log_label='scrape-pp',
+    ) + '\n'
+    print_and_write('scraping CM')
+    calmatters_headlines = calmatters_scraper() + '\n'
+    print_and_write('scraping Drop Site')
+    dropsite_headlines = dropsite_scraper() + '\n'
+    city_of_riverside_headlines = call_with_default(
+        '',
+        'What are the latest headlines here released in the past two days? Today is {}. If there are none released today, then say that there are none released from the news source today or yesterday. And mention the news source. Do not give anything else. https://www.riversideca.gov/media'.format(formatted_date),
+        mode='standard', url_context=True, _log_label='scrape-riverside',
+    )
+
+    # (display header, source name, text). The joined string is what every downstream
+    # LLM sees; the list keeps each headline's provenance for 'Reported by:'.
+    sections = [
+        ('NPR:', 'NPR', npr_headlines),
+        ('The Associated Press:', 'The Associated Press', ap_headlines),
+        ('Democracy Now:', 'Democracy Now', dn_headlines),
+        ('ProPublica', 'ProPublica', pp_headlines),
+        ('CalMatters', 'CalMatters', calmatters_headlines),
+        ('Drop Site News', 'Drop Site News', dropsite_headlines),
+        ('The City of Riverside', 'The City of Riverside', city_of_riverside_headlines),
+    ]
+
+    if getattr(_config, 'WATCHLIST_ENABLED', False):
+        print_and_write('scraping specialist watch')
+        try:
+            watch_text = watchlist_scraper()
+        except Exception as e:
+            print_and_write(f'Specialist watch failed: {e}; continuing without it')
+            watch_text = ''
+        if watch_text and watch_text.strip():
+            sections.append(('Specialist watch:', 'Specialist watch', watch_text))
+    return sections
+
+
 def topic_finder(formatted_date):
     today = date.today()
     formatted_date2 = today.strftime("%Y_%m_%d")
@@ -502,56 +615,11 @@ def topic_finder(formatted_date):
     follow_up_prompt_text = FOLLOW_UP_PROMPT_TEMPLATE.format(date=formatted_date)
     challenging_follow_up_prompt_text = CHALLENGING_FOLLOW_UP_PROMPT_TEMPLATE.format(date=formatted_date)
 
-    base_scraper_prompt = 'What are the latest headlines here released today, {}? If there are none released today, then say that there are none released from the news source today. And mention the news source.\n'.format(formatted_date)
-
-    npr_specific_prompt = "What are the main headlines for NPR's morning news brief here released today, {}? If there are none released today, then say that there are none released from the news source today. And mention the news source. You can be descriptive when talking about the main headlines. \n".format(formatted_date)
-
-    print_and_write('scraping NPR')
-    npr_headlines = call_with_default(
-        '', npr_specific_prompt, grounding=True, _log_label='scrape-npr',
-    ) + '\n'
-    print_and_write('scraping AP')
-    ap_prompt = (
-        base_scraper_prompt
-        + "If the page uses relative timestamps like 'Now' or 'minutes ago', assume they refer to today ({}) unless the text explicitly says otherwise. "
-        + "Explicit date stamps that fall within the last 24 hours should also be treated as today's headlines. "
-        + "Ignore sections that are clearly labeled as historical retrospectives such as 'Today in History'. "
-        + "https://apnews.com"
-    ).format(formatted_date)
-    ap_headlines = call_with_default(
-        '', ap_prompt, url_context=True, _log_label='scrape-ap',
-    ) + '\n'
-    print_and_write('scraping DN')
-    dn_headlines = call_with_default(
-        '', base_scraper_prompt + 'https://www.democracynow.org', grounding=True, _log_label='scrape-dn',
-    ) + '\n'
-    print_and_write('scraping PP')
-    pp_headlines = call_with_default(
-        '', base_scraper_prompt + 'https://www.propublica.org', url_context=True, _log_label='scrape-pp',
-    ) + '\n'
-    print_and_write('scraping CM')
-    calmatters_headlines = calmatters_scraper() + '\n'
-    print_and_write('scraping Drop Site')
-    dropsite_headlines = dropsite_scraper() + '\n'
-    city_of_riverside_headlines = call_with_default(
-        '',
-        'What are the latest headlines here released in the past two days? Today is {}. If there are none released today, then say that there are none released from the news source today or yesterday. And mention the news source. Do not give anything else. https://www.riversideca.gov/media'.format(formatted_date),
-        mode='standard', url_context=True, _log_label='scrape-riverside',
-    )
-
-    # (display header, source name, text). The joined string is what every downstream
-    # LLM sees, byte-identical to before; the list keeps each headline's provenance.
-    source_sections = [
-        ('NPR:', 'NPR', npr_headlines),
-        ('The Associated Press:', 'The Associated Press', ap_headlines),
-        ('Democracy Now:', 'Democracy Now', dn_headlines),
-        ('ProPublica', 'ProPublica', pp_headlines),
-        ('CalMatters', 'CalMatters', calmatters_headlines),
-        ('Drop Site News', 'Drop Site News', dropsite_headlines),
-        ('The City of Riverside', 'The City of Riverside', city_of_riverside_headlines),
-    ]
+    source_sections = _gather_headline_sections(formatted_date)
     all_headlines = '\n\n'.join(f'{header}\n{text}' for header, _name, text in source_sections)
     source_index = build_source_index([(name, text) for _header, name, text in source_sections])
+    pool_lines = sum(1 for line in all_headlines.split('\n') if len(line.strip()) > 20)
+    print_and_write(f'Headline pool: {pool_lines} lines from {len(source_sections)} sources')
 
     print_and_write('all headlines')
     print_and_write(all_headlines)
