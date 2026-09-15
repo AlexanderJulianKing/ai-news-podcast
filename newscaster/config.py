@@ -115,6 +115,16 @@ LOUDNESS_PEAK_CEILING_DB = -1.0      # a boost must never push peaks into the la
 LOUDNESS_MAX_GAIN_DB = 12.0          # refuse to "rescue" a degenerate or near-silent render
 LOUDNESS_MIN_GAIN_DB = 0.1           # below this the re-encode is not worth doing
 
+# --- Story selection: eligibility and research robustness ---
+# A Tier-2 morning where nearly every brief is UNVERIFIED is a research outage, not
+# a dozen false stories (2026-07-22: 12/12 UNVERIFIED, the OpenAI/Hugging Face hack
+# was judged "hypothetical"). Above this share, Tier 3 is told not to penalize it.
+RESEARCH_DEGRADED_MIN_BRIEFS = 4
+RESEARCH_DEGRADED_UNVERIFIED_FRACTION = 0.75
+# Overlap coefficient a scraped pool line must reach against a shortlisted headline
+# to be credited as that headline's source ('Reported by:' in the brief).
+SOURCE_ATTRIBUTION_MIN_OVERLAP = 0.6
+
 
 def init():
     """Load API keys from keys.txt. Must be called before using any key constants."""

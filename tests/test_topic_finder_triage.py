@@ -95,3 +95,12 @@ def test_major_escalation_prompt_sets_a_qualitative_threshold():
         assert "recent daily exchanges is an UPDATE" in prompt
         assert "The same action can be a MAJOR ESCALATION or an UPDATE" in prompt
         assert "Recency and the audience's last known state matter" in prompt
+
+
+def test_restore_triage_arc_tags_preserves_side_covered_verdict():
+    arc_map = build_headline_arc_map(
+        "[SIDE-COVERED: ai_safety_cyberattacks] Trump downplays need to regulate AI\n"
+    )
+    scored = [{"score": 7, "headline": "Trump downplays need to regulate AI", "reason": "r"}]
+    restored = _restore_triage_arc_tags(scored, arc_map)
+    assert restored[0]["headline"] == "[SIDE-COVERED: ai_safety_cyberattacks] Trump downplays need to regulate AI"

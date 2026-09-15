@@ -168,3 +168,20 @@ def test_build_map_splits_multiple_tags_on_one_line():
     m = build_headline_arc_map(one_line)
     assert recover_arc_for_headline("Alpha vote passes the House", m) == ("UPDATE", "alpha_story")
     assert recover_arc_for_headline("Bravo conflict erupts into open war", m) == ("MAJOR ESCALATION", "bravo_story")
+
+
+# --- SIDE-COVERED: the third tag type (coverage depth) ------------------------
+
+def test_build_map_reads_side_covered_tags_alongside_the_others():
+    text = (
+        "[SIDE-COVERED: ai_safety_cyberattacks] Trump downplays AI regulation\n"
+        "[UPDATE: fed_chair_inflation] Inflation hits 3-year high\n"
+    )
+    m = build_headline_arc_map(text)
+    assert m["trump downplays ai regulation"] == ("SIDE-COVERED", "ai_safety_cyberattacks")
+    assert m["inflation hits 3 year high"] == ("UPDATE", "fed_chair_inflation")
+
+
+def test_recover_side_covered_pick_after_tier3_strips_the_tag():
+    m = build_headline_arc_map("* **[SIDE-COVERED: ai_safety_cyberattacks]** Trump downplays AI regulation\n")
+    assert recover_arc_for_headline("Trump downplays AI regulation", m) == ("SIDE-COVERED", "ai_safety_cyberattacks")

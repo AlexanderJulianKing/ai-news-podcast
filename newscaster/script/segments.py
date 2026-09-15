@@ -6,7 +6,29 @@ from newscaster.llm import get_llm_response, LLMError
 from newscaster.llm.errors import LLMMalformedResponseError
 from newscaster.logging import print_and_write
 from newscaster.dates import format_spoken_date
-from newscaster.prompts import SEGMENT_SCRIPT_PROMPT_TEMPLATE, SEGMENT_SCRIPT_UPDATE_CONTEXT
+from newscaster.prompts import (
+    SEGMENT_SCRIPT_PROMPT_TEMPLATE,
+    SEGMENT_SCRIPT_SIDE_COVERED_CONTEXT,
+    SEGMENT_SCRIPT_UPDATE_CONTEXT,
+)
+
+
+def continuation_context_template(episodes, formatted_date2):
+    """Pick the continuation framing for a main story with prior coverage.
+
+    Returns (template, kind). A prior full segment gets the "as we reported..."
+    update framing. An arc the audience only met in the side-story roundup gets
+    the first-full-telling framing, because a sentence in the roundup is not
+    background a listener remembers. Today's own episode is ignored: it is the
+    main slot being written now.
+    """
+    prior_main = any(
+        (ep or {}).get("coverage") == "main" and (ep or {}).get("date") != formatted_date2
+        for ep in episodes or []
+    )
+    if prior_main:
+        return SEGMENT_SCRIPT_UPDATE_CONTEXT, "update"
+    return SEGMENT_SCRIPT_SIDE_COVERED_CONTEXT, "side-covered"
 
 
 def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_context=None):
@@ -108,12 +130,13 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
                         last_covered_spoken = format_spoken_date(prev_date)
                     except ValueError:
                         last_covered_spoken = prev_date_str
-                    segment_script_prompt += SEGMENT_SCRIPT_UPDATE_CONTEXT.format(
+                    context_template, kind = continuation_context_template(episodes, formatted_date2)
+                    segment_script_prompt += context_template.format(
                         audience_state=audience_state,
                         last_covered_spoken=last_covered_spoken,
                         reporter_name=reporter_name,
                     )
-                    print_and_write(f'Injected update context for slot {slot} (arc: {arc.get("slug", "?")})')
+                    print_and_write(f'Injected {kind} context for slot {slot} (arc: {arc.get("slug", "?")})')
 
         quality_records = []
         selected_script = None

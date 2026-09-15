@@ -263,7 +263,7 @@ SEGMENT_SCRIPT_PROMPT_TEMPLATE = (
 TIER1_TRIAGE_PROMPT = """Rate each headline below on a scale of 1-10 for newsworthiness using these criteria:
 - Impact scale: How many people are materially affected?
 - Institutional response: Does this force action from governments, courts, or major organizations?
-- Novelty: Is this a new development or a rehash of ongoing coverage? Note: headlines tagged '[UPDATE]' or '[MAJOR ESCALATION]' are continuations of previously covered stories that have genuine new developments. Do NOT penalize them for being continuations — score them based on how significant the new development itself is.
+- Novelty: Is this a new development or a rehash of ongoing coverage? Note: headlines tagged '[UPDATE]', '[MAJOR ESCALATION]' or '[SIDE-COVERED]' are continuations of previously covered stories that have genuine new developments ('[SIDE-COVERED]' means the audience only ever heard a brief roundup mention). Do NOT penalize them for being continuations — score them based on how significant the new development itself is.
 - Accountability: Does it reveal corruption, illegality, or betrayal of public trust by powerful actors?
 
 For each headline, output exactly one line in this format:
@@ -312,16 +312,19 @@ Completed actions beat threats. Events that force institutional response beat ev
 
 LENS 2 — ACCOUNTABILITY OF POWER: Does the story reveal that powerful people or institutions acted corruptly, illegally, or in betrayal of public trust? Check: (a) the scale of power involved, (b) the quality of evidence, and (c) whether the story reveals systemic failure, not just individual misconduct.
 
-IMPORTANT: Base your decision on the research briefs provided. Penalize stories where the brief is thin, unverified, or based on a single anonymous source. Stories with strong multi-source verification and concrete details should be preferred over sensational but poorly sourced claims.
+IMPORTANT: Base your decision on the research briefs provided. Penalize stories whose claim rests on a single anonymous source or is thinly supported. Stories with strong multi-source verification and concrete details should be preferred over sensational but poorly sourced claims. See PROVENANCE below for how to treat a brief marked UNVERIFIED.
 
 For violence, disasters, and tragedies: prioritize only when the scale forces federal or international response, or when it signals system failure.
 
 If both lenses point to different stories, prefer the one with broader implications for more Americans. The story must be specific, not vague like "Israel Hamas War". Repeat the headline verbatim in your Answer.
 
-IMPORTANT: Some headlines may be tagged '[UPDATE: slug]' or '[MAJOR ESCALATION: slug]'. These tags indicate the story was covered in a previous episode.
-- '[UPDATE]' stories MUST NOT be selected. Our audience already heard this story — picking it again wastes their time. Choose a fresh story instead.
+IMPORTANT: Some headlines may be tagged '[UPDATE: slug]', '[MAJOR ESCALATION: slug]' or '[SIDE-COVERED: slug]'. These tags indicate the story was covered in a previous episode.
+- '[UPDATE]' stories MUST NOT be selected. Our audience already heard a full segment on this story — picking it again wastes their time. Choose a fresh story instead.
 - '[MAJOR ESCALATION]' stories CAN be selected — the escalation represents a qualitative shift that warrants full coverage.
-- When you repeat the headline in your Answer, do NOT include the tag prefix."""
+- '[SIDE-COVERED]' stories CAN be selected. The audience has only heard a sentence or two about this story in the side-story roundup, never a full segment, so a full segment is not repetition. Judge it on the lenses above like any fresh story. If the Coverage notes at the end of the document show it has recurred in the roundup across several days, treat that persistence as evidence it has outgrown the roundup.
+- When you repeat the headline in your Answer, do NOT include the tag prefix.
+
+PROVENANCE: Each brief lists the front pages its headline was taken from this morning ('Reported by:'). A headline carried by a wire service or major outlet is a reported fact even when the research brief could not add detail. Treat 'UNVERIFIED' in a brief as 'no additional detail was found', not as 'false'. A thin brief on a wire-reported story counts against it only when a comparably important story has a substantive brief. If a RESEARCH NOTICE appears at the top of the document, the research layer was degraded today and UNVERIFIED must not be penalized at all."""
 
 
 TIER3_EVERYMAN_STORY_PROMPT = (
@@ -334,10 +337,12 @@ TIER3_EVERYMAN_STORY_PROMPT = (
     'Do not pick a mass shooting. When you list the story in "Answer", you must list the event as specifically as possible; '
     'repeating the headline verbatim is preferable.\n\n'
     'Do not pick \'{excluded_headline}\' or any story that sounds like it.\n\n'
-    'IMPORTANT: Some headlines may be tagged \'[UPDATE: slug]\' or \'[MAJOR ESCALATION: slug]\'. These tags indicate the story was covered in a previous episode.\n'
-    '- \'[UPDATE]\' stories MUST NOT be selected. Our audience already heard this story — picking it again wastes their time. Choose a fresh story instead.\n'
+    'IMPORTANT: Some headlines may be tagged \'[UPDATE: slug]\', \'[MAJOR ESCALATION: slug]\' or \'[SIDE-COVERED: slug]\'. These tags indicate the story was covered in a previous episode.\n'
+    '- \'[UPDATE]\' stories MUST NOT be selected. Our audience already heard a full segment on this story — picking it again wastes their time. Choose a fresh story instead.\n'
     '- \'[MAJOR ESCALATION]\' stories CAN be selected — the escalation represents a qualitative shift that warrants full coverage.\n'
-    '- When you repeat the headline in your Answer, do NOT include the tag prefix.'
+    '- \'[SIDE-COVERED]\' stories CAN be selected. The audience has only heard a sentence or two about this story in the side-story roundup, never a full segment, so a full segment is not repetition. If the Coverage notes at the end of the document show it has recurred across several days, that persistence is evidence it has outgrown the roundup.\n'
+    '- When you repeat the headline in your Answer, do NOT include the tag prefix.\n\n'
+    'PROVENANCE: Each brief lists the front pages its headline was taken from this morning (\'Reported by:\'). A headline carried by a wire service or major outlet is a reported fact even when the research brief could not add detail. Treat \'UNVERIFIED\' as \'no additional detail was found\', not as \'false\'. If a RESEARCH NOTICE appears at the top of the document, the research layer was degraded today and UNVERIFIED must not be penalized at all.'
 )
 
 
@@ -348,9 +353,9 @@ TIER3_OVERVIEW_PICK_PROMPT = (
     "Do not pick any stories related to the major stories. For example, if a story is about how the US is involved in some sort of conflict, "
     "do not pick another story about that same conflict. Also, do not pick inconsequential sensational stories like local crimes, "
     "individual tragedies, or puzzle/game segments that are clearly not news stories.\n\n"
-    "Some headlines may be tagged '[UPDATE]' — these are stories we covered before but that have new developments. "
+    "Some headlines may be tagged '[UPDATE]' or '[SIDE-COVERED]' — these are stories we covered before but that have new developments. "
     "These are GOOD candidates for side stories, since listeners will appreciate a brief update on ongoing situations. "
-    "Feel free to include them. When you list headlines, do NOT include the '[UPDATE]' or '[MAJOR ESCALATION]' tag prefixes."
+    "Feel free to include them. When you list headlines, do NOT include the '[UPDATE]', '[MAJOR ESCALATION]' or '[SIDE-COVERED]' tag prefixes."
 )
 
 
@@ -447,6 +452,29 @@ SEGMENT_SCRIPT_UPDATE_CONTEXT = (
     "this before (e.g., 'As we reported last week...' or 'You may remember we covered...'). "
     "Focus on what's NEW — do not re-explain background the audience already knows. "
     "Grace can briefly remind listeners of the core situation in her intro question, but keep it to one sentence."
+)
+
+
+SEGMENT_SCRIPT_SIDE_COVERED_CONTEXT = (
+    "\n\nIMPORTANT CONTEXT — This story has only been mentioned briefly in this podcast's side-story roundup, "
+    "never as a full segment. Here is the little that listeners already heard:\n{audience_state}\n\n"
+    "The last brief mention was {last_covered_spoken}.\n"
+    "{reporter_name} may acknowledge that in passing (e.g., 'We touched on this briefly the other day...') "
+    "but should treat this as the first full telling: explain the background properly, because the audience "
+    "has not heard it in depth."
+)
+
+
+RESEARCH_DEGRADED_NOTICE = (
+    "RESEARCH NOTICE: {n_unverified} of {n_total} briefs below came back UNVERIFIED. That many at once means "
+    "the research layer failed today, not that {n_unverified} stories are false. Judge each story on its "
+    "headline, its listed sources ('Reported by:'), and whatever the brief does contain. Do not penalize "
+    "UNVERIFIED today."
+)
+
+
+COVERAGE_NOTES_HEADER = (
+    "=== Coverage notes: stories previously mentioned only in the side-story roundup ==="
 )
 
 

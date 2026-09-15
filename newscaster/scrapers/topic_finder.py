@@ -24,11 +24,16 @@ from newscaster.prompts import (
     TIER3_IMPORTANT_STORY_PROMPT,
     TIER3_EVERYMAN_STORY_PROMPT,
     TIER3_OVERVIEW_PICK_PROMPT,
+    RESEARCH_DEGRADED_NOTICE,
+    COVERAGE_NOTES_HEADER,
 )
 from newscaster.llm import get_llm_response, call_with_default, LLMError
 from newscaster.source_hunter import answer_with_escalation
 from newscaster.search import openrouter_web_brief
 from newscaster.dedup import (
+    _content_tokens,
+    apply_coverage_depth,
+    format_coverage_notes,
     load_recent_story_descriptions,
     summarize_story_for_archive,
     load_ledger,
@@ -350,11 +355,80 @@ def _merge_shortlists(primary: list[str], secondary: list[str], limit: int = _ME
     return merged
 
 
+_UNVERIFIED_RE = re.compile(r"^\W*UNVERIFIED\b", re.IGNORECASE)
+
+
+def brief_is_unverified(brief) -> bool:
+    """True when a Tier-2 brief opens with the UNVERIFIED marker (markdown-tolerant)."""
+    return bool(_UNVERIFIED_RE.match((brief or "").strip()))
+
+
+def research_degraded(briefs, min_briefs=None, fraction=None):
+    """Decide whether today's Tier-2 layer failed wholesale.
+
+    Returns (degraded, n_unverified, n_total). One UNVERIFIED brief is information
+    about that story; nearly all of them at once is information about the research
+    layer (2026-07-22: 12 of 12), and Tier 3 must be told the difference.
+    """
+    if min_briefs is None:
+        min_briefs = getattr(_config, 'RESEARCH_DEGRADED_MIN_BRIEFS', 4)
+    if fraction is None:
+        fraction = getattr(_config, 'RESEARCH_DEGRADED_UNVERIFIED_FRACTION', 0.75)
+    n_total = len(briefs or [])
+    n_unverified = sum(1 for item in (briefs or []) if brief_is_unverified(item[1]))
+    degraded = n_total >= min_briefs and n_unverified / n_total >= fraction
+    return degraded, n_unverified, n_total
+
+
+def build_source_index(source_sections):
+    """[(source_name, [content-token set per pool line])] for provenance matching."""
+    index = []
+    for name, text in source_sections or []:
+        lines = [line for line in (text or "").split("\n") if len(line.strip()) > 10]
+        index.append((name, [_content_tokens(line) for line in lines]))
+    return index
+
+
+def attribute_headline_sources(headline, source_index, min_overlap=None, min_shared=3):
+    """Which front pages carried this headline this morning.
+
+    Tier 1 repeats headlines from the pool nearly verbatim, so a strict overlap
+    coefficient (shared / smaller set) against each source's lines recovers the
+    provenance the scored line lost. min() lets a short headline match the longer
+    pool line that contains it. Returns source names in pool order.
+    """
+    if min_overlap is None:
+        min_overlap = getattr(_config, 'SOURCE_ATTRIBUTION_MIN_OVERLAP', 0.6)
+    tokens = _content_tokens(headline or "")
+    if len(tokens) < min_shared:
+        return []
+    hits = []
+    for name, line_token_sets in source_index or []:
+        best = 0.0
+        for line_tokens in line_token_sets:
+            shared = tokens & line_tokens
+            if len(shared) < min_shared:
+                continue
+            best = max(best, len(shared) / min(len(tokens), len(line_tokens)))
+        if best >= min_overlap:
+            hits.append(name)
+    return hits
+
+
 def _format_research_briefs(briefs):
-    """Assemble individual research memos into a single document."""
+    """Assemble individual research memos into a single document.
+
+    Items are (headline, brief) or (headline, brief, sources); when sources are
+    present a 'Reported by:' line records which front pages carried the headline.
+    """
     sections = []
-    for i, (headline, brief) in enumerate(briefs, 1):
-        sections.append(f"--- Brief {i} ---\nHeadline: {headline}\n\n{brief}\n")
+    for i, item in enumerate(briefs, 1):
+        headline, brief = item[0], item[1]
+        sources = list(item[2]) if len(item) > 2 and item[2] else []
+        header = f"--- Brief {i} ---\nHeadline: {headline}\n"
+        if sources:
+            header += f"Reported by: {', '.join(sources)}\n"
+        sections.append(f"{header}\n{brief}\n")
     return '\n'.join(sections)
 
 
@@ -465,7 +539,19 @@ def topic_finder(formatted_date):
         mode='standard', url_context=True, _log_label='scrape-riverside',
     )
 
-    all_headlines = 'NPR:\n' + npr_headlines + '\n\nThe Associated Press:\n' + ap_headlines + '\n\nDemocracy Now:\n' + dn_headlines + '\n\nProPublica\n' + pp_headlines + '\n\nCalMatters\n' + calmatters_headlines + '\n\nDrop Site News\n' + dropsite_headlines + '\n\nThe City of Riverside\n' + city_of_riverside_headlines
+    # (display header, source name, text). The joined string is what every downstream
+    # LLM sees, byte-identical to before; the list keeps each headline's provenance.
+    source_sections = [
+        ('NPR:', 'NPR', npr_headlines),
+        ('The Associated Press:', 'The Associated Press', ap_headlines),
+        ('Democracy Now:', 'Democracy Now', dn_headlines),
+        ('ProPublica', 'ProPublica', pp_headlines),
+        ('CalMatters', 'CalMatters', calmatters_headlines),
+        ('Drop Site News', 'Drop Site News', dropsite_headlines),
+        ('The City of Riverside', 'The City of Riverside', city_of_riverside_headlines),
+    ]
+    all_headlines = '\n\n'.join(f'{header}\n{text}' for header, _name, text in source_sections)
+    source_index = build_source_index([(name, text) for _header, name, text in source_sections])
 
     print_and_write('all headlines')
     print_and_write(all_headlines)
@@ -476,6 +562,14 @@ def topic_finder(formatted_date):
             all_headlines, all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard',
             _log_label='dedup-headlines-ledger',
         )
+        # The tagger judged sameness; the ledger knows depth. An arc the audience only
+        # met in the roundup must not bar its next development from the main slot.
+        all_headlines, depth_rewrites = apply_coverage_depth(all_headlines, ledger)
+        if depth_rewrites:
+            print_and_write(
+                f'Coverage depth: {depth_rewrites} [UPDATE] tag(s) downgraded to [SIDE-COVERED] '
+                f'(arc never had a full segment)'
+            )
     elif history_found:
         repetition_remover_system_prompt = REPETITION_REMOVER_TEMPLATE.format(recent_stories=recent_story_descriptions)
         all_headlines = call_with_default(
@@ -571,13 +665,30 @@ def topic_finder(formatted_date):
         print_and_write(f'  Researching: {headline}')
         try:
             brief = _research_headline_brief(headline, formatted_date)
-            briefs.append((headline, brief))
-            print_and_write(f'  Brief received ({len(brief)} chars)')
+            sources = attribute_headline_sources(headline, source_index)
+            briefs.append((headline, brief, sources))
+            print_and_write(f'  Brief received ({len(brief)} chars); reported by: {", ".join(sources) or "unattributed"}')
         except Exception as e:
             print_and_write(f'  Research failed for "{headline}": {e}')
 
     research_document = _format_research_briefs(briefs)
     print_and_write(f'TIER 2: Assembled {len(briefs)} research briefs ({len(research_document)} chars)')
+
+    degraded, n_unverified, n_total = research_degraded(briefs)
+    if degraded:
+        print_and_write(
+            f'TIER 2 WARNING: {n_unverified}/{n_total} briefs UNVERIFIED; research layer looks degraded today. '
+            f'Telling Tier 3 not to penalize it.'
+        )
+        research_document = (
+            RESEARCH_DEGRADED_NOTICE.format(n_unverified=n_unverified, n_total=n_total)
+            + '\n\n' + research_document
+        )
+
+    coverage_notes = format_coverage_notes(headline_arc_map, ledger)
+    if coverage_notes:
+        research_document += '\n\n' + COVERAGE_NOTES_HEADER + '\n' + coverage_notes
+        print_and_write('Coverage notes for Tier 3:\n' + coverage_notes)
 
     # === TIER 3: Final picks using enriched context ===
     print_and_write('TIER 3: Selecting stories')

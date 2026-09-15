@@ -192,24 +192,90 @@ def update_audience_learned(ledger, slug, date_str, coverage_slot, learned_bulle
     arc["audience_state"] = new_audience_state
 
 
+# Continuation tags the dedup stage can attach to a headline. UPDATE and MAJOR
+# ESCALATION come from the tagger LLM. SIDE-COVERED is applied afterwards in code
+# (apply_coverage_depth) for arcs the audience only ever heard in the roundup.
+SIDE_COVERED_TAG = "SIDE-COVERED"
+ARC_TAG_TYPES = ("UPDATE", "MAJOR ESCALATION", SIDE_COVERED_TAG)
+_TAG_ALTERNATION = "|".join(re.escape(tag) for tag in ARC_TAG_TYPES)
+
+
 def find_matching_arc(headline: str):
-    """Parse [UPDATE: slug] or [MAJOR ESCALATION: slug] from headline.
+    """Parse [UPDATE: slug], [MAJOR ESCALATION: slug] or [SIDE-COVERED: slug] from headline.
 
     Returns (tag_type, slug) or None.
     """
-    match = re.match(r"\[(UPDATE|MAJOR ESCALATION):\s*([^\]]+)\]", headline)
+    match = re.match(r"\[(" + _TAG_ALTERNATION + r"):\s*([^\]]+)\]", headline)
     if match:
         return (match.group(1), match.group(2).strip())
     return None
 
 
 def strip_arc_tags(headline: str) -> str:
-    """Remove [UPDATE: slug] / [MAJOR ESCALATION: slug] prefixes, return clean headline."""
-    cleaned = re.sub(r"\[(UPDATE|MAJOR ESCALATION):\s*[^\]]+\]\s*", "", headline)
+    """Remove [UPDATE: slug] / [MAJOR ESCALATION: slug] / [SIDE-COVERED: slug] prefixes."""
+    cleaned = re.sub(r"\[(" + _TAG_ALTERNATION + r"):\s*[^\]]+\]\s*", "", headline)
     # Also strip old-style tags without slugs
-    for tag in ("[UPDATE]", "[MAJOR ESCALATION]"):
-        cleaned = cleaned.replace(tag, "")
+    for tag_type in ARC_TAG_TYPES:
+        cleaned = cleaned.replace(f"[{tag_type}]", "")
     return cleaned.strip()
+
+
+def arc_has_main_coverage(arc: dict) -> bool:
+    """True if any episode of this arc ran as a full segment."""
+    return any((ep or {}).get("coverage") == "main" for ep in (arc or {}).get("episodes") or [])
+
+
+def apply_coverage_depth(tagged_text: str, ledger: dict):
+    """Downgrade [UPDATE: slug] to [SIDE-COVERED: slug] for arcs that never had a full segment.
+
+    The tagger only judges sameness. Whether a recurrence should be barred from the
+    main slot depends on how much the audience actually heard, and that lives in the
+    ledger: an arc whose every episode was a side-story mention has had a sentence or
+    two of airtime, not a segment. Before this rule, one roundup mention on day one
+    locked a story out of the main slot for every later development (openai_model_hack
+    on 2026-07-22/24, ai_safety_cyberattacks on 2026-09-12..15). MAJOR ESCALATION and
+    unknown slugs are left untouched. Returns (rewritten_text, count_rewritten).
+    """
+    arcs = (ledger or {}).get("arcs") or {}
+    count = 0
+
+    def _swap(match):
+        nonlocal count
+        slug = match.group(1).strip()
+        arc = arcs.get(slug)
+        if arc is None or arc_has_main_coverage(arc):
+            return match.group(0)
+        count += 1
+        return f"[{SIDE_COVERED_TAG}: {slug}]"
+
+    text = re.sub(r"\[UPDATE:\s*([^\]]+)\]", _swap, tagged_text or "")
+    return text, count
+
+
+def format_coverage_notes(headline_arc_map: dict, ledger: dict) -> str:
+    """One line per SIDE-COVERED arc in today's pool saying how often it has recurred.
+
+    This is the persistence signal a human editor uses: a story that keeps turning up
+    in the roundup day after day has outgrown it. Returns "" when nothing applies.
+    """
+    arcs = (ledger or {}).get("arcs") or {}
+    notes = {}
+    for tag_type, slug in (headline_arc_map or {}).values():
+        if tag_type != SIDE_COVERED_TAG or slug in notes:
+            continue
+        arc = arcs.get(slug) or {}
+        dates = sorted({
+            str(ep.get("date")) for ep in arc.get("episodes") or []
+            if ep.get("coverage") == "side" and ep.get("date")
+        })
+        if dates:
+            notes[slug] = dates
+    lines = []
+    for slug, dates in notes.items():
+        n = len(dates)
+        span = f"{dates[0]} to {dates[-1]}" if n > 1 else dates[0]
+        lines.append(f"- {slug}: {n} side-story mention{'s' if n != 1 else ''} ({span}); never a full segment.")
+    return "\n".join(lines)
 
 
 # --- Arc-identity recovery -------------------------------------------------
@@ -255,11 +321,14 @@ def _content_tokens(headline: str) -> set:
     }
 
 
-_ARC_TAG_RE = re.compile(r"\[(UPDATE|MAJOR ESCALATION):\s*([^\]]+)\]")
+_ARC_TAG_RE = re.compile(r"\[(" + _TAG_ALTERNATION + r"):\s*([^\]]+)\]")
 
 
 def build_headline_arc_map(tagged_text: str) -> dict:
     """Parse the dedup tagger's output into {clean-headline-key: (tag_type, slug)}.
+
+    Reads all three tag types (UPDATE / MAJOR ESCALATION / SIDE-COVERED), so it must
+    run after apply_coverage_depth to see the depth-adjusted verdicts.
 
     The tagger (Gemma) decorates its output with markdown — bullets ('* **'),
     headings ('### **2.'), bold, numbering — so a tag is almost never at the
