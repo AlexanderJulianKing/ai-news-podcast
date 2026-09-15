@@ -105,6 +105,16 @@ SOURCE_HUNTER_NEARBY_SOURCE_LIMIT = 5
 SOURCE_HUNTER_NEARBY_SOURCE_DEPTH = 4
 SOURCE_HUNTER_MAX_SOURCE_CHARS = 9000
 
+# --- Per-line loudness normalization (equalises the TTS voices before mixdown) ---
+# Google's Chirp3-HD voices arrive at different levels: Chloe (Leda) measured
+# ~2.5 LU below Grace (Aoede) in the same interview segment, which is audible
+# when they alternate. Every synthesised line is pulled to LOUDNESS_TARGET_LUFS.
+LOUDNESS_NORMALIZE_ENABLED = True
+LOUDNESS_TARGET_LUFS = -23.0         # broadcast reference; the voices already sit near it
+LOUDNESS_PEAK_CEILING_DB = -1.0      # a boost must never push peaks into the last dB
+LOUDNESS_MAX_GAIN_DB = 12.0          # refuse to "rescue" a degenerate or near-silent render
+LOUDNESS_MIN_GAIN_DB = 0.1           # below this the re-encode is not worth doing
+
 
 def init():
     """Load API keys from keys.txt. Must be called before using any key constants."""

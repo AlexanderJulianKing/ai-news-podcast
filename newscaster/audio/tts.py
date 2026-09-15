@@ -6,6 +6,8 @@ import wave
 from google.cloud import texttospeech
 from pydub import AudioSegment
 
+from newscaster import config as _config
+from newscaster.audio.loudness import measure_wav, plan_gain
 from newscaster.config import _SECOND
 from newscaster.logging import print_and_write
 from newscaster.text_utils import text_cleaner
@@ -44,6 +46,49 @@ def normalize_audio(filename, headroom_db=3.0):
         audio.export(filename, format="wav")
         print_and_write(f"Normalized {filename} by -{reduction:.1f} dB")
     return filename
+
+
+def normalize_loudness(filename):
+    """Pull a WAV to the configured loudness target, within the peak ceiling.
+
+    Runs on every synthesised line so the voices match each other. The gain is
+    clamped two ways: never more than LOUDNESS_MAX_GAIN_DB in either direction,
+    so a degenerate render is not amplified into the mix, and never enough to
+    push the peak above LOUDNESS_PEAK_CEILING_DB. Returns the gain applied in
+    dB, or None when nothing was changed.
+    """
+    if not getattr(_config, 'LOUDNESS_NORMALIZE_ENABLED', False):
+        return None
+    try:
+        loudness, peak_db = measure_wav(filename)
+    except Exception as e:
+        print_and_write(f"Loudness measurement failed for {filename}: {e}; leaving level alone")
+        return None
+    if loudness is None:
+        print_and_write(f"Loudness not measurable for {filename}; leaving level alone")
+        return None
+
+    gain = plan_gain(
+        loudness,
+        peak_db,
+        getattr(_config, 'LOUDNESS_TARGET_LUFS', -23.0),
+        getattr(_config, 'LOUDNESS_PEAK_CEILING_DB', -1.0),
+        getattr(_config, 'LOUDNESS_MAX_GAIN_DB', 12.0),
+    )
+    if gain is None or abs(gain) < getattr(_config, 'LOUDNESS_MIN_GAIN_DB', 0.1):
+        return None
+
+    try:
+        audio = AudioSegment.from_wav(filename)
+        audio = audio + gain
+        audio.export(filename, format="wav")
+    except Exception as e:
+        print_and_write(f"Loudness normalization failed for {filename}: {e}; leaving level alone")
+        return None
+
+    print_and_write(
+        f"Loudness {filename}: {loudness:.1f} LUFS -> target, applied {gain:+.1f} dB")
+    return gain
 
 
 def google_speak(name, text, filename):
@@ -133,6 +178,9 @@ def google_speak(name, text, filename):
         if is_clipped:
             print_and_write(f"Clipping persists after retries, normalizing {filename}")
             normalize_audio(filename)
+
+    # --- loudness match across voices (last, so it sees the final waveform) ---
+    normalize_loudness(filename)
 
     return
 
