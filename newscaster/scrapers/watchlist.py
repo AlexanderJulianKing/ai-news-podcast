@@ -56,14 +56,36 @@ WATCHLIST_EVENT_TEST_PROMPT = (
     "feature, benchmark score, or pricing announcement is not by itself an event.\n"
     "(2) At least one of: an outside party (a regulator, court, legislature, another company, or an "
     "independent evaluator) was forced to act or has acted; a developer lost control of a system or "
-    "disclosed an incident; or an independent evaluation reported a finding about a frontier system's "
-    "capability or safety. A release passes only if the post itself also reports one of these.\n\n"
+    "disclosed an incident; an independent evaluation reported a finding about a frontier system's "
+    "capability or safety; or a verified first: a result no system achieved before, attested by formal "
+    "verification, peer review, an independent evaluator, or a prize body. The developer's own claim, a "
+    "benchmark score, or a feature launch is not attestation. A release passes only if the post itself "
+    "also reports one of these.\n\n"
     "For each passing item write ONE plain sentence: WHO did WHAT, and WHEN (use the post date), naming "
     "the specific actors, systems, numbers, and places the post gives. Report only what the post states; "
     "add no consequences or significance of your own. End each sentence with ' (via SOURCE)' using the "
     "source name shown. One item per line, no numbering, no bold.\n"
     "If nothing passes, write exactly: NONE PASS\n\n{items}"
 )
+
+
+# Beat feeds (business, science, health, courts, world) reuse the feed machinery
+# but not the AI event test: one heavy call per beat picks the few concrete events
+# worth putting in front of Tier 1, in the same one-sentence shape as the front pages.
+BEAT_SELECTION_PROMPT = (
+    "Today is {date}. Below are items published in the last day by {group} sources, each with its source "
+    "and date. Choose up to {max_items} that report a specific event: something happened, with a named actor "
+    "and object (an action, decision, ruling, filing, incident, result, or announcement). Prefer events that "
+    "force an institution to respond, reveal misconduct by the powerful, or report a verified first in what a "
+    "technology or field can do. Skip opinion, explainers, previews, live-blog headers, listicles, sports "
+    "results, celebrity items, and personal-finance tips.\n"
+    "Write each chosen item as ONE plain sentence: WHO did WHAT, and WHEN (use the item date). Name the "
+    "specific actors, places, and numbers the item gives; report only what the item states and add no "
+    "consequences or significance of your own. End each sentence with ' (via SOURCE)' using the source name "
+    "shown. One per line, no numbering, no bold. If none qualify, write exactly: NONE\n\n{items}"
+)
+
+_NONE_RE = re.compile(r"^NONE(\s+PASS)?\b", re.IGNORECASE)
 
 
 def _clean_text(value, max_chars=300):
@@ -286,19 +308,59 @@ def format_items_for_test(items):
     return "\n".join(lines)
 
 
-def apply_event_test(items, today_str):
-    """One LLM call. Returns passing lines, [] for NONE PASS, or None if the call degraded."""
+def select_with_llm(items, prompt_template, today_str, label, **extra):
+    """One heavy-model call over formatted items. Returns chosen lines, [] for NONE, None if degraded."""
     if not items:
         return []
-    prompt = WATCHLIST_EVENT_TEST_PROMPT.format(date=today_str, items=format_items_for_test(items))
-    response = call_with_default(None, prompt, mode="heavy", _log_label="watchlist-event-test")
+    prompt = prompt_template.format(date=today_str, items=format_items_for_test(items), **extra)
+    response = call_with_default(None, prompt, mode="heavy", _log_label=label)
     if response is None:
         return None
     lines = [line.strip().lstrip("-*• ").strip() for line in response.split("\n")]
     lines = [line for line in lines if line]
-    if not lines or any(line.upper().startswith("NONE PASS") for line in lines):
+    if not lines or any(_NONE_RE.match(line) for line in lines):
         return []
     return lines
+
+
+def apply_event_test(items, today_str):
+    """The AI watch's event test. Returns passing lines, [] for NONE PASS, or None if degraded."""
+    return select_with_llm(items, WATCHLIST_EVENT_TEST_PROMPT, today_str, "watchlist-event-test")
+
+
+def feed_group_section(group_name, feeds, prompt_template, *, intro, label, now=None,
+                       lookback_hours=72, max_per_feed=8, max_items=None):
+    """Pool section text for one group of feeds: fetch, window, select, and always say what happened."""
+    now = now or datetime.now(timezone.utc)
+    today = now.astimezone().strftime("%B %e, %Y").replace("  ", " ")
+    items, failed = collect_watch_items(feeds, now=now, lookback_hours=lookback_hours, max_per_feed=max_per_feed)
+    print_and_write(
+        f"{group_name}: {len(items)} items from {len(feeds) - len(failed)}/{len(feeds)} feeds "
+        f"in the last {lookback_hours}h" + (f"; failed: {', '.join(failed)}" if failed else "")
+    )
+    chosen = select_with_llm(items, prompt_template, today, label, group=group_name, max_items=max_items)
+    lines = [intro.format(today=today)]
+    if chosen is None:
+        lines.append("The selection could not be run today (LLM call degraded); no items are nominated.")
+    elif not chosen:
+        lines.append(f"No items from these sources qualified in the last {lookback_hours} hours.")
+    else:
+        lines.extend(chosen)
+    if failed:
+        lines.append(f"Feeds that could not be fetched today: {', '.join(failed)}.")
+    return "\n".join(lines) + "\n\n"
+
+
+def beat_scraper(group_name, feeds, now=None, lookback_hours=None, max_items=None, max_per_feed=None):
+    """One beat (business, science, health, courts, world) as a pool section."""
+    return feed_group_section(
+        group_name, feeds, BEAT_SELECTION_PROMPT,
+        intro=f"{group_name} beat, as of {{today}}. Events selected from specialist feeds; judge them by the same criteria as any other source.",
+        label=f"beat-{group_name.lower().replace(' ', '-')}", now=now,
+        lookback_hours=lookback_hours or getattr(_config, "BEAT_LOOKBACK_HOURS", 24),
+        max_per_feed=max_per_feed or getattr(_config, "BEAT_MAX_ITEMS_PER_FEED", 30),
+        max_items=max_items or getattr(_config, "BEAT_MAX_ITEMS", 8),
+    )
 
 
 def watchlist_scraper(feeds=None, now=None, lookback_hours=None, max_per_feed=None):
@@ -308,25 +370,10 @@ def watchlist_scraper(feeds=None, now=None, lookback_hours=None, max_per_feed=No
     through, so the daily log distinguishes a quiet week from a broken feed.
     """
     feeds = feeds if feeds is not None else getattr(_config, "WATCHLIST_FEEDS", [])
-    lookback_hours = lookback_hours or getattr(_config, "WATCHLIST_LOOKBACK_HOURS", 72)
-    max_per_feed = max_per_feed or getattr(_config, "WATCHLIST_MAX_ITEMS_PER_FEED", 8)
-    now = now or datetime.now(timezone.utc)
-    today = now.astimezone().strftime("%B %e, %Y").replace("  ", " ")
-
-    items, failed = collect_watch_items(feeds, now=now, lookback_hours=lookback_hours, max_per_feed=max_per_feed)
-    print_and_write(
-        f"Watchlist: {len(items)} items from {len(feeds) - len(failed)}/{len(feeds)} feeds "
-        f"in the last {lookback_hours}h" + (f"; failed: {', '.join(failed)}" if failed else "")
+    return feed_group_section(
+        "Watchlist", feeds, WATCHLIST_EVENT_TEST_PROMPT,
+        intro=f"{SECTION_NAME}, as of {{today}}. These items passed an event test; judge them by the same criteria as any other source.",
+        label="watchlist-event-test", now=now,
+        lookback_hours=lookback_hours or getattr(_config, "WATCHLIST_LOOKBACK_HOURS", 72),
+        max_per_feed=max_per_feed or getattr(_config, "WATCHLIST_MAX_ITEMS_PER_FEED", 8),
     )
-    passing = apply_event_test(items, today)
-
-    lines = [f"{SECTION_NAME}, as of {today}. These items passed an event test; judge them by the same criteria as any other source."]
-    if passing is None:
-        lines.append("The event test could not be run today (LLM call degraded); no items are nominated.")
-    elif not passing:
-        lines.append(f"No items from these sources passed the event test in the last {lookback_hours} hours.")
-    else:
-        lines.extend(passing)
-    if failed:
-        lines.append(f"Feeds that could not be fetched today: {', '.join(failed)}.")
-    return "\n".join(lines) + "\n\n"

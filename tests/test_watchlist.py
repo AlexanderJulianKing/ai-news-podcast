@@ -197,7 +197,7 @@ def test_section_distinguishes_quiet_week_from_degraded_llm():
     with patch("newscaster.scrapers.watchlist.requests.get", return_value=_response(RSS_FEED)), \
          patch("newscaster.scrapers.watchlist.call_with_default", return_value="NONE PASS"):
         quiet = watchlist_scraper(feeds=[("METR", "u")], now=NOW, lookback_hours=72)
-    assert "No items from these sources passed the event test" in quiet
+    assert "No items from these sources qualified in the last 72 hours" in quiet
 
     with patch("newscaster.scrapers.watchlist.requests.get", return_value=_response(RSS_FEED)), \
          patch("newscaster.scrapers.watchlist.call_with_default", return_value=None):

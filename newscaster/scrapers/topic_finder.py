@@ -53,13 +53,13 @@ from newscaster.dedup import (
 )
 from newscaster.scrapers.calmatters import calmatters_scraper
 from newscaster.scrapers.dropsite import dropsite_scraper
-from newscaster.scrapers.watchlist import watchlist_scraper
+from newscaster.scrapers.watchlist import beat_scraper, watchlist_scraper
 from newscaster.scrapers.web import scrape_text
 
 
 _NATIONAL_SHORTLIST_LIMIT = 10
 _CALIFORNIA_SHORTLIST_LIMIT = 5
-_MERGED_SHORTLIST_LIMIT = 13
+_MERGED_SHORTLIST_LIMIT = 16   # was 13; with ~20 events per source the cap bound on the top group alone
 
 
 @dataclass
@@ -528,6 +528,42 @@ def _source_hunter_answer(prompt, topic, formatted_date):
     return None
 
 
+def _pool_lines(text):
+    return [line for line in (text or '').split('\n') if len(line.strip()) > 20]
+
+
+def _tag_pool(all_headlines, system_prompt, label):
+    """Run the repetition tagger, guarding against it dropping stories.
+
+    The tagger re-emits the whole pool with tags, and is meant to remove only
+    same-story-no-new-info lines. With a 100-line pool a small model can also
+    truncate. If it keeps fewer than TAGGER_MIN_RETENTION of the lines, retry once;
+    if still low, keep its tags but append the pool lines it lost, untagged, so
+    nothing is silently discarded. Returns the tagged pool text.
+    """
+    before = _pool_lines(all_headlines)
+    min_retention = getattr(_config, 'TAGGER_MIN_RETENTION', 0.7)
+    tagged = all_headlines
+    for attempt in (1, 2):
+        tagged = call_with_default(all_headlines, all_headlines, system_prompt=system_prompt, mode='standard', _log_label=label)
+        after = _pool_lines(tagged)
+        if not before or len(after) >= min_retention * len(before):
+            if attempt == 2:
+                print_and_write(f'Tagger retry kept {len(after)}/{len(before)} lines; accepted')
+            return tagged
+        print_and_write(
+            f'TAGGER WARNING: kept {len(after)}/{len(before)} pool lines ({len(after)/len(before):.0%}), '
+            f'below {min_retention:.0%} (attempt {attempt}/2)'
+        )
+    kept_keys = {_headline_dedupe_key(strip_arc_tags(line)) for line in _pool_lines(tagged)}
+    lost = [line for line in before if _headline_dedupe_key(line) not in kept_keys]
+    print_and_write(
+        f'TAGGER WARNING: retention still low after retry; appending {len(lost)} lost line(s) untagged '
+        f'so no story is discarded (they may lack continuation tags today)'
+    )
+    return tagged.rstrip('\n') + '\n' + '\n'.join(lost)
+
+
 def _gather_headline_sections(formatted_date):
     """Scrape every source into (display header, source name, text) sections.
 
@@ -591,6 +627,19 @@ def _gather_headline_sections(formatted_date):
             watch_text = ''
         if watch_text and watch_text.strip():
             sections.append(('Specialist watch:', 'Specialist watch', watch_text))
+
+    if getattr(_config, 'BEATS_ENABLED', False):
+        for group_name, feeds in getattr(_config, 'BEAT_FEEDS', []) or []:
+            print_and_write(f'scraping beat: {group_name}')
+            try:
+                beat_text = beat_scraper(group_name, feeds)
+            except Exception as e:
+                print_and_write(f'Beat "{group_name}" failed: {e}; continuing without it')
+                beat_text = ''
+            if beat_text and beat_text.strip():
+                # Name the outlets, so 'Reported by:' means something to the judge.
+                source_name = f"{group_name} beat ({', '.join(name for name, _url in feeds)})"
+                sections.append((f'{group_name} (beat):', source_name, beat_text))
     return sections
 
 
@@ -626,24 +675,19 @@ def topic_finder(formatted_date):
 
     if use_ledger:
         repetition_remover_system_prompt = LEDGER_REPETITION_REMOVER_TEMPLATE.format(arc_summaries=arc_summaries)
-        all_headlines = call_with_default(
-            all_headlines, all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard',
-            _log_label='dedup-headlines-ledger',
-        )
-        # The tagger judged sameness; the ledger knows depth. An arc the audience only
-        # met in the roundup must not bar its next development from the main slot.
-        all_headlines, depth_rewrites = apply_coverage_depth(all_headlines, ledger)
-        if depth_rewrites:
+        all_headlines = _tag_pool(all_headlines, repetition_remover_system_prompt, 'dedup-headlines-ledger')
+        # The tagger judged sameness; the ledger knows depth and recency, which decide
+        # eligibility: roundup-only arcs become SIDE-COVERED, arcs that led two or more
+        # days ago become DEVELOPMENT, and only a recent lead keeps the hard UPDATE bar.
+        all_headlines, depth_counts = apply_coverage_depth(all_headlines, ledger, today=today)
+        if any(depth_counts.values()):
             print_and_write(
-                f'Coverage depth: {depth_rewrites} [UPDATE] tag(s) downgraded to [SIDE-COVERED] '
-                f'(arc never had a full segment)'
+                f"Coverage depth: {depth_counts['side_covered']} [UPDATE] tag(s) -> [SIDE-COVERED] (never led), "
+                f"{depth_counts['development']} -> [DEVELOPMENT] (led {_config.MAIN_RECOVERY_DAYS}+ days ago)"
             )
     elif history_found:
         repetition_remover_system_prompt = REPETITION_REMOVER_TEMPLATE.format(recent_stories=recent_story_descriptions)
-        all_headlines = call_with_default(
-            all_headlines, all_headlines, system_prompt=repetition_remover_system_prompt, mode='standard',
-            _log_label='dedup-headlines-history',
-        )
+        all_headlines = _tag_pool(all_headlines, repetition_remover_system_prompt, 'dedup-headlines-history')
 
     # Capture the dedup tagger's [UPDATE: slug] / [MAJOR ESCALATION: slug] verdicts
     # NOW, before the Tier-3 selection prompts strip those prefixes. Without this,
@@ -753,7 +797,7 @@ def topic_finder(formatted_date):
             + '\n\n' + research_document
         )
 
-    coverage_notes = format_coverage_notes(headline_arc_map, ledger)
+    coverage_notes = format_coverage_notes(headline_arc_map, ledger, today=today)
     if coverage_notes:
         research_document += '\n\n' + COVERAGE_NOTES_HEADER + '\n' + coverage_notes
         print_and_write('Coverage notes for Tier 3:\n' + coverage_notes)

@@ -196,7 +196,8 @@ def update_audience_learned(ledger, slug, date_str, coverage_slot, learned_bulle
 # ESCALATION come from the tagger LLM. SIDE-COVERED is applied afterwards in code
 # (apply_coverage_depth) for arcs the audience only ever heard in the roundup.
 SIDE_COVERED_TAG = "SIDE-COVERED"
-ARC_TAG_TYPES = ("UPDATE", "MAJOR ESCALATION", SIDE_COVERED_TAG)
+DEVELOPMENT_TAG = "DEVELOPMENT"
+ARC_TAG_TYPES = ("UPDATE", "MAJOR ESCALATION", SIDE_COVERED_TAG, DEVELOPMENT_TAG)
 _TAG_ALTERNATION = "|".join(re.escape(tag) for tag in ARC_TAG_TYPES)
 
 
@@ -225,56 +226,97 @@ def arc_has_main_coverage(arc: dict) -> bool:
     return any((ep or {}).get("coverage") == "main" for ep in (arc or {}).get("episodes") or [])
 
 
-def apply_coverage_depth(tagged_text: str, ledger: dict):
-    """Downgrade [UPDATE: slug] to [SIDE-COVERED: slug] for arcs that never had a full segment.
+def _parse_ledger_date(value):
+    try:
+        return datetime.strptime(str(value), "%Y_%m_%d").date()
+    except (TypeError, ValueError):
+        return None
 
-    The tagger only judges sameness. Whether a recurrence should be barred from the
-    main slot depends on how much the audience actually heard, and that lives in the
-    ledger: an arc whose every episode was a side-story mention has had a sentence or
-    two of airtime, not a segment. Before this rule, one roundup mention on day one
-    locked a story out of the main slot for every later development (openai_model_hack
-    on 2026-07-22/24, ai_safety_cyberattacks on 2026-09-12..15). MAJOR ESCALATION and
-    unknown slugs are left untouched. Returns (rewritten_text, count_rewritten).
+
+def last_main_date(arc: dict):
+    """Date of the arc's most recent full segment, or None."""
+    dates = [
+        _parse_ledger_date(ep.get("date")) for ep in (arc or {}).get("episodes") or []
+        if (ep or {}).get("coverage") == "main"
+    ]
+    dates = [d for d in dates if d]
+    return max(dates) if dates else None
+
+
+def apply_coverage_depth(tagged_text: str, ledger: dict, today=None, recovery_days=None):
+    """Turn the tagger's [UPDATE: slug] into the eligibility the ledger actually supports.
+
+    The tagger only judges sameness. What the audience has heard lives in the ledger:
+    - no full segment yet          -> [SIDE-COVERED: slug]  (a roundup sentence is not coverage)
+    - led, but recovery_days+ ago  -> [DEVELOPMENT: slug]   (may lead again on a big enough development)
+    - led within recovery_days     -> [UPDATE: slug]        (still barred; MAJOR ESCALATION is the only way back)
+    Before this, one roundup mention locked a story out for good, and a story that led
+    once was barred for 45 days however large the follow-up: over Aug 1 - Sep 15 the
+    top-scored story was ineligible on 21 of 46 mornings, 13 of them a live war.
+    MAJOR ESCALATION and unknown slugs are untouched. Returns (text, counts).
     """
     arcs = (ledger or {}).get("arcs") or {}
-    count = 0
+    today = today or date.today()
+    if recovery_days is None:
+        from newscaster import config as _config  # lazy: dedup is imported early
+        recovery_days = getattr(_config, "MAIN_RECOVERY_DAYS", 2)
+    counts = {"side_covered": 0, "development": 0}
 
     def _swap(match):
-        nonlocal count
         slug = match.group(1).strip()
         arc = arcs.get(slug)
-        if arc is None or arc_has_main_coverage(arc):
+        if arc is None:
             return match.group(0)
-        count += 1
-        return f"[{SIDE_COVERED_TAG}: {slug}]"
+        if not arc_has_main_coverage(arc):
+            counts["side_covered"] += 1
+            return f"[{SIDE_COVERED_TAG}: {slug}]"
+        last = last_main_date(arc)
+        if last is not None and (today - last).days >= recovery_days:
+            counts["development"] += 1
+            return f"[{DEVELOPMENT_TAG}: {slug}]"
+        return match.group(0)
 
     text = re.sub(r"\[UPDATE:\s*([^\]]+)\]", _swap, tagged_text or "")
-    return text, count
+    return text, counts
 
 
-def format_coverage_notes(headline_arc_map: dict, ledger: dict) -> str:
-    """One line per SIDE-COVERED arc in today's pool saying how often it has recurred.
+def format_coverage_notes(headline_arc_map: dict, ledger: dict, today=None) -> str:
+    """One line per SIDE-COVERED or DEVELOPMENT arc in today's pool.
 
-    This is the persistence signal a human editor uses: a story that keeps turning up
-    in the roundup day after day has outgrown it. Returns "" when nothing applies.
+    SIDE-COVERED: how often it has recurred in the roundup (the persistence signal an
+    editor uses). DEVELOPMENT: when it last led and what the audience already knows,
+    so the judge can weigh what is actually new. Returns "" when nothing applies.
     """
     arcs = (ledger or {}).get("arcs") or {}
-    notes = {}
+    today = today or date.today()
+    lines, seen = [], set()
     for tag_type, slug in (headline_arc_map or {}).values():
-        if tag_type != SIDE_COVERED_TAG or slug in notes:
+        if slug in seen or tag_type not in (SIDE_COVERED_TAG, DEVELOPMENT_TAG):
             continue
         arc = arcs.get(slug) or {}
-        dates = sorted({
+        side_dates = sorted({
             str(ep.get("date")) for ep in arc.get("episodes") or []
             if ep.get("coverage") == "side" and ep.get("date")
         })
-        if dates:
-            notes[slug] = dates
-    lines = []
-    for slug, dates in notes.items():
-        n = len(dates)
-        span = f"{dates[0]} to {dates[-1]}" if n > 1 else dates[0]
-        lines.append(f"- {slug}: {n} side-story mention{'s' if n != 1 else ''} ({span}); never a full segment.")
+        if tag_type == SIDE_COVERED_TAG:
+            if not side_dates:
+                continue
+            n = len(side_dates)
+            span = f"{side_dates[0]} to {side_dates[-1]}" if n > 1 else side_dates[0]
+            lines.append(f"- {slug}: {n} side-story mention{'s' if n != 1 else ''} ({span}); never a full segment.")
+        else:
+            last = last_main_date(arc)
+            if last is None:
+                continue
+            ago = (today - last).days
+            since = sum(1 for d in side_dates if _parse_ledger_date(d) and _parse_ledger_date(d) > last)
+            knows = " ".join(str(arc.get("audience_state") or "").split())[:400] or "(no summary recorded)"
+            lines.append(
+                f"- {slug}: last led {last.strftime('%Y_%m_%d')} ({ago} days ago)"
+                + (f", {since} roundup mention{'s' if since != 1 else ''} since" if since else "")
+                + f". Audience already knows: {knows}"
+            )
+        seen.add(slug)
     return "\n".join(lines)
 
 

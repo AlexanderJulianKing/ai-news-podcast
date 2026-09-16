@@ -9,7 +9,10 @@ segment for good. On 2026-09-14 the judge wrote that the highest-stakes briefs w
 "ineligible for selection, regardless of their significance".
 """
 
+from datetime import date
+
 from newscaster.dedup import (
+    DEVELOPMENT_TAG,
     SIDE_COVERED_TAG,
     apply_coverage_depth,
     arc_has_main_coverage,
@@ -65,24 +68,29 @@ TAGGED = (
 
 # --- the rewrite itself ------------------------------------------------------
 
-def test_side_only_arc_is_downgraded_and_main_arc_is_not():
-    text, count = apply_coverage_depth(TAGGED, _ledger())
-    assert count == 1
+# Iran led on 2026_09_01; on 09_02 that is one day ago, inside the recovery window.
+DAY_AFTER_IRAN_LED = date(2026, 9, 2)
+NO_REWRITES = {"side_covered": 0, "development": 0}
+
+
+def test_side_only_arc_is_downgraded_and_recently_led_arc_is_not():
+    text, counts = apply_coverage_depth(TAGGED, _ledger(), today=DAY_AFTER_IRAN_LED)
+    assert counts == {"side_covered": 1, "development": 0}
     assert "[SIDE-COVERED: ai_safety_cyberattacks] Trump downplays" in text
     assert "[UPDATE: us_iran_escalation_2] Iranian officials" in text
 
 
 def test_major_escalation_and_unknown_slugs_are_left_alone():
-    text, _ = apply_coverage_depth(TAGGED, _ledger())
+    text, _ = apply_coverage_depth(TAGGED, _ledger(), today=DAY_AFTER_IRAN_LED)
     assert "[MAJOR ESCALATION: ai_safety_cyberattacks] Congress passes" in text
     assert "[UPDATE: never_seen_slug] Some story" in text
     assert "A brand new story with no tag" in text
 
 
 def test_empty_inputs_are_safe():
-    assert apply_coverage_depth("", _ledger()) == ("", 0)
-    assert apply_coverage_depth(TAGGED, {}) == (TAGGED, 0)
-    assert apply_coverage_depth(TAGGED, None) == (TAGGED, 0)
+    assert apply_coverage_depth("", _ledger(), today=DAY_AFTER_IRAN_LED) == ("", NO_REWRITES)
+    assert apply_coverage_depth(TAGGED, {}, today=DAY_AFTER_IRAN_LED) == (TAGGED, NO_REWRITES)
+    assert apply_coverage_depth(TAGGED, None, today=DAY_AFTER_IRAN_LED) == (TAGGED, NO_REWRITES)
 
 
 def test_arc_has_main_coverage():
@@ -102,7 +110,7 @@ def test_parsers_accept_the_side_covered_tag():
 
 
 def test_map_and_restore_preserve_the_side_covered_verdict():
-    text, _ = apply_coverage_depth(TAGGED, _ledger())
+    text, _ = apply_coverage_depth(TAGGED, _ledger(), today=DAY_AFTER_IRAN_LED)
     arc_map = build_headline_arc_map(text)
     assert (SIDE_COVERED_TAG, "ai_safety_cyberattacks") in arc_map.values()
     assert ("UPDATE", "us_iran_escalation_2") in arc_map.values()
@@ -121,18 +129,18 @@ def test_map_and_restore_preserve_the_side_covered_verdict():
 # --- persistence signal ------------------------------------------------------
 
 def test_coverage_notes_count_distinct_side_days_for_side_covered_arcs_only():
-    text, _ = apply_coverage_depth(TAGGED, _ledger())
-    notes = format_coverage_notes(build_headline_arc_map(text), _ledger())
+    text, _ = apply_coverage_depth(TAGGED, _ledger(), today=DAY_AFTER_IRAN_LED)
+    notes = format_coverage_notes(build_headline_arc_map(text), _ledger(), today=DAY_AFTER_IRAN_LED)
     assert "ai_safety_cyberattacks: 3 side-story mentions (2026_09_12 to 2026_09_14); never a full segment." in notes
     assert "us_iran_escalation_2" not in notes      # it is an UPDATE, not side-covered
 
 
 def test_coverage_notes_singular_and_empty():
     ledger = {"arcs": {"one_day": {"episodes": [{"date": "2026_09_14", "coverage": "side"}]}}}
-    notes = format_coverage_notes({"k": (SIDE_COVERED_TAG, "one_day")}, ledger)
+    notes = format_coverage_notes({"k": (SIDE_COVERED_TAG, "one_day")}, ledger, today=date(2026, 9, 15))
     assert notes == "- one_day: 1 side-story mention (2026_09_14); never a full segment."
-    assert format_coverage_notes({"k": ("UPDATE", "one_day")}, ledger) == ""
-    assert format_coverage_notes({}, ledger) == ""
+    assert format_coverage_notes({"k": ("UPDATE", "one_day")}, ledger, today=date(2026, 9, 15)) == ""
+    assert format_coverage_notes({}, ledger, today=date(2026, 9, 15)) == ""
 
 
 # --- the prompts say what the code now does ----------------------------------
@@ -146,7 +154,7 @@ def test_tier3_prompts_make_side_covered_selectable_and_update_not():
 
 def test_tier1_and_overview_prompts_know_the_third_tag():
     assert "[SIDE-COVERED]" in TIER1_TRIAGE_PROMPT
-    assert "'[SIDE-COVERED]' tag prefixes" in TIER3_OVERVIEW_PICK_PROMPT
+    assert "'[SIDE-COVERED]'" in TIER3_OVERVIEW_PICK_PROMPT and "tag prefixes" in TIER3_OVERVIEW_PICK_PROMPT
 
 
 # --- script framing ----------------------------------------------------------

@@ -263,8 +263,9 @@ SEGMENT_SCRIPT_PROMPT_TEMPLATE = (
 TIER1_TRIAGE_PROMPT = """Rate each headline below on a scale of 1-10 for newsworthiness using these criteria:
 - Impact scale: How many people are materially affected?
 - Institutional response: Does this force action from governments, courts, or major organizations?
-- Novelty: Is this a new development or a rehash of ongoing coverage? Note: headlines tagged '[UPDATE]', '[MAJOR ESCALATION]' or '[SIDE-COVERED]' are continuations of previously covered stories that have genuine new developments ('[SIDE-COVERED]' means the audience only ever heard a brief roundup mention). Do NOT penalize them for being continuations — score them based on how significant the new development itself is.
+- Novelty: Is this a new development or a rehash of ongoing coverage? Note: headlines tagged '[UPDATE]', '[MAJOR ESCALATION]', '[SIDE-COVERED]' or '[DEVELOPMENT]' are continuations of previously covered stories that have genuine new developments ('[SIDE-COVERED]' means the audience only ever heard a brief roundup mention; '[DEVELOPMENT]' means it led at least two days ago). Do NOT penalize them for being continuations — score them based on how significant the new development itself is.
 - Accountability: Does it reveal corruption, illegality, or betrayal of public trust by powerful actors?
+- Frontier capability and control: Does it report a verified first in what a technology can do (attested by formal verification, peer review, an independent evaluator, or a prize body, not the developer's own claim or a benchmark score), or a developer losing control of a system it built? Score these as you would a major institutional event.
 
 For each headline, output exactly one line in this format:
 SCORE: X | HEADLINE: Y | REASON: Z
@@ -312,6 +313,10 @@ Completed actions beat threats. Events that force institutional response beat ev
 
 LENS 2 — ACCOUNTABILITY OF POWER: Does the story reveal that powerful people or institutions acted corruptly, illegally, or in betrayal of public trust? Check: (a) the scale of power involved, (b) the quality of evidence, and (c) whether the story reveals systemic failure, not just individual misconduct.
 
+LENS 3 — FRONTIER CAPABILITY AND CONTROL: Does the story show a technology doing something no system could do before, or a developer losing control of a system it built? This lens exists because such events change what every institution must plan for, even before any of them has reacted. Check: (a) the capability or loss of control is stated concretely, not as a mood or a "growing concern"; (b) it is attested by someone other than the developer — formal verification, peer review, an independent evaluator, a prize body, a court, a regulator, or the affected party — a company's own announcement or a benchmark score does not pass; (c) it is a first or a boundary crossed, not an increment. For example: a formally verified proof of a problem open for ninety years passes; autonomous agents breaking into a third party's production systems passes; a new model with better scores does not, however large the scores.
+
+If the three lenses point to different stories, prefer the one with broader implications for more Americans.
+
 IMPORTANT: Base your decision on the research briefs provided. Penalize stories whose claim rests on a single anonymous source or is thinly supported. Stories with strong multi-source verification and concrete details should be preferred over sensational but poorly sourced claims. See PROVENANCE below for how to treat a brief marked UNVERIFIED.
 
 For violence, disasters, and tragedies: prioritize only when the scale forces federal or international response, or when it signals system failure.
@@ -322,6 +327,7 @@ IMPORTANT: Some headlines may be tagged '[UPDATE: slug]', '[MAJOR ESCALATION: sl
 - '[UPDATE]' stories MUST NOT be selected. Our audience already heard a full segment on this story — picking it again wastes their time. Choose a fresh story instead.
 - '[MAJOR ESCALATION]' stories CAN be selected — the escalation represents a qualitative shift that warrants full coverage.
 - '[SIDE-COVERED]' stories CAN be selected. The audience has only heard a sentence or two about this story in the side-story roundup, never a full segment, so a full segment is not repetition. Judge it on the lenses above like any fresh story. If the Coverage notes at the end of the document show it has recurred in the roundup across several days, treat that persistence as evidence it has outgrown the roundup.
+- '[DEVELOPMENT]' stories CAN be selected, with care. The audience heard a full segment on this story at least two days ago; the Coverage notes say when, and what they already know. Lead with it only when the new development, judged on its own by the lenses above, is clearly the day's most important story. When it is close, choose the fresh story. If you select it, your reasoning must say what is new against what the audience already knows.
 - When you repeat the headline in your Answer, do NOT include the tag prefix.
 
 PROVENANCE: Each brief lists the front pages its headline was taken from this morning ('Reported by:'). A headline carried by a wire service or major outlet is a reported fact even when the research brief could not add detail. Treat 'UNVERIFIED' in a brief as 'no additional detail was found', not as 'false'. A thin brief on a wire-reported story counts against it only when a comparably important story has a substantive brief. If a RESEARCH NOTICE appears at the top of the document, the research layer was degraded today and UNVERIFIED must not be penalized at all."""
@@ -341,6 +347,7 @@ TIER3_EVERYMAN_STORY_PROMPT = (
     '- \'[UPDATE]\' stories MUST NOT be selected. Our audience already heard a full segment on this story — picking it again wastes their time. Choose a fresh story instead.\n'
     '- \'[MAJOR ESCALATION]\' stories CAN be selected — the escalation represents a qualitative shift that warrants full coverage.\n'
     '- \'[SIDE-COVERED]\' stories CAN be selected. The audience has only heard a sentence or two about this story in the side-story roundup, never a full segment, so a full segment is not repetition. If the Coverage notes at the end of the document show it has recurred across several days, that persistence is evidence it has outgrown the roundup.\n'
+    '- \'[DEVELOPMENT]\' stories CAN be selected, with care: the audience heard a full segment at least two days ago (the Coverage notes say when and what they know). Lead with it only when the new development is clearly the most important story for Californians on its own; when it is close, choose the fresh story, and if you select it say what is new.\n'
     '- When you repeat the headline in your Answer, do NOT include the tag prefix.\n\n'
     'PROVENANCE: Each brief lists the front pages its headline was taken from this morning (\'Reported by:\'). A headline carried by a wire service or major outlet is a reported fact even when the research brief could not add detail. Treat \'UNVERIFIED\' as \'no additional detail was found\', not as \'false\'. If a RESEARCH NOTICE appears at the top of the document, the research layer was degraded today and UNVERIFIED must not be penalized at all.'
 )
@@ -353,9 +360,9 @@ TIER3_OVERVIEW_PICK_PROMPT = (
     "Do not pick any stories related to the major stories. For example, if a story is about how the US is involved in some sort of conflict, "
     "do not pick another story about that same conflict. Also, do not pick inconsequential sensational stories like local crimes, "
     "individual tragedies, or puzzle/game segments that are clearly not news stories.\n\n"
-    "Some headlines may be tagged '[UPDATE]' or '[SIDE-COVERED]' — these are stories we covered before but that have new developments. "
+    "Some headlines may be tagged '[UPDATE]', '[SIDE-COVERED]' or '[DEVELOPMENT]' — these are stories we covered before but that have new developments. "
     "These are GOOD candidates for side stories, since listeners will appreciate a brief update on ongoing situations. "
-    "Feel free to include them. When you list headlines, do NOT include the '[UPDATE]', '[MAJOR ESCALATION]' or '[SIDE-COVERED]' tag prefixes."
+    "Feel free to include them. When you list headlines, do NOT include the '[UPDATE]', '[MAJOR ESCALATION]', '[SIDE-COVERED]' or '[DEVELOPMENT]' tag prefixes."
 )
 
 

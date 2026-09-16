@@ -41,6 +41,10 @@ def stubbed_scrapers(monkeypatch):
     monkeypatch.setattr(tf, "calmatters_scraper", lambda: "stub from calmatters")
     monkeypatch.setattr(tf, "dropsite_scraper", lambda: "stub from dropsite")
     monkeypatch.setattr(tf._config, "SCRAPE_MAX_ITEMS", 20, raising=False)
+    # Optional sources default OFF here so no test can reach the network or an LLM;
+    # tests that exercise them turn them on and patch the scraper.
+    monkeypatch.setattr(tf._config, "WATCHLIST_ENABLED", False, raising=False)
+    monkeypatch.setattr(tf._config, "BEATS_ENABLED", False, raising=False)
     return calls
 
 

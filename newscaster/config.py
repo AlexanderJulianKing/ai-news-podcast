@@ -124,6 +124,12 @@ RESEARCH_DEGRADED_UNVERIFIED_FRACTION = 0.75
 # Overlap coefficient a scraped pool line must reach against a shortlisted headline
 # to be credited as that headline's source ('Reported by:' in the brief).
 SOURCE_ATTRIBUTION_MIN_OVERLAP = 0.6
+# A story that led becomes eligible to lead again ([DEVELOPMENT]) once this many
+# days have passed since its last full segment; sooner needs a MAJOR ESCALATION.
+MAIN_RECOVERY_DAYS = 2
+# The repetition tagger re-emits the whole pool. If it returns fewer than this share
+# of the lines, it is dropping stories, not deduplicating; retry, then merge back.
+TAGGER_MIN_RETENTION = 0.7
 
 # --- Headline ingestion ---
 # Front pages are read with an event-first prompt (one sentence: who did what,
@@ -147,6 +153,39 @@ WATCHLIST_FEEDS = [
     ('METR', 'https://metr.org/feed.xml'),
     ('AI Incident Database', 'https://incidentdatabase.ai/rss.xml'),
     ('Import AI', 'https://importai.substack.com/feed'),
+]
+
+# Beat feeds: business, science and technology, health, courts, world. Front pages
+# never carried Navier-Stokes (Quanta, Science, CNBC did) and the pool had no
+# markets, health or courts source at all. Each beat is read from RSS with a 24h
+# window, and one heavy-model call picks up to BEAT_MAX_ITEMS concrete events, so
+# roughly 160 feed items a day become about 40 pool lines. Probed 2026-09-15:
+# MarketWatch, Lawfare, Reuters, Science.org and Nature feeds were dead or empty.
+BEATS_ENABLED = True
+BEAT_LOOKBACK_HOURS = 24
+BEAT_MAX_ITEMS = 8
+BEAT_MAX_ITEMS_PER_FEED = 30
+BEAT_FEEDS = [
+    ('Business and markets', [
+        ('CNBC', 'https://www.cnbc.com/id/100003114/device/rss/rss.html'),
+        ('CNBC Business', 'https://www.cnbc.com/id/10001147/device/rss/rss.html'),
+    ]),
+    ('Science and technology', [
+        ('Quanta Magazine', 'https://www.quantamagazine.org/feed/'),
+        ('Ars Technica', 'https://feeds.arstechnica.com/arstechnica/index'),
+    ]),
+    ('Health', [
+        ('STAT News', 'https://www.statnews.com/feed/'),
+        ('KFF Health News', 'https://kffhealthnews.org/feed/'),
+    ]),
+    ('Courts', [
+        ('SCOTUSblog', 'https://www.scotusblog.com/feed/'),
+    ]),
+    ('World', [
+        ('BBC World', 'http://feeds.bbci.co.uk/news/world/rss.xml'),
+        ('Al Jazeera', 'https://www.aljazeera.com/xml/rss/all.xml'),
+        ('The Guardian World', 'https://www.theguardian.com/world/rss'),
+    ]),
 ]
 
 
