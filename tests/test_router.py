@@ -57,19 +57,19 @@ def test_routing(mode, grounding, url_context, expected_provider):
             assert result == 'openrouter_response'
 
 
-def test_standard_routes_to_gemma():
+def test_standard_routes_to_luna_low():
     with patch('newscaster.llm.router.get_openrouter_response', return_value='ok') as mock_openrouter:
         assert get_llm_response('test prompt', mode='standard') == 'ok'
-    assert mock_openrouter.call_args.args[1] == 'google/gemma-4-31b-it'
-    assert mock_openrouter.call_args.args[2] == 'Gemma 4 31B'
-    assert mock_openrouter.call_args.args[3] is False
+    assert mock_openrouter.call_args.args[1] == 'openai/gpt-6-luna'
+    assert mock_openrouter.call_args.args[2] == 'GPT-6 Luna (standard)'
+    assert mock_openrouter.call_args.args[3] == 'low'
 
 
-def test_advanced_routes_to_glm_medium():
+def test_advanced_routes_to_luna_medium():
     with patch('newscaster.llm.router.get_openrouter_response', return_value='ok') as mock_openrouter:
         assert get_llm_response('test prompt', mode='advanced') == 'ok'
-    assert mock_openrouter.call_args.args[1] == 'z-ai/glm-5.2'
-    assert mock_openrouter.call_args.args[2] == 'GLM 5.2 Medium'
+    assert mock_openrouter.call_args.args[1] == 'openai/gpt-6-luna'
+    assert mock_openrouter.call_args.args[2] == 'GPT-6 Luna (advanced)'
     assert mock_openrouter.call_args.args[3] == 'medium'
 
 

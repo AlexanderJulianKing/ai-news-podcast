@@ -43,8 +43,8 @@ def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_fol
     rounds = [
         (follow_up_prompt_text, 'light', 'Gemini Flash Lite'),
         (challenging_follow_up_prompt_text, 'light', 'Gemini Flash Lite'),
-        (follow_up_prompt_text, 'standard', 'Gemma 4 31B'),
-        (challenging_follow_up_prompt_text, 'standard', 'Gemma 4 31B'),
+        (follow_up_prompt_text, 'standard', 'GPT-6 Luna'),
+        (challenging_follow_up_prompt_text, 'standard', 'GPT-6 Luna'),
         (follow_up_prompt_text, 'plus', 'Gemini Pro 3.1'),
         (challenging_follow_up_prompt_text, 'plus', 'Gemini Pro 3.1'),
         (follow_up_prompt_text, 'heavy', 'Claude Opus 4.8'),

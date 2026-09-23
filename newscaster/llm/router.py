@@ -80,15 +80,15 @@ def _select_primary(mode, grounding, url_context):
         return {
             'provider': 'openrouter',
             'model': _config.STANDARD_MODEL,
-            'name': 'Gemma 4 31B',
-            'reasoning': False,
+            'name': 'GPT-6 Luna (standard)',
+            'reasoning': _config.STANDARD_REASONING_EFFORT,
         }
 
     if mode == 'advanced' and not needs_tools:
         return {
             'provider': 'openrouter',
             'model': _config.ADVANCED_MODEL,
-            'name': 'GLM 5.2 Medium',
+            'name': 'GPT-6 Luna (advanced)',
             'reasoning': _config.ADVANCED_REASONING_EFFORT,
         }
 

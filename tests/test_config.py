@@ -13,8 +13,8 @@ def test_import_without_init():
     assert cfg.INITIAL_RETRY_DELAY == 5
     assert cfg._SECOND == 1000
     assert cfg.LIGHT_MODEL == "gemini-3.1-flash-lite"
-    assert cfg.STANDARD_MODEL == "google/gemma-4-31b-it"
-    assert cfg.ADVANCED_MODEL == "z-ai/glm-5.2"
+    assert cfg.STANDARD_MODEL == "openai/gpt-6-luna"
+    assert cfg.ADVANCED_MODEL == "openai/gpt-6-luna"
     assert cfg.ADVANCED_REASONING_EFFORT == "medium"
     assert cfg.HEAVY_MODEL == "claude-opus-4-8"
     assert cfg.ADVERSARY_MODEL == cfg.FALLBACK_MODEL
@@ -66,8 +66,8 @@ def test_rag_constants_present():
     assert isinstance(cfg.RAG_MIN_SIM, float)
     assert cfg.RAG_AUGMENT_ENABLED is False
     assert cfg.LIGHT_MODEL == "gemini-3.1-flash-lite"
-    assert cfg.STANDARD_MODEL == "google/gemma-4-31b-it"
-    assert cfg.ADVANCED_MODEL == "z-ai/glm-5.2"
+    assert cfg.STANDARD_MODEL == "openai/gpt-6-luna"
+    assert cfg.ADVANCED_MODEL == "openai/gpt-6-luna"
     assert cfg.ADVANCED_REASONING_EFFORT == "medium"
     assert cfg.HEAVY_MODEL == "claude-opus-4-8"
     assert cfg.ADVERSARY_MODEL == cfg.FALLBACK_MODEL

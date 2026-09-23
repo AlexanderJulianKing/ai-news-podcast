@@ -181,7 +181,7 @@ def openrouter_web_brief(question: str, *, model: str | None = None,
     Raises on transport/HTTP failure or an empty completion so callers can fall
     back to an UNVERIFIED marker.
     """
-    model = model or _config.STANDARD_MODEL
+    model = model or _config.WEB_BRIEF_MODEL
     message, data = _openrouter_web_chat(
         question,
         model=model,

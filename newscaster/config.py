@@ -55,8 +55,12 @@ FALLBACK_MODEL = "openai/gpt-5.5"
 
 # --- LLM mode routing ---
 LIGHT_MODEL = "gemini-3.1-flash-lite"
-STANDARD_MODEL = "google/gemma-4-31b-it"
-ADVANCED_MODEL = "z-ai/glm-5.2"
+# GPT-6 Luna replaced Gemma 4 31B (standard) and GLM 5.2 (advanced) on 2026-09-23, after a blind
+# pairwise test on 107 real production inputs (benchmarks/tier_swap/): better on research answers
+# and the faithfulness check, about 13x cheaper than GLM, a little dearer than Gemma.
+STANDARD_MODEL = "openai/gpt-6-luna"
+STANDARD_REASONING_EFFORT = "low"
+ADVANCED_MODEL = "openai/gpt-6-luna"
 ADVANCED_REASONING_EFFORT = "medium"
 HEAVY_MODEL = "claude-opus-4-8"
 ADVERSARY_MODEL = FALLBACK_MODEL
@@ -69,6 +73,8 @@ SEARCH_PROVIDER = "google_cse"
 SEARCH_FALLBACK_PROVIDER = "openrouter_web"
 SEARCH_FALLBACK_ON_EMPTY = True
 SEARCH_OPENROUTER_MODEL = FALLBACK_MODEL
+# Web-search background briefs stay on Gemma: the Luna swap was not tested on this job.
+WEB_BRIEF_MODEL = "google/gemma-4-31b-it"
 SEARCH_OPENROUTER_ENGINE = "parallel"
 SEARCH_OPENROUTER_MAX_RESULTS = 8
 
