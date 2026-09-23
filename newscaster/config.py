@@ -140,6 +140,10 @@ MAIN_RECOVERY_DAYS = 2
 # The repetition tagger re-emits the whole pool. If it returns fewer than this share
 # of the lines, it is dropping stories, not deduplicating; retry, then merge back.
 TAGGER_MIN_RETENTION = 0.7
+# The tagger returns a verdict per numbered headline and code applies the tags (newscaster/tagger.py).
+# False reverts to the old retype-the-pool tagger.
+TAGGER_STRUCTURED = True
+TAGGER_BATCH_SIZE = 40
 
 # --- Headline ingestion ---
 # Front pages are read with an event-first prompt (one sentence: who did what,

@@ -2,12 +2,20 @@ import os
 import json
 from datetime import datetime
 
-os.makedirs("logs", exist_ok=True)
+
+def _log_dir():
+    """Where logs go. NEWSCASTER_LOG_DIR overrides it; the test suite points it at a
+    temporary folder so test calls never land in the production audit logs."""
+    return os.environ.get("NEWSCASTER_LOG_DIR", "logs")
+
+
+os.makedirs(_log_dir(), exist_ok=True)
 
 
 def print_and_write(*args):
     current_date = datetime.now()
-    file_name = current_date.strftime("logs/log_%y_%m_%d.txt")
+    os.makedirs(_log_dir(), exist_ok=True)
+    file_name = os.path.join(_log_dir(), current_date.strftime("log_%y_%m_%d.txt"))
     current_time = current_date.strftime("%H:%M:%S")
 
     with open(file_name, 'a', encoding='utf-8') as file:
@@ -37,8 +45,8 @@ def _rotate_log(path):
 
 
 def write_jsonl_log(prefix, payload):
-    os.makedirs("logs", exist_ok=True)
-    file_name = f"logs/{prefix}.jsonl"
+    os.makedirs(_log_dir(), exist_ok=True)
+    file_name = os.path.join(_log_dir(), f"{prefix}.jsonl")
     record = dict(payload)
     record.setdefault("timestamp", datetime.now().isoformat(timespec="seconds"))
     line = json.dumps(record, ensure_ascii=False, default=str) + '\n'

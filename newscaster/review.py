@@ -418,6 +418,44 @@ _FAITHFULNESS_SYSTEM = (
 )
 
 
+_FLAG_LINE = re.compile(r"^\s*(?:[-*\u2022]|\d+[.)])?\s*\**\s*FLAG\s*\**\s*:\s*\**\s*(.*)$", re.I)
+_NONE_LINE = re.compile(r"^\s*\**\s*NONE\s*[.!]?\s*\**\s*$", re.I)
+
+
+def parse_flag_reply(out):
+    """Read a 'FLAG: ...' / 'NONE' reply. Returns (flags, well_formed).
+
+    Tolerates the markdown models wrap around the marker ('- FLAG:', '**FLAG:**', '1. FLAG:').
+    Each flag comes back normalized as 'FLAG: <text>'. well_formed is False when the reply has
+    neither a flag nor a NONE line, which would otherwise read as a clean script.
+    """
+    flags, saw_none = [], False
+    for line in (out or "").splitlines():
+        m = _FLAG_LINE.match(line)
+        if m and m.group(1).strip():
+            flags.append("FLAG: " + m.group(1).strip().rstrip("*").strip())
+        elif _NONE_LINE.match(line):
+            saw_none = True
+    return flags, bool(flags) or saw_none
+
+
+def _ask_for_flags(label, user_prompt, system_prompt, mode):
+    """One flag-pass call with a single retry on a malformed reply. Fails open to []."""
+    for attempt in (1, 2):
+        try:
+            out = get_llm_response(user_prompt, system_prompt=system_prompt, mode=mode)
+        except Exception as exc:
+            print_and_write(f"{label} pass error (non-blocking): {exc}")
+            return []
+        flags, well_formed = parse_flag_reply(out)
+        if well_formed:
+            return flags
+        print_and_write(f"{label} reply had neither FLAG lines nor NONE (attempt {attempt}/2): {(out or '')[:200]!r}")
+    print_and_write(f"{label} MALFORMED twice: this script was NOT checked by this pass today")
+    write_jsonl_log("fact_check_malformed", {"pass": label, "reply": (out or "")[:2000]})
+    return []
+
+
 def faithfulness_flags(script_text: str, corpus_text: str, mode: str = "advanced") -> list[str]:
     """LLM faithfulness pass: flag script statements that contradict or aren't supported by the sources.
 
@@ -425,8 +463,8 @@ def faithfulness_flags(script_text: str, corpus_text: str, mode: str = "advanced
     overview anchor rewording a real quote ("war of aggression") into an invented one ("fuel for the
     fire"), or saying a VP "arrived" when the source says he "left for". Source-grounded only: it must
     never use world knowledge, since the news postdates any model's cutoff. Runs on the *advanced* model
-    (GLM): a controlled test showed Gemma reliably misses subtle conflations in a long corpus (0/5 even
-    over a 5x ensemble) while GLM catches them, so model capability — not run count — is what matters.
+    (GPT-6 Luna since 2026-09-23; GLM before): a controlled test showed Gemma reliably misses subtle
+    conflations in a long corpus (0/5 even over a 5x ensemble), so model capability, not run count, matters.
     Pair it with a per-segment scoped corpus (build_segment_corpus) to keep the context tight. Fails open
     (returns []) on a missing corpus or any error — the gate must never block the run.
     """
@@ -438,12 +476,7 @@ def faithfulness_flags(script_text: str, corpus_text: str, mode: str = "advanced
         f"SOURCE MATERIAL:\n{corpus[:160000]}\n\n---\n\nSCRIPT:\n{script}\n\n---\n\n"
         "List contradictions, conflations, misattributions, and unsupported claims as 'FLAG: ...' lines, or 'NONE'."
     )
-    try:
-        out = get_llm_response(prompt, system_prompt=_FAITHFULNESS_SYSTEM, mode=mode)
-    except Exception as exc:
-        print_and_write(f"FAITHFULNESS pass error (non-blocking): {exc}")
-        return []
-    return [ln.strip() for ln in (out or "").splitlines() if ln.strip().upper().startswith("FLAG:")]
+    return _ask_for_flags("FAITHFULNESS", prompt, _FAITHFULNESS_SYSTEM, mode)
 
 
 _STABLE_FACT_SYSTEM = (
@@ -470,12 +503,7 @@ def stable_fact_flags(script_text: str, mode: str = "standard") -> list[str]:
     script = (script_text or "").strip()
     if not script:
         return []
-    try:
-        out = get_llm_response(script, system_prompt=_STABLE_FACT_SYSTEM, mode=mode)
-    except Exception as exc:
-        print_and_write(f"STABLE-FACT pass error (non-blocking): {exc}")
-        return []
-    return [ln.strip() for ln in (out or "").splitlines() if ln.strip().upper().startswith("FLAG:")]
+    return _ask_for_flags("STABLE-FACT", script, _STABLE_FACT_SYSTEM, mode)
 
 
 def _search_confirms_error(claim: str) -> str | None:
@@ -491,7 +519,8 @@ def _search_confirms_error(claim: str) -> str | None:
     except Exception as exc:
         print_and_write(f"STABLE-FACT search-verify error (non-blocking): {exc}")
         return None
-    return answer if answer.upper().startswith("WRONG") else None
+    # Tolerate markdown around the verdict ('**WRONG:** ...').
+    return answer if re.match(r"^[\s*_#>-]*WRONG\b", answer, re.I) else None
 
 
 def verified_stable_fact_flags(script_text: str) -> list[str]:

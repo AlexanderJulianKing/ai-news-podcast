@@ -6,6 +6,7 @@ import newscaster.logging as L
 
 def test_write_jsonl_log_no_date_in_filename(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("NEWSCASTER_LOG_DIR", raising=False)
     L.write_jsonl_log("audit_test", {"event": "x"})
     path = tmp_path / "logs" / "audit_test.jsonl"
     assert path.exists()
@@ -17,6 +18,7 @@ def test_write_jsonl_log_no_date_in_filename(tmp_path, monkeypatch):
 
 def test_write_jsonl_log_rotates_by_size(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("NEWSCASTER_LOG_DIR", raising=False)
     monkeypatch.setattr(L, "LOG_MAX_BYTES", 200)
     monkeypatch.setattr(L, "LOG_BACKUP_COUNT", 2)
 
@@ -33,3 +35,13 @@ def test_write_jsonl_log_rotates_by_size(tmp_path, monkeypatch):
     # The active file stays under the cap and holds the most recent record.
     assert base.stat().st_size <= L.LOG_MAX_BYTES
     assert '"i": 59' in base.read_text().splitlines()[-1]
+
+
+def test_log_dir_override_keeps_writes_out_of_logs(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("NEWSCASTER_LOG_DIR", str(tmp_path / "elsewhere"))
+    L.write_jsonl_log("audit_test", {"event": "x"})
+    L.print_and_write("hello")
+    assert (tmp_path / "elsewhere" / "audit_test.jsonl").exists()
+    assert list((tmp_path / "elsewhere").glob("log_*.txt"))
+    assert not (tmp_path / "logs").exists()

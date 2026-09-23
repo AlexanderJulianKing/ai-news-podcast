@@ -55,6 +55,7 @@ from newscaster.scrapers.calmatters import calmatters_scraper
 from newscaster.scrapers.dropsite import dropsite_scraper
 from newscaster.scrapers.watchlist import beat_scraper, watchlist_scraper
 from newscaster.scrapers.web import scrape_text
+from newscaster.tagger import tag_pool
 
 
 _NATIONAL_SHORTLIST_LIMIT = 10
@@ -532,7 +533,27 @@ def _pool_lines(text):
     return [line for line in (text or '').split('\n') if len(line.strip()) > 20]
 
 
-def _tag_pool(all_headlines, system_prompt, label):
+def _tag_pool(all_headlines, system_prompt, label, ledger_mode=False, valid_slugs=()):
+    """Run the repetition tagger.
+
+    By default (TAGGER_STRUCTURED) the model returns a verdict per numbered headline and
+    newscaster.tagger applies the tags, so no line can be dropped by accident. The older
+    retype-the-pool tagger below is the fallback if that path raises.
+    """
+    if getattr(_config, 'TAGGER_STRUCTURED', True):
+        try:
+            return tag_pool(
+                all_headlines, system_prompt,
+                ask=lambda user, system: get_llm_response(user, system_prompt=system, mode='standard'),
+                ledger_mode=ledger_mode, valid_slugs=valid_slugs,
+                batch_size=getattr(_config, 'TAGGER_BATCH_SIZE', 40), label=label,
+            )
+        except Exception as e:
+            print_and_write(f'{label}: structured tagger failed ({e}); falling back to the retype tagger')
+    return _tag_pool_rewrite(all_headlines, system_prompt, label)
+
+
+def _tag_pool_rewrite(all_headlines, system_prompt, label):
     """Run the repetition tagger, guarding against it dropping stories.
 
     The tagger re-emits the whole pool with tags, and is meant to remove only
@@ -675,7 +696,8 @@ def topic_finder(formatted_date):
 
     if use_ledger:
         repetition_remover_system_prompt = LEDGER_REPETITION_REMOVER_TEMPLATE.format(arc_summaries=arc_summaries)
-        all_headlines = _tag_pool(all_headlines, repetition_remover_system_prompt, 'dedup-headlines-ledger')
+        all_headlines = _tag_pool(all_headlines, repetition_remover_system_prompt, 'dedup-headlines-ledger',
+                                  ledger_mode=True, valid_slugs=list((ledger or {}).get('arcs', {}).keys()))
         # The tagger judged sameness; the ledger knows depth and recency, which decide
         # eligibility: roundup-only arcs become SIDE-COVERED, arcs that led two or more
         # days ago become DEVELOPMENT, and only a recent lead keeps the hard UPDATE bar.

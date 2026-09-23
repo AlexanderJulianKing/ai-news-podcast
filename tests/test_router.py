@@ -83,6 +83,7 @@ def test_adversary_routes_to_gpt55_high_reasoning():
 
 def test_router_audit_logs_usage_fields(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("NEWSCASTER_LOG_DIR", raising=False)
     monkeypatch.setattr(_config, "LLM_AUDIT_LOG_ENABLED", True)
     monkeypatch.setattr(_config, "LLM_AUDIT_LOG_PROMPTS", False)
     usage = {
