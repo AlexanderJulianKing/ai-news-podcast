@@ -16,6 +16,8 @@ def test_event_prompt_asks_for_events_not_headlines_and_forbids_added_significan
     prompt = EVENT_SCRAPER_PROMPT.format(date="September 15, 2026", max_items=20)
     assert "up to 20 items" in prompt
     assert "WHO did WHAT" in prompt
+    assert "Every line must be an event" in prompt
+    assert "never comment on the page" in prompt
     assert "do not add consequences, reactions or significance" in prompt
     assert "Do not describe a mood" in prompt
     assert "One item per line, no numbering" in prompt

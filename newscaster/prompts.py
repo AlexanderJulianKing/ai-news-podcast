@@ -497,7 +497,11 @@ EVENT_SCRAPER_PROMPT = (
     "Name the specific actors, places, numbers and dates that appear in the source. Report only what the "
     "source states: do not add consequences, reactions or significance that the source does not itself "
     "report. Do not use section labels, category names or bold. Do not describe a mood or a 'growing "
-    "concern'; state the event that caused it. One item per line, no numbering.\n"
+    "concern'; state the event that caused it. Every line must be an event. If an item is a question, "
+    "teaser, explainer or opinion piece, state the concrete event it reports; if it reports none, leave "
+    "it out. State the event itself: do not open a line with 'NPR reports' or any other outlet name, and "
+    "never comment on the page or on what it leaves out. "
+    "One item per line, no numbering.\n"
     "If nothing was published today, say so and name the source.\n"
 )
 
