@@ -128,7 +128,7 @@ def test_openrouter_web_search_extracts_urls_from_prose(monkeypatch):
 
 def test_openrouter_web_brief_returns_synthesized_content(monkeypatch):
     monkeypatch.setattr(cfg, "OPENROUTER_API_KEY", "key")
-    monkeypatch.setattr(cfg, "STANDARD_MODEL", "google/gemma-4-31b-it")
+    monkeypatch.setattr(cfg, "WEB_BRIEF_MODEL", "openai/gpt-6-luna")
     monkeypatch.setattr(cfg, "SEARCH_AUDIT_LOG_ENABLED", False)
     response = MagicMock()
     response.raise_for_status.return_value = None
@@ -144,7 +144,7 @@ def test_openrouter_web_brief_returns_synthesized_content(monkeypatch):
 
     assert brief.startswith("The Fed held rates")
     payload = mock_post.call_args.kwargs["json"]
-    assert payload["model"] == "google/gemma-4-31b-it"          # cheap model, not the search fallback model
+    assert payload["model"] == "openai/gpt-6-luna"              # the web-brief model, not the search fallback model
     assert payload["plugins"][0]["id"] == "web"
     assert payload["plugins"][0]["engine"] == cfg.SEARCH_OPENROUTER_ENGINE
 

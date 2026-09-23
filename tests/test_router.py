@@ -46,7 +46,7 @@ def test_routing(mode, grounding, url_context, expected_provider):
             assert result == 'gemini_response'
         elif expected_provider == 'anthropic':
             mock_claude.assert_called_once()
-            assert mock_claude.call_args[0][1] == 'claude-opus-4-8'
+            assert mock_claude.call_args[0][1] == 'claude-opus-5-5'
             mock_gemini.assert_not_called()
             mock_openrouter.assert_not_called()
             assert result == 'claude_response'

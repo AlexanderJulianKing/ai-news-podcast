@@ -47,8 +47,8 @@ def _run_follow_up_rounds(summary_prompt, follow_up_prompt_text, challenging_fol
         (challenging_follow_up_prompt_text, 'standard', 'GPT-6 Luna'),
         (follow_up_prompt_text, 'plus', 'Gemini Pro 3.1'),
         (challenging_follow_up_prompt_text, 'plus', 'Gemini Pro 3.1'),
-        (follow_up_prompt_text, 'heavy', 'Claude Opus 4.8'),
-        (challenging_follow_up_prompt_text, 'heavy', 'Claude Opus 4.8'),
+        (follow_up_prompt_text, 'heavy', 'Claude Opus 5.5'),
+        (challenging_follow_up_prompt_text, 'heavy', 'Claude Opus 5.5'),
     ]
 
     for prompt_template, mode, asker_name in rounds:

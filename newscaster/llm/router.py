@@ -251,8 +251,8 @@ def _call_fallback(user_prompt, system_prompt, grounding, url_context, *, call_i
     fallback = {
         'provider': 'openrouter',
         'model': _config.FALLBACK_MODEL,
-        'name': 'GPT-5.5 (low)',
-        'reasoning': False,
+        'name': 'GPT-6 Sol (backup)',
+        'reasoning': _config.FALLBACK_REASONING_EFFORT,
         'tools': tools if tools else None,
     }
     return _call_with_retry(fallback, user_prompt, system_prompt, call_id=call_id, phase="fallback")

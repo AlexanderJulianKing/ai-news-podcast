@@ -174,8 +174,8 @@ def openrouter_web_brief(question: str, *, model: str | None = None,
                          max_results: int = 5) -> str:
     """Answer a research question with a single web-grounded LLM call.
 
-    Uses OpenRouter's web-search plugin to ground a cheap model (Gemma 4 by
-    default) and returns the synthesized brief text. This is the selection-stage
+    Uses OpenRouter's web-search plugin to ground a cheap model (WEB_BRIEF_MODEL,
+    GPT-6 Luna as of 2026-09-23) and returns the synthesized brief text. This is the selection-stage
     counterpart to the source hunter: one cheap call for the gist of a story so
     the editor can judge its importance, not a fully validated multi-source hunt.
     Raises on transport/HTTP failure or an empty completion so callers can fall

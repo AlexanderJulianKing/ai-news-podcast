@@ -16,8 +16,9 @@ def test_import_without_init():
     assert cfg.STANDARD_MODEL == "openai/gpt-6-luna"
     assert cfg.ADVANCED_MODEL == "openai/gpt-6-luna"
     assert cfg.ADVANCED_REASONING_EFFORT == "medium"
-    assert cfg.HEAVY_MODEL == "claude-opus-4-8"
-    assert cfg.ADVERSARY_MODEL == cfg.FALLBACK_MODEL
+    assert cfg.HEAVY_MODEL == "claude-opus-5-5"
+    assert cfg.ADVERSARY_MODEL == "openai/gpt-5.5"
+    assert cfg.FALLBACK_MODEL == "openai/gpt-6-sol"
     assert cfg.ADVERSARY_REASONING_EFFORT == "high"
     assert cfg.SEARCH_PROVIDER == "google_cse"
     assert cfg.SEARCH_FALLBACK_PROVIDER == "openrouter_web"
@@ -69,13 +70,14 @@ def test_rag_constants_present():
     assert cfg.STANDARD_MODEL == "openai/gpt-6-luna"
     assert cfg.ADVANCED_MODEL == "openai/gpt-6-luna"
     assert cfg.ADVANCED_REASONING_EFFORT == "medium"
-    assert cfg.HEAVY_MODEL == "claude-opus-4-8"
-    assert cfg.ADVERSARY_MODEL == cfg.FALLBACK_MODEL
+    assert cfg.HEAVY_MODEL == "claude-opus-5-5"
+    assert cfg.ADVERSARY_MODEL == "openai/gpt-5.5"
+    assert cfg.FALLBACK_MODEL == "openai/gpt-6-sol"
     assert cfg.ADVERSARY_REASONING_EFFORT == "high"
     assert cfg.SEARCH_PROVIDER == "google_cse"
     assert cfg.SEARCH_FALLBACK_PROVIDER == "openrouter_web"
     assert cfg.SEARCH_FALLBACK_ON_EMPTY is True
-    assert cfg.SEARCH_OPENROUTER_MODEL == cfg.FALLBACK_MODEL
+    assert cfg.SEARCH_OPENROUTER_MODEL == cfg.ADVERSARY_MODEL
     assert cfg.SEARCH_OPENROUTER_ENGINE == "parallel"
     assert cfg.AGENTIC_RESEARCH_ENABLED is True
     assert cfg.AGENTIC_RESEARCH_MAX_ITERATIONS == 5

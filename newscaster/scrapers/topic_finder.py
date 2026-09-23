@@ -805,7 +805,7 @@ def topic_finder(formatted_date):
     # === TIER 3: Final picks using enriched context ===
     print_and_write('TIER 3: Selecting stories')
 
-    # Important story (heavy = Claude Opus 4.8)
+    # Important story (heavy tier)
     important_response = get_llm_response(research_document, system_prompt=TIER3_IMPORTANT_STORY_PROMPT, mode='heavy')
     important_response = important_response.replace('*', '')
     print_and_write()
@@ -814,7 +814,7 @@ def topic_finder(formatted_date):
     important_headline = headline_extractor(important_response)
     print_and_write(important_headline)
 
-    # Everyman story (heavy = Claude Opus 4.8)
+    # Everyman story (heavy tier)
     everyman_prompt = TIER3_EVERYMAN_STORY_PROMPT.format(excluded_headline=important_headline)
     everyman_topic_response = get_llm_response(research_document, system_prompt=everyman_prompt, mode='heavy')
     print_and_write('\nimportant topic for average person and why:', everyman_topic_response)

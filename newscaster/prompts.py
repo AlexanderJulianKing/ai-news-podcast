@@ -301,7 +301,7 @@ Research the following headline and produce a 150-250 word memo covering:
 
 Headline: {headline}
 
-Use Google Search to pull from multiple reputable sources. Attribute key claims to specific outlets. If you cannot verify the headline, begin your response with 'UNVERIFIED:' and explain what you tried."""
+Use the web search results provided with this request, drawing on multiple reputable sources. Attribute key claims to specific outlets. Begin your response with 'UNVERIFIED:' only when those results do not confirm the core event in the headline, and then explain what you checked. Do not use it because a detail is unconfirmed or because you could not run a search yourself; note unconfirmed details in the memo instead."""
 
 
 TIER3_IMPORTANT_STORY_PROMPT = """Given the following research briefs on today's top candidate stories, select the single most important story for the United States.
@@ -515,8 +515,8 @@ HEADLINE_MAKER_PROMPT = 'Please make a headline for the given story.'
 
 
 OUTRO_TEMPLATE = (
-    "That's all we have for now. Today's episode was made by Alexander King with Claude Opus four point eight, "
-    "gemini pro three point one, gemini flash three, and Google Cloud Text-to-Speech. "
+    "That's all we have for now. Today's episode was made by Alexander King with Claude Opus five point five, "
+    "GPT six Luna, GPT six Sol, Gemini, and Google Cloud Text-to-Speech. "
     "I hope you have a great day. I'll see you tomorrow, Alex."
 )
 

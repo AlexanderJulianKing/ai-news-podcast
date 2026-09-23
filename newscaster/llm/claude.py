@@ -9,6 +9,15 @@ from newscaster.llm.errors import (
 
 
 _ANTHROPIC_PRICING_PER_MTOK = {
+    # Opus 5.5: $4/$20 is the OpenRouter list price (2026-09-22); the cache rates assume the usual
+    # 1.25x / 2x / 0.1x multipliers and are not verified.
+    "claude-opus-5-5": {
+        "input": 4.00,
+        "output": 20.00,
+        "cache_write_5m": 5.00,
+        "cache_write_1h": 8.00,
+        "cache_read": 0.40,
+    },
     "claude-opus-4-8": {
         "input": 5.00,
         "output": 25.00,

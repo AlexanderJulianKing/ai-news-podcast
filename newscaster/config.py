@@ -51,7 +51,9 @@ MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 5
 _SECOND = 1000
 
-FALLBACK_MODEL = "openai/gpt-5.5"
+# Backup when a tier fails its retries. GPT-6 Sol from 2026-09-23 (was GPT-5.5).
+FALLBACK_MODEL = "openai/gpt-6-sol"
+FALLBACK_REASONING_EFFORT = "low"
 
 # --- LLM mode routing ---
 LIGHT_MODEL = "gemini-3.1-flash-lite"
@@ -62,8 +64,9 @@ STANDARD_MODEL = "openai/gpt-6-luna"
 STANDARD_REASONING_EFFORT = "low"
 ADVANCED_MODEL = "openai/gpt-6-luna"
 ADVANCED_REASONING_EFFORT = "medium"
-HEAVY_MODEL = "claude-opus-4-8"
-ADVERSARY_MODEL = FALLBACK_MODEL
+HEAVY_MODEL = "claude-opus-5-5"
+# The edit vetter and the search fallback stayed on GPT-5.5 when the backup moved to Sol.
+ADVERSARY_MODEL = "openai/gpt-5.5"
 ADVERSARY_REASONING_EFFORT = "high"
 TOOL_LIGHT_STANDARD_MODEL = "gemini-3-flash-preview"
 TOOL_PLUS_HEAVY_MODEL = "gemini-3.1-pro-preview"
@@ -72,9 +75,10 @@ TOOL_PLUS_HEAVY_MODEL = "gemini-3.1-pro-preview"
 SEARCH_PROVIDER = "google_cse"
 SEARCH_FALLBACK_PROVIDER = "openrouter_web"
 SEARCH_FALLBACK_ON_EMPTY = True
-SEARCH_OPENROUTER_MODEL = FALLBACK_MODEL
-# Web-search background briefs stay on Gemma: the Luna swap was not tested on this job.
-WEB_BRIEF_MODEL = "google/gemma-4-31b-it"
+SEARCH_OPENROUTER_MODEL = ADVERSARY_MODEL
+# Web-search briefs (Tier 2 memos, background fact checks) moved to GPT-6 Luna on 2026-09-23 after a
+# blind test on 48 real questions (benchmarks/tier_swap/run_web_brief.py): Tier 2 19-4, fact checks 11-7.
+WEB_BRIEF_MODEL = "openai/gpt-6-luna"
 SEARCH_OPENROUTER_ENGINE = "parallel"
 SEARCH_OPENROUTER_MAX_RESULTS = 8
 
