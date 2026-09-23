@@ -42,6 +42,8 @@ def stubbed_scrapers(monkeypatch):
     monkeypatch.setattr(tf, "call_with_default", fake_call)
     monkeypatch.setattr(tf, "calmatters_scraper", lambda: "stub from calmatters")
     monkeypatch.setattr(tf, "dropsite_scraper", lambda: "stub from dropsite")
+    monkeypatch.setattr(tf, "rss_scraper", lambda source, url: f"stub rss {source} {url}")
+    monkeypatch.setattr(tf, "riverside_scraper", lambda: "stub from riverside")
     monkeypatch.setattr(tf._config, "SCRAPE_MAX_ITEMS", 20, raising=False)
     # Optional sources default OFF here so no test can reach the network or an LLM;
     # tests that exercise them turn them on and patch the scraper.
@@ -66,9 +68,12 @@ def test_gather_sections_uses_event_prompt_with_the_right_transport_per_source(s
     assert "up to 20 items" in ap_prompt and ap_kw.get("url_context") is True
     assert "Today in History" in ap_prompt and ap_prompt.endswith("https://apnews.com")
     assert by_label["scrape-dn"][1].get("grounding") is True
-    assert by_label["scrape-pp"][1].get("url_context") is True
-    # Riverside keeps its own, narrower prompt.
-    assert "riversideca.gov" in by_label["scrape-riverside"][0]
+    # ProPublica comes from its dated RSS feed and Riverside from its own page parser;
+    # neither goes through an LLM reader any more.
+    assert "scrape-pp" not in by_label and "scrape-riverside" not in by_label
+    texts = {name: text for _h, name, text in sections}
+    assert texts["ProPublica"].startswith("stub rss ProPublica https://www.propublica.org/feeds/propublica/main")
+    assert texts["The City of Riverside"] == "stub from riverside"
 
 
 def test_watchlist_is_appended_last_when_enabled(stubbed_scrapers, monkeypatch):

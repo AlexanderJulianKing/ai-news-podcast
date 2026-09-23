@@ -281,3 +281,23 @@ def test_anthropic_boilerplate_description_is_blanked():
     title, description = _article_title_and_description(page)
     assert title == "Expanding our support for scientists"
     assert description == ""
+
+
+def test_anthropic_featured_cards_outside_news_path_are_read():
+    # 2026-09-22: the Opus 5.5 launch card linked to /claude-opus-5-5 and a feature to
+    # an absolute /features/ URL; both were skipped when only /news/ links counted.
+    listing = b"""<html><body>
+<a href="/claude-opus-5-5">Introducing Claude Opus 5.5 Announcements Sep 22, 2026 Opus 5.5 performs at the level of Fable 5.1</a>
+<a href="https://www.anthropic.com/features/ebola-response">Features Sep 22, 2026 The Situation Report</a>
+<a href="https://twitter.com/anthropicai">Sep 22, 2026 elsewhere</a>
+<a href="/news/claude-discovers-novel-enzyme-system">Sep 23, 2026 Science Claude discovers a novel enzyme system</a>
+</body></html>"""
+    now = datetime(2026, 9, 23, 18, 0, tzinfo=timezone.utc)
+    items = parse_anthropic_news_listing(listing, now=now, lookback_hours=72)
+    links = [item["link"] for item in items]
+    assert "https://www.anthropic.com/claude-opus-5-5" in links
+    assert "https://www.anthropic.com/features/ebola-response" in links
+    assert not any("twitter.com" in l for l in links)
+    titles = [item["title"] for item in items]
+    assert "Claude discovers a novel enzyme system" in titles
+    assert "The Situation Report" in titles

@@ -81,3 +81,28 @@ def test_dropsite_scraper_handles_unreadable_rss():
         text = dropsite_scraper()
 
     assert "unreadable RSS feed" in text
+
+
+def test_rss_scraper_names_its_source(monkeypatch):
+    import newscaster.scrapers.dropsite as ds
+
+    class Resp:
+        ok = True
+        content = SAMPLE_FEED
+        def raise_for_status(self):
+            pass
+    monkeypatch.setattr(ds.requests, "get", lambda *a, **k: Resp())
+    out = ds.rss_scraper("ProPublica", "https://example.org/feed",
+                         now=datetime(2026, 6, 18, 18, 0, tzinfo=timezone.utc), lookback_hours=48)
+    assert out.startswith("ProPublica, the news source, has released the following headlines in the past 48 hours")
+    assert "Drop Site" not in out.splitlines()[0]
+
+
+def test_wordpress_boilerplate_description_is_dropped():
+    feed = b"""<?xml version="1.0"?><rss version="2.0"><channel><item>
+      <title>Collins story</title>
+      <description>The post Collins story appeared first on ProPublica.</description>
+      <link>https://www.propublica.org/article/x</link>
+      <pubDate>Wed, 23 Sep 2026 15:34:00 +0000</pubDate></item></channel></rss>"""
+    items = _extract_items(feed, now=datetime(2026, 9, 23, 18, 0, tzinfo=timezone.utc), lookback_hours=48)
+    assert items[0]["title"] == "Collins story" and items[0]["description"] == ""

@@ -52,6 +52,8 @@ def test_beats_are_appended_to_the_pool_and_never_break_it(monkeypatch):
     monkeypatch.setattr(tf, "call_with_default", fake_call)
     monkeypatch.setattr(tf, "calmatters_scraper", lambda: "cm")
     monkeypatch.setattr(tf, "dropsite_scraper", lambda: "ds")
+    monkeypatch.setattr(tf, "rss_scraper", lambda source, url: "rss")
+    monkeypatch.setattr(tf, "riverside_scraper", lambda: "rv")
     monkeypatch.setattr(tf._config, "WATCHLIST_ENABLED", False, raising=False)
     monkeypatch.setattr(tf._config, "BEATS_ENABLED", True, raising=False)
     monkeypatch.setattr(tf._config, "BEAT_FEEDS", [("Health", [("STAT", "u")]), ("World", [("BBC", "u")])], raising=False)

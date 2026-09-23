@@ -12,6 +12,7 @@ from newscaster.logging import print_and_write
 
 
 DROP_SITE_FEED_URL = "https://www.dropsitenews.com/feed"
+_WORDPRESS_BOILERPLATE = re.compile(r"^The post .* appeared first on .*$", re.DOTALL)
 
 
 def _clean_text(value, max_chars=260):
@@ -51,6 +52,8 @@ def _extract_items(feed_xml, now=None, lookback_hours=48):
 
         title = _clean_text(item.findtext("title"), max_chars=220)
         description = _clean_text(item.findtext("description"), max_chars=240)
+        if _WORDPRESS_BOILERPLATE.match(description):
+            description = ""      # "The post X appeared first on ProPublica." repeats the title
         link = (item.findtext("link") or "").strip()
         if not title:
             continue
@@ -66,18 +69,18 @@ def _extract_items(feed_xml, now=None, lookback_hours=48):
     return items
 
 
-def _format_headlines(items, now=None):
+def _format_headlines(items, now=None, source="Drop Site News", lookback_hours=48):
     now = now or datetime.now(timezone.utc)
     today = now.astimezone().strftime("%B %e, %Y")
     if not items:
         return (
-            "Drop Site News, the news source, has no feed headlines from the past "
-            f"48 hours as of {today}.\n\n"
+            f"{source}, the news source, has no feed headlines from the past "
+            f"{lookback_hours} hours as of {today}.\n\n"
         )
 
     lines = [
-        "Drop Site News, the news source, has released the following headlines "
-        f"in the past 48 hours as of {today}:"
+        f"{source}, the news source, has released the following headlines "
+        f"in the past {lookback_hours} hours as of {today}:"
     ]
     for item in items:
         published = item["published"].astimezone().strftime("%b %-d, %Y %I:%M %p")
@@ -88,29 +91,35 @@ def _format_headlines(items, now=None):
 
 
 def dropsite_scraper(feed_url=DROP_SITE_FEED_URL, now=None, lookback_hours=48):
+    return rss_scraper("Drop Site News", feed_url, now=now, lookback_hours=lookback_hours)
+
+
+def rss_scraper(source, feed_url, now=None, lookback_hours=48):
+    """Dated headlines from one RSS feed. Used for Drop Site and ProPublica, whose
+    front pages carry no dates (so a page reader cannot tell what is new)."""
     response = None
     for attempt in range(3):
         try:
             response = requests.get(
                 feed_url,
-                headers={"User-Agent": "Mozilla/5.0 (compatible; DropSiteScraper/1.0)"},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; NewscasterRSS/1.0)"},
                 timeout=(5, 20),
             )
             response.raise_for_status()
             break
         except requests.RequestException as exc:
             wait = attempt + 1
-            print_and_write("Drop Site feed fetch failed", str(exc), f"Retrying in {wait}s")
+            print_and_write(f"{source} feed fetch failed", str(exc), f"Retrying in {wait}s")
             time.sleep(wait)
 
     if response is None or not response.ok:
-        print_and_write("Skipping Drop Site after repeated feed failures")
-        return "Drop Site News, the news source, could not be fetched today.\n\n"
+        print_and_write(f"Skipping {source} after repeated feed failures")
+        return f"{source}, the news source, could not be fetched today.\n\n"
 
     try:
         items = _extract_items(response.content, now=now, lookback_hours=lookback_hours)
     except ET.ParseError as exc:
-        print_and_write("Drop Site feed parse failed", str(exc))
-        return "Drop Site News, the news source, returned an unreadable RSS feed today.\n\n"
+        print_and_write(f"{source} feed parse failed", str(exc))
+        return f"{source}, the news source, returned an unreadable RSS feed today.\n\n"
 
-    return _format_headlines(items, now=now)
+    return _format_headlines(items, now=now, source=source, lookback_hours=lookback_hours)

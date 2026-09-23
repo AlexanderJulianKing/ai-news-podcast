@@ -52,7 +52,8 @@ from newscaster.dedup import (
     resolve_arc_identity,
 )
 from newscaster.scrapers.calmatters import calmatters_scraper
-from newscaster.scrapers.dropsite import dropsite_scraper
+from newscaster.scrapers.dropsite import dropsite_scraper, rss_scraper
+from newscaster.scrapers.riverside import riverside_scraper
 from newscaster.scrapers.watchlist import beat_scraper, watchlist_scraper
 from newscaster.scrapers.web import scrape_text
 from newscaster.scrapers.browser import RenderError, prune_screenshots, scrape_rendered
@@ -635,19 +636,15 @@ def _gather_headline_sections(formatted_date):
         grounding=True, _log_label='scrape-dn',
     ), event_prompt, timestamp_rules) + '\n'
     print_and_write('scraping PP')
-    pp_headlines = call_with_default(
-        '', event_prompt + timestamp_rules + 'https://www.propublica.org',
-        url_context=True, _log_label='scrape-pp',
-    ) + '\n'
+    # RSS, not the front page: ProPublica's front page carries no dates, so on 2026-09-23
+    # Gemini's URL reader called it "nothing published today" beside a new lead story.
+    pp_headlines = rss_scraper('ProPublica', 'https://www.propublica.org/feeds/propublica/main') + '\n'
     print_and_write('scraping CM')
     calmatters_headlines = calmatters_scraper() + '\n'
     print_and_write('scraping Drop Site')
     dropsite_headlines = dropsite_scraper() + '\n'
-    city_of_riverside_headlines = call_with_default(
-        '',
-        'What are the latest headlines here released in the past two days? Today is {}. If there are none released today, then say that there are none released from the news source today or yesterday. And mention the news source. Do not give anything else. https://www.riversideca.gov/media'.format(formatted_date),
-        mode='standard', url_context=True, _log_label='scrape-riverside',
-    )
+    print_and_write('scraping Riverside')
+    city_of_riverside_headlines = riverside_scraper()
 
     # (display header, source name, text). The joined string is what every downstream
     # LLM sees; the list keeps each headline's provenance for 'Reported by:'.

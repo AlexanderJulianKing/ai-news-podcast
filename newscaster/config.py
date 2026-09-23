@@ -176,7 +176,9 @@ BROWSER_SCREENSHOT_KEEP_DAYS = 14
 # listing page is parsed directly (kind "anthropic-news").
 WATCHLIST_ENABLED = True
 WATCHLIST_LOOKBACK_HOURS = 72
-WATCHLIST_MAX_ITEMS_PER_FEED = 8
+# OpenAI posts many customer stories a day; at 8, the GPT-6 Sol and Luna launch
+# (Sep 22, 2026) was pushed out of the window by next-day case studies.
+WATCHLIST_MAX_ITEMS_PER_FEED = 25
 WATCHLIST_FEEDS = [
     ('OpenAI', 'https://openai.com/news/rss.xml'),
     ('Anthropic', 'https://www.anthropic.com/news', 'anthropic-news'),

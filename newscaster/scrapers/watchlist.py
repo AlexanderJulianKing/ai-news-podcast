@@ -177,6 +177,7 @@ _ANTHROPIC_BOILERPLATE_PREFIX = "anthropic is an ai safety and research company"
 _ANTHROPIC_CATEGORIES = (
     "societal impacts", "economic research", "case study", "announcements", "interpretability",
     "alignment", "engineering", "education", "research", "product", "policy", "events", "event", "news",
+    "science", "features", "feature",
 )
 
 
@@ -210,9 +211,11 @@ def parse_anthropic_news_listing(html, now=None, lookback_hours=72, base_url="ht
     items, seen = [], set()
     for anchor in soup.find_all("a", href=True):
         href = anchor["href"]
-        if href.startswith("/news/"):
+        # Featured cards link outside /news/ (the Opus 5.5 launch was /claude-opus-5-5,
+        # a feature was /features/...), so accept any same-site link whose card is dated.
+        if href.startswith("/") and not href.startswith("//"):
             link = base_url.rstrip("/") + href
-        elif href.startswith("http") and "/news/" in href:
+        elif href.startswith(base_url.rstrip("/") + "/"):
             link = href
         else:
             continue
