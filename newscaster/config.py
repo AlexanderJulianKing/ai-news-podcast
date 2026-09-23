@@ -156,6 +156,18 @@ TAGGER_REASONING_EFFORT = "medium"
 # the model choose, and it chose about eight; that is where Navier-Stokes (09-08)
 # and METR's Hugging Face findings (08-26) were lost before Tier 1 ever saw them.
 SCRAPE_MAX_ITEMS = 20
+# Front pages read by a real, visible Chromium on a virtual screen, then listed by the
+# standard model (newscaster/scrapers/browser.py). Each falls back to the older Gemini
+# scrape on any failure. Checked against Alex's own screenshots 2026-09-23.
+BROWSER_SCRAPE_ENABLED = True
+BROWSER_SCRAPE_SOURCES = ("npr", "ap", "dn")
+BROWSER_BINARY = "chromium"
+BROWSER_WAIT_SECONDS = 20
+BROWSER_WINDOW = (1366, 3000)
+BROWSER_MIN_WORDS = 300
+BROWSER_TEXT_CHARS = 60000
+BROWSER_SCREENSHOT_DIR = "screenshots"
+BROWSER_SCREENSHOT_KEEP_DAYS = 14
 
 # Specialist watch: AI labs and independent evaluators, read from RSS and passed
 # through an event test (newscaster/scrapers/watchlist.py). Nominate-only: items

@@ -55,6 +55,7 @@ from newscaster.scrapers.calmatters import calmatters_scraper
 from newscaster.scrapers.dropsite import dropsite_scraper
 from newscaster.scrapers.watchlist import beat_scraper, watchlist_scraper
 from newscaster.scrapers.web import scrape_text
+from newscaster.scrapers.browser import RenderError, prune_screenshots, scrape_rendered
 from newscaster.tagger import tag_pool
 
 
@@ -585,6 +586,24 @@ def _tag_pool_rewrite(all_headlines, system_prompt, label):
     return tagged.rstrip('\n') + '\n' + '\n'.join(lost)
 
 
+def _front_page(key, url, label, fallback, event_prompt, timestamp_rules):
+    """Read one front page through the browser when enabled, else (or on failure) `fallback()`."""
+    if getattr(_config, 'BROWSER_SCRAPE_ENABLED', False) and key in getattr(_config, 'BROWSER_SCRAPE_SOURCES', ()):
+        try:
+            items = scrape_rendered(
+                url, key, event_prompt, timestamp_rules,
+                ask=lambda prompt: get_llm_response(prompt, mode='standard'),
+                screenshot_dir=getattr(_config, 'BROWSER_SCREENSHOT_DIR', None),
+            )
+            print_and_write(f'{label}: read from the rendered page ({len([l for l in items.splitlines() if l.strip()])} lines)')
+            return items
+        except (RenderError, LLMError, RuntimeError) as e:
+            print_and_write(f'{label}: browser read failed ({e}); falling back to the Gemini scrape')
+        except Exception as e:  # never let the browser path stop the run
+            print_and_write(f'{label}: browser read error ({type(e).__name__}: {e}); falling back to the Gemini scrape')
+    return fallback()
+
+
 def _gather_headline_sections(formatted_date):
     """Scrape every source into (display header, source name, text) sections.
 
@@ -597,21 +616,24 @@ def _gather_headline_sections(formatted_date):
     event_prompt = EVENT_SCRAPER_PROMPT.format(date=formatted_date, max_items=max_items)
     timestamp_rules = EVENT_SCRAPER_TIMESTAMP_RULES.format(date=formatted_date)
 
+    if getattr(_config, 'BROWSER_SCREENSHOT_DIR', None):
+        prune_screenshots(_config.BROWSER_SCREENSHOT_DIR, getattr(_config, 'BROWSER_SCREENSHOT_KEEP_DAYS', 14))
+
     print_and_write('scraping NPR')
-    npr_headlines = call_with_default(
+    npr_headlines = _front_page('npr', 'https://www.npr.org', 'scrape-npr', lambda: call_with_default(
         '', event_prompt + EVENT_SCRAPER_GROUNDED_TAIL.format(source="NPR's morning news brief and homepage (npr.org)"),
         grounding=True, _log_label='scrape-npr',
-    ) + '\n'
+    ), event_prompt, timestamp_rules) + '\n'
     print_and_write('scraping AP')
-    ap_headlines = call_with_default(
+    ap_headlines = _front_page('ap', 'https://apnews.com', 'scrape-ap', lambda: call_with_default(
         '', event_prompt + timestamp_rules + 'https://apnews.com',
         url_context=True, _log_label='scrape-ap',
-    ) + '\n'
+    ), event_prompt, timestamp_rules) + '\n'
     print_and_write('scraping DN')
-    dn_headlines = call_with_default(
+    dn_headlines = _front_page('dn', 'https://www.democracynow.org', 'scrape-dn', lambda: call_with_default(
         '', event_prompt + EVENT_SCRAPER_GROUNDED_TAIL.format(source='Democracy Now (https://www.democracynow.org)'),
         grounding=True, _log_label='scrape-dn',
-    ) + '\n'
+    ), event_prompt, timestamp_rules) + '\n'
     print_and_write('scraping PP')
     pp_headlines = call_with_default(
         '', event_prompt + timestamp_rules + 'https://www.propublica.org',

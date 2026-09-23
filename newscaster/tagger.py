@@ -13,6 +13,7 @@ the tags to the original lines, so a line leaves the pool only on an explicit
 stays in the pool untagged, and slugs are checked against the tracked stories.
 """
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 from newscaster.logging import print_and_write
 from newscaster.text_utils import extract_json
@@ -103,19 +104,19 @@ def apply_decisions(lines, numbered, decisions, ledger_mode):
     return "\n".join(out), counts
 
 
-def tag_pool(all_headlines, template_prompt, ask, *, ledger_mode, valid_slugs=(), batch_size=40, label="tagger"):
+def tag_pool(all_headlines, template_prompt, ask, *, ledger_mode, valid_slugs=(), batch_size=40, label="tagger", workers=1):
     """Tag the pool. `ask(user_prompt, system_prompt)` returns the model's reply text.
 
     Batches of `batch_size` headlines; each batch gets one retry on unparseable JSON and
-    one follow-up call for any numbers it skipped. Returns the rebuilt pool text.
+    one follow-up call for any numbers it skipped. `workers` runs batches in parallel
+    (small batches mean many calls). Returns the rebuilt pool text.
     """
     system_prompt = structured_prompt(template_prompt, ledger_mode)
     lines = (all_headlines or "").split("\n")
     numbered = [(n, i) for n, i in enumerate((i for i, l in enumerate(lines) if is_headline_line(l)), start=1)]
     valid = set(valid_slugs or ())
-    decisions, problems = {}, []
-    for start in range(0, len(numbered), batch_size):
-        batch = numbered[start:start + batch_size]
+    def run_batch(batch):
+        got_all, bad_all = {}, []
         pending = dict(batch)
         for attempt in (1, 2, 3):
             if not pending:
@@ -127,9 +128,17 @@ def tag_pool(all_headlines, template_prompt, ask, *, ledger_mode, valid_slugs=()
             except Exception as exc:  # unparseable reply or call failure: try again
                 print_and_write("{}: batch at headline {} failed (attempt {}/3): {}".format(label, todo[0][0], attempt, exc))
                 continue
+            got_all.update(got)
+            bad_all += bad
+            pending = {n: i for n, i in pending.items() if n not in got}
+        return got_all, bad_all
+
+    batches = [numbered[s:s + batch_size] for s in range(0, len(numbered), batch_size)]
+    decisions, problems = {}, []
+    with ThreadPoolExecutor(max(1, workers)) as pool:
+        for got, bad in pool.map(run_batch, batches):
             decisions.update(got)
             problems += bad
-            pending = {n: i for n, i in pending.items() if n not in got}
     text, counts = apply_decisions(lines, numbered, decisions, ledger_mode)
     print_and_write("{}: {} headlines -> {}".format(label, len(numbered), ", ".join("{} {}".format(v, counts[v]) for v in counts if counts[v])))
     if counts["undecided"]:
