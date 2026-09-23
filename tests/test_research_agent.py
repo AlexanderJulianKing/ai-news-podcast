@@ -154,7 +154,7 @@ def test_adversary_runs_after_controller_says_done_then_returns_to_controller(mo
     mock_source_hunter.assert_called_once()
     assert call_order == ["heavy", "adversary", "heavy"]
     assert len(result.followups) == 1
-    assert result.followups[0]["asker"] == "GPT-5.5 Adversary"
+    assert result.followups[0]["asker"] == "GPT-6 Sol Adversary"
     assert result.followups[0]["adversary_guided"] is True
     assert result.followups[0]["question_type"] == "counterevidence_check"
     assert "adversarial answer" in result.summary_prompt

@@ -258,7 +258,7 @@ def _normalize_adversary_decision(raw_response: str) -> dict[str, Any]:
         "question": question,
         "question_type": question_type,
         "reason": str(raw.get("reason") or "second-perspective adversarial check").strip(),
-        "asker": "GPT-5.5 Adversary",
+        "asker": "GPT-6 Sol Adversary",
         "adversary_guided": True,
     }
 

@@ -644,7 +644,7 @@ def review_and_revise_scripts(date2: str) -> dict:
     """Run the fact-finder, then auto-fix confirmed factual discrepancies in place before TTS.
 
     The three-pass review still logs every flag. For each script with a CORPUS-GROUNDED flag (quote
-    or faithfulness), an Opus editor — vetted by a GPT-5.5 adversary (see editor_agent) — proposes
+    or faithfulness), an Opus editor — vetted by a GPT-6 Sol adversary (see editor_agent) — proposes
     minimal find/replace fixes ONLY for genuine factual discrepancies with a known correct value;
     verified edits are written back to output_scripts/ so generate_audio() voices the corrected script.
     Stable-fact (world-knowledge) flags stay ADVISORY and are never auto-edited: their search-verify is

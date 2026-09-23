@@ -1,6 +1,6 @@
 """Agentic fact-finder editor — fix confirmed factual errors in a script before TTS.
 
-This revives the research-agent pattern (Opus controller + GPT-5.5 adversary, bounded
+This revives the research-agent pattern (Opus controller + GPT-6 Sol adversary, bounded
 loop) as an *editor*. After the three-pass fact-finder produces its flags, this hands
 Opus the full report, the script, and its ground-truth sources and lets it propose
 MINIMAL find/replace edits — but ONLY for confirmed FACTUAL DISCREPANCIES: a checkable
@@ -14,7 +14,7 @@ Safety, because the edited script is broadcast:
   find/replace pairs that plain Python applies, and ONLY when the span is unambiguous
   (the find occurs exactly once) — otherwise the case is left flagged for a human.
 - Verify-then-apply. Every proposed edit is vetted by an independent adversary
-  (GPT-5.5) *before* it is applied, so there is never a revert and nothing unverified
+  (GPT-6 Sol) *before* it is applied, so there is never a revert and nothing unverified
   ever lands.
 - Fail-open. Any error (propose, adversary, apply) leaves the script untouched.
 - Length guard. If the net result is implausibly shorter than the original, the whole
@@ -136,7 +136,7 @@ def _propose_edits(script: str, report: str, corpus: str, already: list[Edit]) -
 
 
 def _verify_edits(edits: list[Edit], script: str, report: str, corpus: str) -> tuple[list[Edit], list[dict]]:
-    """Adversary (GPT-5.5) vets each proposed edit. Returns (approved, rejected). Raises on LLM/parse error."""
+    """Adversary (GPT-6 Sol) vets each proposed edit. Returns (approved, rejected). Raises on LLM/parse error."""
     payload = {"edits": [
         {"index": i, "find": e.find, "replace": e.replace,
          "claimed_wrong": e.wrong, "claimed_correct": e.correct, "basis": e.basis}

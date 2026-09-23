@@ -92,11 +92,19 @@ def _select_primary(mode, grounding, url_context):
             'reasoning': _config.ADVANCED_REASONING_EFFORT,
         }
 
+    if mode == 'tagger' and not needs_tools:
+        return {
+            'provider': 'openrouter',
+            'model': _config.TAGGER_MODEL,
+            'name': 'GPT-6 Sol Tagger',
+            'reasoning': _config.TAGGER_REASONING_EFFORT,
+        }
+
     if mode == 'adversary' and not needs_tools:
         return {
             'provider': 'openrouter',
             'model': _config.ADVERSARY_MODEL,
-            'name': 'GPT-5.5 Adversary',
+            'name': 'GPT-6 Sol Adversary',
             'reasoning': _config.ADVERSARY_REASONING_EFFORT,
         }
 

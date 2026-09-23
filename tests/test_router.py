@@ -76,8 +76,8 @@ def test_advanced_routes_to_luna_medium():
 def test_adversary_routes_to_gpt55_high_reasoning():
     with patch('newscaster.llm.router.get_openrouter_response', return_value='ok') as mock_openrouter:
         assert get_llm_response('test prompt', mode='adversary') == 'ok'
-    assert mock_openrouter.call_args.args[1] == 'openai/gpt-5.5'
-    assert mock_openrouter.call_args.args[2] == 'GPT-5.5 Adversary'
+    assert mock_openrouter.call_args.args[1] == 'openai/gpt-6-sol'
+    assert mock_openrouter.call_args.args[2] == 'GPT-6 Sol Adversary'
     assert mock_openrouter.call_args.args[3] == 'high'
 
 
@@ -110,3 +110,10 @@ def test_router_audit_logs_usage_fields(tmp_path, monkeypatch):
     assert records[-1]["cache_creation_input_tokens"] == 80
     assert records[-1]["cache_read_input_tokens"] == 40
     assert records[-1]["estimated_cost_usd"] == 0.00102
+
+
+def test_tagger_routes_to_sol_medium():
+    with patch('newscaster.llm.router.get_openrouter_response', return_value='ok') as mock_openrouter:
+        assert get_llm_response('test prompt', mode='tagger') == 'ok'
+    assert mock_openrouter.call_args.args[1] == 'openai/gpt-6-sol'
+    assert mock_openrouter.call_args.args[3] == 'medium'

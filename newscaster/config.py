@@ -51,7 +51,7 @@ MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 5
 _SECOND = 1000
 
-# Backup when a tier fails its retries. GPT-6 Sol from 2026-09-23 (was GPT-5.5).
+# Backup when a tier fails its retries. GPT-6 Sol from 2026-09-23.
 FALLBACK_MODEL = "openai/gpt-6-sol"
 FALLBACK_REASONING_EFFORT = "low"
 
@@ -65,8 +65,9 @@ STANDARD_REASONING_EFFORT = "low"
 ADVANCED_MODEL = "openai/gpt-6-luna"
 ADVANCED_REASONING_EFFORT = "medium"
 HEAVY_MODEL = "claude-opus-5-5"
-# The edit vetter and the search fallback stayed on GPT-5.5 when the backup moved to Sol.
-ADVERSARY_MODEL = "openai/gpt-5.5"
+# The adversary vets Opus's script edits and challenges the research loop; it also sets the
+# search fallback model below. GPT-6 Sol from 2026-09-23 (GPT-5.5 before).
+ADVERSARY_MODEL = "openai/gpt-6-sol"
 ADVERSARY_REASONING_EFFORT = "high"
 TOOL_LIGHT_STANDARD_MODEL = "gemini-3-flash-preview"
 TOOL_PLUS_HEAVY_MODEL = "gemini-3.1-pro-preview"
@@ -143,7 +144,11 @@ TAGGER_MIN_RETENTION = 0.7
 # The tagger returns a verdict per numbered headline and code applies the tags (newscaster/tagger.py).
 # False reverts to the old retype-the-pool tagger.
 TAGGER_STRUCTURED = True
-TAGGER_BATCH_SIZE = 40
+# 2026-09-23 test on six real mornings, each output audited alone by Opus 5.5 (serious errors):
+# Luna batch 40 low 8, batch 10 low 4, medium 3, high 3; Sol batch 10 medium 1 (~$0.13/day).
+TAGGER_BATCH_SIZE = 10
+TAGGER_MODEL = "openai/gpt-6-sol"
+TAGGER_REASONING_EFFORT = "medium"
 
 # --- Headline ingestion ---
 # Front pages are read with an event-first prompt (one sentence: who did what,

@@ -544,9 +544,9 @@ def _tag_pool(all_headlines, system_prompt, label, ledger_mode=False, valid_slug
         try:
             return tag_pool(
                 all_headlines, system_prompt,
-                ask=lambda user, system: get_llm_response(user, system_prompt=system, mode='standard'),
+                ask=lambda user, system: get_llm_response(user, system_prompt=system, mode='tagger'),
                 ledger_mode=ledger_mode, valid_slugs=valid_slugs,
-                batch_size=getattr(_config, 'TAGGER_BATCH_SIZE', 40), label=label,
+                batch_size=getattr(_config, 'TAGGER_BATCH_SIZE', 10), label=label,
             )
         except Exception as e:
             print_and_write(f'{label}: structured tagger failed ({e}); falling back to the retype tagger')

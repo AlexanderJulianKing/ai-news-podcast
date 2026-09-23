@@ -77,7 +77,7 @@ def test_openrouter_400_then_malformed_classifies_as_malformed():
 
     with patch.object(openrouter_mod.requests, 'Session', return_value=sess):
         with pytest.raises(LLMMalformedResponseError):
-            openrouter_mod.get_openrouter_response("p", "openai/gpt-5.5", "GPT-5.5 (low)", False)
+            openrouter_mod.get_openrouter_response("p", "openai/gpt-6-sol", "GPT-6 Sol (backup)", False)
 
 
 def test_openrouter_5xx_classifies_as_server_error():
@@ -87,7 +87,7 @@ def test_openrouter_5xx_classifies_as_server_error():
     sess = _patch_session(post_returns=server_err)
     with patch.object(openrouter_mod.requests, 'Session', return_value=sess):
         with pytest.raises(LLMServerError):
-            openrouter_mod.get_openrouter_response("p", "openai/gpt-5.5", "GPT-5.5 (low)", False)
+            openrouter_mod.get_openrouter_response("p", "openai/gpt-6-sol", "GPT-6 Sol (backup)", False)
 
 
 def test_openrouter_transport_only_classifies_as_transport_error():
@@ -95,7 +95,7 @@ def test_openrouter_transport_only_classifies_as_transport_error():
     sess = _patch_session(post_side_effect=requests.RequestException("network down"))
     with patch.object(openrouter_mod.requests, 'Session', return_value=sess):
         with pytest.raises(LLMTransportError):
-            openrouter_mod.get_openrouter_response("p", "openai/gpt-5.5", "GPT-5.5 (low)", False)
+            openrouter_mod.get_openrouter_response("p", "openai/gpt-6-sol", "GPT-6 Sol (backup)", False)
 
 
 def test_openrouter_408_eventually_raises_timeout():
@@ -108,7 +108,7 @@ def test_openrouter_408_eventually_raises_timeout():
     sess = _patch_session(post_returns=timeout_resp)
     with patch.object(openrouter_mod.requests, 'Session', return_value=sess):
         with pytest.raises(LLMTimeoutError):
-            openrouter_mod.get_openrouter_response("p", "openai/gpt-5.5", "GPT-5.5 (low)", False)
+            openrouter_mod.get_openrouter_response("p", "openai/gpt-6-sol", "GPT-6 Sol (backup)", False)
 
 
 def test_openrouter_429_does_not_short_circuit_variant_cycling():
@@ -125,7 +125,7 @@ def test_openrouter_429_does_not_short_circuit_variant_cycling():
     )
     sess = _patch_session(post_side_effect=[rate_limited, success_resp])
     with patch.object(openrouter_mod.requests, 'Session', return_value=sess):
-        result = openrouter_mod.get_openrouter_response("p", "openai/gpt-5.5", "GPT-5.5 (low)", False)
+        result = openrouter_mod.get_openrouter_response("p", "openai/gpt-6-sol", "GPT-6 Sol (backup)", False)
     assert result == "ok"
 
 
@@ -139,7 +139,7 @@ def test_openrouter_429_all_variants_classifies_as_rate_limit_with_retry_after()
     sess = _patch_session(post_returns=rate_limited)
     with patch.object(openrouter_mod.requests, 'Session', return_value=sess):
         with pytest.raises(LLMRateLimitError) as exc_info:
-            openrouter_mod.get_openrouter_response("p", "openai/gpt-5.5", "GPT-5.5 (low)", False)
+            openrouter_mod.get_openrouter_response("p", "openai/gpt-6-sol", "GPT-6 Sol (backup)", False)
     assert exc_info.value.retry_after == 42.0
 
 
@@ -161,7 +161,7 @@ def test_openrouter_429_uses_max_retry_after_across_variants():
     sess = _patch_session(post_side_effect=[short_wait, long_wait, medium_wait] * 5)
     with patch.object(openrouter_mod.requests, 'Session', return_value=sess):
         with pytest.raises(LLMRateLimitError) as exc_info:
-            openrouter_mod.get_openrouter_response("p", "openai/gpt-5.5", "GPT-5.5 (low)", False)
+            openrouter_mod.get_openrouter_response("p", "openai/gpt-6-sol", "GPT-6 Sol (backup)", False)
     assert exc_info.value.retry_after == 60.0
 
 
@@ -179,7 +179,7 @@ def test_openrouter_408_does_not_short_circuit_variant_cycling():
     # First call → 408, second call → success (different transport variant).
     sess = _patch_session(post_side_effect=[timeout_resp, success_resp])
     with patch.object(openrouter_mod.requests, 'Session', return_value=sess):
-        result = openrouter_mod.get_openrouter_response("p", "openai/gpt-5.5", "GPT-5.5 (low)", False)
+        result = openrouter_mod.get_openrouter_response("p", "openai/gpt-6-sol", "GPT-6 Sol (backup)", False)
     assert result == "ok", "408 on one variant should let the next variant succeed"
 
 
@@ -192,7 +192,7 @@ def test_openrouter_whitespace_only_content_raises_malformed():
     sess = _patch_session(post_returns=whitespace)
     with patch.object(openrouter_mod.requests, 'Session', return_value=sess):
         with pytest.raises(LLMMalformedResponseError):
-            openrouter_mod.get_openrouter_response("p", "openai/gpt-5.5", "GPT-5.5 (low)", False)
+            openrouter_mod.get_openrouter_response("p", "openai/gpt-6-sol", "GPT-6 Sol (backup)", False)
 
 
 # ---- gemini & claude empty-string responses ----

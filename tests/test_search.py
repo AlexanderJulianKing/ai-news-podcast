@@ -47,7 +47,7 @@ def test_search_web_falls_back_when_google_empty(monkeypatch):
 
 def test_openrouter_web_search_parses_annotations(monkeypatch):
     monkeypatch.setattr(cfg, "OPENROUTER_API_KEY", "key")
-    monkeypatch.setattr(cfg, "SEARCH_OPENROUTER_MODEL", "openai/gpt-5.5")
+    monkeypatch.setattr(cfg, "SEARCH_OPENROUTER_MODEL", "openai/gpt-6-sol")
     response = MagicMock()
     response.raise_for_status.return_value = None
     response.json.return_value = {
@@ -72,7 +72,7 @@ def test_openrouter_web_search_parses_annotations(monkeypatch):
     payload = mock_post.call_args.kwargs["json"]
     assert payload["plugins"][0]["id"] == "web"
     assert payload["plugins"][0]["engine"] == cfg.SEARCH_OPENROUTER_ENGINE
-    assert payload["model"] == "openai/gpt-5.5"
+    assert payload["model"] == "openai/gpt-6-sol"
 
 
 def test_openrouter_web_search_parses_json_content(monkeypatch):
