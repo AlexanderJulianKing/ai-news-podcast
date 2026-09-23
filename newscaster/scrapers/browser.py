@@ -69,6 +69,31 @@ async def _read_page(ws_url, want_screenshot):
         return title, text, shot
 
 
+PROFILE_PREFIX = "newscaster_chromium_"
+
+
+def reap_orphans():
+    """Kill browsers a previous run left behind (if its Python process died mid-page) and
+    delete their temp profiles. Only touches processes started with our profile prefix."""
+    try:
+        found = subprocess.run(["pgrep", "-f", "user-data-dir=.*" + PROFILE_PREFIX],
+                               capture_output=True, text=True, timeout=10).stdout.split()
+    except Exception:
+        found = []
+    own = os.getpgid(0)
+    for pid in found:
+        try:
+            group = os.getpgid(int(pid))
+            if group != own:
+                os.killpg(group, signal.SIGKILL)
+        except Exception:
+            pass
+    root = tempfile.gettempdir()
+    for name in os.listdir(root):
+        if name.startswith(PROFILE_PREFIX):
+            shutil.rmtree(os.path.join(root, name), ignore_errors=True)
+
+
 def check_page(text):
     """Raise RenderError for a bot-check page or one with too little text to be a front page."""
     words = len((text or "").split())
@@ -90,8 +115,9 @@ def render_page(url, *, wait_seconds=None, screenshot_path=None):
         raise RenderError("chromium or xvfb-run is not installed here")
     wait = wait_seconds if wait_seconds is not None else getattr(_config, "BROWSER_WAIT_SECONDS", 20)
     width, height = getattr(_config, "BROWSER_WINDOW", (1366, 3000))
+    reap_orphans()
     port = _free_port()
-    profile = tempfile.mkdtemp(prefix="newscaster_chromium_")
+    profile = tempfile.mkdtemp(prefix=PROFILE_PREFIX)
     proc = subprocess.Popen(
         [xvfb_run, "-a", "-s", "-screen 0 {}x{}x24".format(width, height), chromium,
          "--no-first-run", "--no-default-browser-check", "--disable-gpu",

@@ -47,3 +47,20 @@ def test_render_page_without_chromium_raises(monkeypatch):
     monkeypatch.setattr(browser.shutil, "which", lambda name: None)
     with pytest.raises(browser.RenderError, match="not installed"):
         browser.render_page("https://apnews.com")
+
+
+def test_reap_orphans_kills_only_our_browsers(monkeypatch, tmp_path):
+    killed = []
+    monkeypatch.setattr(browser.tempfile, "gettempdir", lambda: str(tmp_path))
+    (tmp_path / "newscaster_chromium_old").mkdir()
+    (tmp_path / "someone_else").mkdir()
+
+    class Done:
+        stdout = "111 222"
+    monkeypatch.setattr(browser.subprocess, "run", lambda *a, **k: Done())
+    monkeypatch.setattr(browser.os, "getpgid", lambda pid: {0: 1, 111: 111, 222: 1}[pid])
+    monkeypatch.setattr(browser.os, "killpg", lambda g, sig: killed.append(g))
+    browser.reap_orphans()
+    assert killed == [111]                                  # never our own process group
+    assert not (tmp_path / "newscaster_chromium_old").exists()
+    assert (tmp_path / "someone_else").exists()
