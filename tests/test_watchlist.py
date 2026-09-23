@@ -151,6 +151,9 @@ def test_format_items_for_test_labels_source_and_date():
 
 def test_event_test_prompt_excludes_launches_and_forbids_added_significance():
     assert "not by itself an event" in WATCHLIST_EVENT_TEST_PROMPT
+    assert "ROUTE B" in WATCHLIST_EVENT_TEST_PROMPT and "new frontier or flagship model" in WATCHLIST_EVENT_TEST_PROMPT
+    assert "never state a lab's own claim as settled fact" in WATCHLIST_EVENT_TEST_PROMPT
+    assert "customer stories and case studies" in WATCHLIST_EVENT_TEST_PROMPT
     assert "add no consequences or significance of your own" in WATCHLIST_EVENT_TEST_PROMPT
     assert "NONE PASS" in WATCHLIST_EVENT_TEST_PROMPT
 

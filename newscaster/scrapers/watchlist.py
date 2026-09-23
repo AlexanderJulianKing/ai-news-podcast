@@ -49,22 +49,34 @@ SECTION_NAME = "Specialist watch (AI labs and evaluators)"
 
 # One judgment call per day over a few dozen titles. This is a precision filter:
 # a false pass puts a press release in front of Tier 1, so it gets the heavy model.
+# Route B (2026-09-23, Alex): major launches and extraordinary lab results count on
+# the lab's word alone, because the most important lab news may have no outside
+# confirmation yet. The sentence must attribute the claim to the lab.
 WATCHLIST_EVENT_TEST_PROMPT = (
     "Today is {date}. Below are recent posts from AI labs and independent evaluators, each with its "
-    "source and publication date. Keep only the items that pass ALL of this test:\n"
-    "(1) Something happened: an action, incident, finding, filing, or decision. A product, model, "
-    "feature, benchmark score, or pricing announcement is not by itself an event.\n"
-    "(2) At least one of: an outside party (a regulator, court, legislature, another company, or an "
-    "independent evaluator) was forced to act or has acted; a developer lost control of a system or "
+    "source and publication date. Keep an item only if it passes route A or route B.\n"
+    "ROUTE A, outside confirmation. Something happened (an action, incident, finding, filing, or "
+    "decision), and at least one of: an outside party (a regulator, court, legislature, another company, "
+    "or an independent evaluator) was forced to act or has acted; a developer lost control of a system or "
     "disclosed an incident; an independent evaluation reported a finding about a frontier system's "
     "capability or safety; or a verified first: a result no system achieved before, attested by formal "
-    "verification, peer review, an independent evaluator, or a prize body. The developer's own claim, a "
-    "benchmark score, or a feature launch is not attestation. A release passes only if the post itself "
-    "also reports one of these.\n\n"
+    "verification, peer review, an independent evaluator, or a prize body.\n"
+    "ROUTE B, major lab news on the lab's own word. Either: a leading lab released a new frontier or "
+    "flagship model, or a new named general-purpose model in its main lineup (a new generation, or a new "
+    "model or tier at any size, such as a flagship or a new mid-size pair; not a minor version, fine-tune, "
+    "regional rollout, narrow single-purpose model such as text-to-speech, or feature); or a lab reported something extraordinary, such as a capability or scientific result far "
+    "beyond what AI systems could do before, a serious safety incident, or a major change in how it "
+    "deploys or restricts its most capable models. Ask whether a well-informed listener would call it big "
+    "news about AI if it is true.\n"
+    "Neither route: customer stories and case studies, courses and training programs, partnerships, "
+    "pricing or caching changes, small features, speeches and remarks, policy essays, hiring, or a "
+    "benchmark score with no new model. A product, model, feature, or pricing announcement that is not "
+    "a major release is not by itself an event.\n\n"
     "For each passing item write ONE plain sentence: WHO did WHAT, and WHEN (use the post date), naming "
-    "the specific actors, systems, numbers, and places the post gives. Report only what the post states; "
-    "add no consequences or significance of your own. End each sentence with ' (via SOURCE)' using the "
-    "source name shown. One item per line, no numbering, no bold.\n"
+    "the specific actors, systems, numbers, and places the post gives. For a route B item, attribute every "
+    "claim to the lab ('Anthropic said', 'OpenAI reported'); never state a lab's own claim as settled fact. "
+    "Report only what the post states; add no consequences or significance of your own. End each sentence "
+    "with ' (via SOURCE)' using the source name shown. One item per line, no numbering, no bold.\n"
     "If nothing passes, write exactly: NONE PASS\n\n{items}"
 )
 
