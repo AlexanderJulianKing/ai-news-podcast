@@ -189,7 +189,7 @@ def build_research_memory_note(topic: str, formatted_date: str, formatted_date2:
     )
     try:
         # Distilling retrieved prior coverage into a structured note is a summarization
-        # task, not deep reasoning, so it runs on the cheap standard model (Gemma) rather
+        # task, not deep reasoning, so it runs on the cheap standard model (GPT-6 Luna) rather
         # than the heavy controller model (Opus).
         return get_llm_response(
             user_prompt,

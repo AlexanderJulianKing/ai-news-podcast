@@ -1,10 +1,13 @@
 # Newscaster
 
-**A fully automated daily AI news podcast.** Newscaster scrapes the day's news, uses a from-scratch multi-provider LLM pipeline to select, research, and script the stories, synthesizes multi-voice audio, renders a video, and publishes to YouTube — unattended, every morning.
+**A fully automated daily news podcast.** Every morning, Newscaster reads the day's
+news and picks the stories. It researches and scripts them with a multi-model LLM
+pipeline, voices them with several speakers, renders a video, and publishes to
+YouTube, all with no one at the keyboard.
 
-**See it in action:** [**@NewsFromAlex** on YouTube](https://www.youtube.com/@NewsFromAlex) — 525+ daily episodes, live since September 2024
+**See it in action:** [**@NewsFromAlex** on YouTube](https://www.youtube.com/@NewsFromAlex), daily since September 2024.
 
-**How it works (deep dive):** [**Newscaster explainer**](https://alexanderjulianking.github.io/newscaster_overview.html)
+**Full walkthrough of one run:** [`docs/PIPELINE.md`](docs/PIPELINE.md)
 
 Solo project, running in production on a Raspberry Pi.
 
@@ -12,31 +15,76 @@ Solo project, running in production on a Raspberry Pi.
 
 ## What it does
 
-Each morning, a single pipeline run:
+Each morning, one run:
 
-1. **Discovers** stories from 7 sources (NPR, AP, Democracy Now, ProPublica, CalMatters, Drop Site News, City of Riverside) via Gemini grounding, dedicated scrapers, and Google Custom Search.
-2. **Selects** stories with a 3-tier LLM editorial pass (triage scoring → grounded research briefs → final picks).
-3. **Researches** each story with an agentic, source-grounded loop (LangGraph) that fetches and validates its own sources, with an adversarial counter-evidence check.
-4. **Writes** a multi-voice dialogue script between an anchor and reporters, with heuristic quality scoring and retries.
-5. **Fact-checks** the script against the gathered sources and auto-corrects confirmed factual errors before anything is voiced.
-6. **Synthesizes** audio with Google Cloud TTS (distinct per-character voices, music overlay, clipping detection).
-7. **Renders** a video (MoviePy: audio + background image), and
-8. **Uploads** to YouTube (OAuth2) with an LLM-generated title and tags.
+1. **Gathers** about 150 headlines from 16 sections:
+   - **Front pages.** NPR, AP and Democracy Now are read in a real browser.
+   - **Feeds and pages.** RSS feeds and direct page parsing cover ProPublica, Drop
+     Site News, CalMatters and the City of Riverside.
+   - **AI lab watch.** OpenAI, Anthropic, Google DeepMind, METR and others.
+   - **Eight topic groups:** business, science and tech, health, courts, world,
+     San Diego and Temecula, AI and tech press, and official records.
+2. **Marks repeats** against a ledger of every story arc the show has covered, so
+   yesterday's lead doesn't lead again unless something new happened.
+3. **Picks** a main story, an everyday story, and five side stories. This takes
+   two scoring passes, a web-searched brief per shortlisted headline, and final
+   editorial calls.
+4. **Researches** the main stories with an agent loop. The loop decides what to
+   look up next, fetches and checks its own sources, and has a second model
+   challenge it before it stops.
+5. **Writes** the script as a conversation between an anchor and two reporters,
+   plus a roundup, intro and outro.
+6. **Fact-checks** every quote and claim against the saved sources and fixes
+   confirmed errors before anything is voiced.
+7. **Voices** it with Google Cloud Text-to-Speech, with every line matched to the
+   same loudness, and adds the theme music.
+8. **Renders** a video and **uploads** it to YouTube.
 
-## Architecture highlights
+## Models
 
-The interesting engineering is the orchestration and reliability layer, all hand-built:
+Most LLM calls name a tier, and one router maps tiers to models. As of 2026-09-23:
 
-- **Multi-provider LLM router** — one dispatcher routes each call across capability tiers and providers (Google Gemini, Anthropic Claude, plus Gemma / GLM / GPT-5.5 via OpenRouter), grounding-aware, with a typed error taxonomy, retry/backoff with jitter, and cross-provider fallback.
-- **Agentic research loop** — a LangGraph state machine decides what to ask next about each story; a controlled "source hunter" fetches pages itself (requests + BeautifulSoup), validates them against an evidence contract, and answers only from validated excerpts — returning "no evidence" rather than guessing.
-- **Retrieval-augmented memory** — each day's research is embedded (Gemini embeddings) into a from-scratch SQLite + NumPy cosine vector store; later episodes retrieve relevant prior coverage. Retrieval quality is measured with a recall benchmark (`benchmarks/rag_recall/`).
-- **Self-correcting fact-checker** — a pre-TTS editor grounded against the raw scraped sources: an LLM proposes find/replace fixes, an independent adversary model vets each one, and only verified, unambiguous edits are applied (with a JSONL audit log).
-- **Crash-safe pipeline** — atomic writes, idempotent stages with completion markers, per-story fault isolation, and graceful degradation.
-- **Evaluation harnesses** — `benchmarks/` grades news-discovery quality across a model matrix and measures embedding-retrieval recall.
+| Tier | Model | Main jobs |
+|---|---|---|
+| heavy | Claude Opus 5.5 | Story selection, research controller, segment scripts, script fixes |
+| standard / advanced | GPT-6 Luna | Reading front pages, summaries, research answers, web briefs, faithfulness check |
+| tagger / adversary / fallback | GPT-6 Sol | Marking repeats, challenging research, approving fixes, backup for any failed call |
+| light | Gemini 3.1 Flash-Lite | Small yes/no checks, the spoken intro, YouTube tags |
+
+Web briefs (GPT-6 Luna) and the search fallback (GPT-6 Sol) skip the router.
+Gemini 3 Flash is the backup front-page reader, Gemini 3.1 Pro answers two backup
+research questions, and `gemini-embedding-2` makes the embeddings.
+
+Model choices are tested before they change. `benchmarks/` holds the harnesses.
+The comments in `newscaster/config.py` record why each model was chosen.
+
+## Engineering highlights
+
+- **Multi-provider LLM router.** It covers Anthropic, OpenRouter and Google. It
+  has typed errors, retries with backoff, and a fallback model, and every attempt
+  is written to an audit log.
+- **Honest front-page reading.** A normal, visible Chromium runs on a virtual
+  screen, and the rendered page is read over the DevTools protocol. Nothing is
+  disguised. A screenshot of each page is kept for checking.
+- **Source hunter.** It writes an evidence contract, fetches pages itself, checks
+  them, and answers only from pages it accepted. If it can't support an answer,
+  it says "no evidence" rather than guessing.
+- **Agentic research loop.** Built with LangGraph. Opus is the controller, GPT-6
+  Sol is the adversary, and memory from past episodes comes from embeddings.
+- **Structured repeat tagging.** The model returns a verdict per numbered
+  headline, and code applies it. A headline is never silently dropped.
+- **Self-correcting fact check.** One model proposes each fix, a second model must
+  approve it, and every change is logged.
+- **Retrieval memory.** Research is embedded with Gemini embeddings into a
+  from-scratch SQLite and NumPy vector store. Recall is measured by
+  `benchmarks/rag_recall/`.
+- **Safe to resume.** The ledger, run manifest, research summaries and stage
+  markers are written atomically. Finished stages are skipped on a rerun, and a
+  failed story is isolated from the rest.
 
 ## Tech stack
 
-Python 3 · Google Gemini / Anthropic Claude / OpenRouter · Google Cloud TTS · YouTube Data API v3 · Google Custom Search · LangGraph · NumPy + SQLite (vector store) · BeautifulSoup · PyDub · MoviePy · pytest
+Python 3 · Anthropic, OpenRouter and Google Gemini APIs · Chromium + Xvfb (DevTools protocol) · LangGraph · Google Cloud TTS · YouTube Data API v3 · Google Custom Search · OpenWeatherMap · NumPy + SQLite · BeautifulSoup · PyDub · MoviePy · pytest
 
 ## Setup
 
@@ -45,56 +93,73 @@ Python 3 · Google Gemini / Anthropic Claude / OpenRouter · Google Cloud TTS ·
 pip install -r requirements.txt
 
 # 2. System dependencies
-#    ffmpeg   — audio/video encoding (PyDub, MoviePy)
-#    poppler  — provides `pdftotext`, used by the source hunter to read PDFs
-#    macOS:  brew install ffmpeg poppler
-#    Debian/Pi:  sudo apt install ffmpeg poppler-utils
+#    ffmpeg            audio and video encoding (PyDub, MoviePy)
+#    poppler           provides pdftotext, used by the source hunter to read PDFs
+#    chromium, xvfb    the browser reader for NPR, AP and Democracy Now
+#                      (without them those three fall back to Gemini readers)
+#    macOS:      brew install ffmpeg poppler
+#    Debian/Pi:  sudo apt install ffmpeg poppler-utils chromium xvfb
 
-# 3. API keys — copy the template and fill in your own keys
+# 3. API keys: copy the template and fill in your own
 cp keys.txt.example keys.txt
 #    google_genai_api, anthropic_api, openrouter_api,
 #    google_search_api, openweathermap_api, google_cse_id
 
-# 4. Google credentials (NOT included in the repo)
-#    client_secrets.json   — OAuth client for the YouTube upload
-#    <service-account>.json — GCP service account for Cloud TTS
+# 4. Google credentials (not in the repo)
+#    client_secrets.json     OAuth client for the YouTube upload
+#    service-account JSON    GCP service account for Cloud TTS (file name is set in newscaster/audio/tts.py)
 ```
 
-`keys.txt` and the credential JSON files are gitignored — never commit them.
+`keys.txt` and the credential files are gitignored. Never commit them.
 
 ## Running
 
 ```bash
-python3 main.py          # scrape → select → research → script → fact-check → audio
-python3 moviemaker.py    # render the video from the audio + background image
-python3 uploader2.py     # upload to YouTube
+python3 main.py          # gather, pick, research, script, fact-check, audio
+python3 moviemaker.py    # render the video
+python3 uploader2.py --file=output_video.mp4 --category=25 --privacyStatus=public
 
-./main2.bash             # scheduler: runs all three daily, with retry logic
+./main2.bash             # the daily loop on the Pi: waits for 4 a.m., runs all three, retries
+                         # (Linux only: it uses ./venv and GNU date)
 
-python3 -m pytest        # test suite
+pip install pytest && python3 -m pytest   # tests never launch a browser or write to logs/
 ```
 
-Each stage is idempotent — it skips work whose output already exists, so a re-run resumes cleanly rather than duplicating it.
+Each stage leaves a completion marker, so a rerun picks up where the last one
+stopped.
 
 ## Repository layout
 
 ```
-newscaster/            core package
-  pipeline.py          orchestrates the daily run
-  llm/                 multi-provider router, typed errors, retry/fallback
-  research_agent.py    LangGraph agentic research loop
-  source_hunter.py     controlled fetch → validate → synthesize
-  rag/                 embeddings + vector store + retrieval
-  review.py            pre-TTS fact-finder (quote / faithfulness / stable-fact passes)
-  editor_agent.py      propose → vet → verify-then-apply auto-editor
-  dedup.py             persistent story-arc ledger + cross-episode memory
-  scrapers/            per-source news discovery
-  script/  audio/      dialogue generation · TTS, assembly, music
-benchmarks/            evaluation harnesses (web-search quality, RAG recall)
+newscaster/              core package
+  pipeline.py            runs the day, stage by stage
+  config.py              models, feeds and switches, with the reasons for each
+  llm/                   router, providers, typed errors, retries and fallback
+  scrapers/              topic_finder (gathering, tagging, picking), browser reader,
+                         RSS, CalMatters, Riverside, AI watch and beat feeds
+  tagger.py              structured repeat tagging
+  dedup.py               story-arc ledger and coverage depth
+  research_agent.py      LangGraph research loop
+  source_hunter.py       contract, fetch, validate, answer
+  search.py              Google search and web briefs
+  rag/                   embeddings, vector store, retrieval
+  script/                titles, intro, segments
+  review.py              pre-TTS fact check
+  editor_agent.py        propose, approve, apply script fixes
+  weather.py             commute weather for the intro
+  audio/                 TTS, loudness, music, assembly
+  video.py  upload.py    video render, YouTube upload
+benchmarks/              evaluation harnesses (web search, RAG recall, editor brain)
+docs/PIPELINE.md         one run, front to back
+docs/archive/            earlier design notes (June and July 2026)
 main.py · moviemaker.py · uploader2.py   entry points
-main2.bash             daily scheduler
+main2.bash               daily scheduler
 ```
 
 ## Notes
 
-The specific LLM model choices and routing table evolve over time; see the [explainer](https://alexanderjulianking.github.io/newscaster_overview.html) for the design narrative. This is solo, end-to-end personal-project work — there is no team CI/CD or cloud-scale deployment; it runs as a scheduled job on a Raspberry Pi.
+This is solo personal-project work. It runs as a scheduled job on a Raspberry Pi,
+with no team CI or cloud deployment. The
+[explainer page](https://alexanderjulianking.github.io/newscaster_overview.html)
+tells the design story; for how the code works today, trust
+[`docs/PIPELINE.md`](docs/PIPELINE.md).

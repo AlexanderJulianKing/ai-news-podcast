@@ -372,7 +372,7 @@ def build_headline_arc_map(tagged_text: str) -> dict:
     Reads all three tag types (UPDATE / MAJOR ESCALATION / SIDE-COVERED), so it must
     run after apply_coverage_depth to see the depth-adjusted verdicts.
 
-    The tagger (Gemma) decorates its output with markdown — bullets ('* **'),
+    Tagger output may carry markdown — bullets ('* **'),
     headings ('### **2.'), bold, numbering — so a tag is almost never at the
     literal start of a line. We therefore find every [UPDATE: slug] /
     [MAJOR ESCALATION: slug] tag wherever it sits, and take its headline as the

@@ -483,7 +483,7 @@ def _format_research_briefs(briefs):
 
 
 def _research_headline_brief(headline, formatted_date):
-    """Tier-2 selection brief: one cheap web-grounded LLM call (Gemma 4 + OpenRouter web search).
+    """Tier-2 selection brief: one cheap web-grounded LLM call (GPT-6 Luna + OpenRouter web search).
 
     This stage only *ranks* headlines by importance, so it does not need the source
     hunter's fetch-validate-synthesize rigor — the handful of stories that get chosen are
@@ -863,7 +863,7 @@ def topic_finder(formatted_date):
     print_and_write('\nimportant topic for average person and why:', everyman_topic_response)
     everyman_headline = headline_extractor(everyman_topic_response)
 
-    # Overview picks (standard = Gemma 4 31B)
+    # Overview picks (standard = GPT-6 Luna)
     overview_prompt = TIER3_OVERVIEW_PICK_PROMPT.format(
         excluded_headlines=f"'{important_headline}' or '{everyman_headline}'"
     )

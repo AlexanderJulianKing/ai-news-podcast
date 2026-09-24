@@ -13,3 +13,4 @@ moviepy
 wikipedia-api
 numpy
 langgraph
+websockets
