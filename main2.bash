@@ -50,7 +50,6 @@ while true; do
     filename="output_audio/${date}.mp3"
     echo $filename
     # Upload the file using curl
-    #curl -X PUT -T $filename -u Alexander.julian.king@gmail.com:hubviz-pipqe2-gaxvEs "https://webdav.blubrry.com/media/1474721/"
     rm -f output_video.mp4
     python3 moviemaker.py
     if [ -f "output_video.mp4" ]; then
