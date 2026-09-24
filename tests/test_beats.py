@@ -67,3 +67,14 @@ def test_beats_are_appended_to_the_pool_and_never_break_it(monkeypatch):
         assert len(tf._gather_headline_sections("September 15, 2026")) == 7
     monkeypatch.setattr(tf._config, "BEATS_ENABLED", False, raising=False)
     assert len(tf._gather_headline_sections("September 15, 2026")) == 7
+
+
+def test_group_note_is_added_to_the_selection_prompt():
+    seen = {}
+    def fake_select(items, template, today, label, **extra):
+        seen["prompt"] = template.format(date="d", items="ITEMS", **extra)
+        return ["Local thing happened (via KPBS)"]
+    with patch("newscaster.scrapers.watchlist.collect_watch_items", return_value=([("KPBS", {"title": "t"})], [])), \
+         patch("newscaster.scrapers.watchlist.select_with_llm", side_effect=fake_select):
+        beat_scraper("San Diego", [("KPBS", "u")], max_items=8, note="Choose only local events {here}.")
+    assert "Choose only local events {here}.\n\nITEMS" in seen["prompt"]

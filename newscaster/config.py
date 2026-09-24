@@ -188,7 +188,9 @@ WATCHLIST_FEEDS = [
     ('Import AI', 'https://importai.substack.com/feed'),
 ]
 
-# Beat feeds: business, science and technology, health, courts, world. Front pages
+# Beat feeds: business, science and technology, health, courts, world. Each entry is
+# (group, [(outlet, url), ...]) with an optional third item: one extra instruction
+# for that group's selection prompt. Front pages
 # never carried Navier-Stokes (Quanta, Science, CNBC did) and the pool had no
 # markets, health or courts source at all. Each beat is read from RSS with a 24h
 # window, and one heavy-model call picks up to BEAT_MAX_ITEMS concrete events, so
@@ -218,6 +220,31 @@ BEAT_FEEDS = [
         ('BBC World', 'http://feeds.bbci.co.uk/news/world/rss.xml'),
         ('Al Jazeera', 'https://www.aljazeera.com/xml/rss/all.xml'),
         ('The Guardian World', 'https://www.theguardian.com/world/rss'),
+    ]),
+    # Added 2026-09-23 after probing ~35 feeds from the Pi. Local: Alex moved to
+    # Temecula and commutes to La Jolla; the Union-Tribune feed is 403 and the
+    # Press-Enterprise feed is gone. AI press: Meta, xAI, Mistral and DeepSeek publish
+    # no feeds, so the lab watch cannot see them (it missed Meta Connect 2026).
+    # Official records: the primary documents behind stories AP reports second-hand.
+    ('San Diego and Temecula', [
+        ('KPBS', 'https://www.kpbs.org/index.rss'),
+        ('Times of San Diego', 'https://timesofsandiego.com/feed/'),
+        ('Voice of San Diego', 'https://voiceofsandiego.org/feed/'),
+        ('Valley News', 'https://myvalleynews.com/feed/'),
+        ('City of Temecula', 'https://temeculaca.gov/RSSFeed.aspx?ModID=1&CID=All-newsflash.xml'),
+    ], "Choose only local events: things that happened in San Diego County, Riverside County or Temecula, "
+       "or California state actions aimed at them. Skip national and world stories even when a local outlet "
+       "carries them; other sources cover those."),
+    ('AI and tech press', [
+        ('The Verge AI', 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml'),
+        ('Simon Willison', 'https://simonwillison.net/atom/everything/'),
+        ('404 Media', 'https://www.404media.co/rss/'),
+        ('Hacker News (300+ points)', 'https://hnrss.org/frontpage?points=300'),
+    ]),
+    ('Official records', [
+        ('Federal Register (presidential documents)',
+         'https://www.federalregister.gov/api/v1/documents.rss?conditions%5Btype%5D%5B%5D=PRESDOCU'),
+        ('FDA press releases', 'https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml'),
     ]),
 ]
 

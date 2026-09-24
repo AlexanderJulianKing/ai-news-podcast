@@ -366,10 +366,17 @@ def feed_group_section(group_name, feeds, prompt_template, *, intro, label, now=
     return "\n".join(lines) + "\n\n"
 
 
-def beat_scraper(group_name, feeds, now=None, lookback_hours=None, max_items=None, max_per_feed=None):
-    """One beat (business, science, health, courts, world) as a pool section."""
+def beat_scraper(group_name, feeds, now=None, lookback_hours=None, max_items=None, max_per_feed=None, note=None):
+    """One beat (business, science, health, courts, world) as a pool section.
+
+    `note` adds one group-specific instruction to the selection prompt, e.g. keeping
+    a local beat to local events when a local outlet also carries national wire stories.
+    """
+    template = BEAT_SELECTION_PROMPT
+    if note:
+        template = template.replace("\n\n{items}", "\n" + note.replace("{", "{{").replace("}", "}}") + "\n\n{items}")
     return feed_group_section(
-        group_name, feeds, BEAT_SELECTION_PROMPT,
+        group_name, feeds, template,
         intro=f"{group_name} beat, as of {{today}}. Events selected from specialist feeds; judge them by the same criteria as any other source.",
         label=f"beat-{group_name.lower().replace(' ', '-')}", now=now,
         lookback_hours=lookback_hours or getattr(_config, "BEAT_LOOKBACK_HOURS", 24),

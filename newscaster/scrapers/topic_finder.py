@@ -669,10 +669,12 @@ def _gather_headline_sections(formatted_date):
             sections.append(('Specialist watch:', 'Specialist watch', watch_text))
 
     if getattr(_config, 'BEATS_ENABLED', False):
-        for group_name, feeds in getattr(_config, 'BEAT_FEEDS', []) or []:
+        for entry in getattr(_config, 'BEAT_FEEDS', []) or []:
+            group_name, feeds = entry[0], entry[1]
+            note = entry[2] if len(entry) > 2 else None   # optional group-specific instruction
             print_and_write(f'scraping beat: {group_name}')
             try:
-                beat_text = beat_scraper(group_name, feeds)
+                beat_text = beat_scraper(group_name, feeds, **({'note': note} if note else {}))
             except Exception as e:
                 print_and_write(f'Beat "{group_name}" failed: {e}; continuing without it')
                 beat_text = ''
