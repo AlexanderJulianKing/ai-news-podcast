@@ -2049,6 +2049,9 @@ def validate_source_for_question(task: Dict[str, Any], source: Dict[str, Any]) -
             for h in hard_dates
         ):
             hard_dates.append(extra)
+    # Follow-up questions ask about background (a bill signed last week, a February
+    # seizure), so their hunts carry a wider window; headline lookups keep 3 days.
+    back_days = int(task.get("recency_back_days") or DATE_WINDOW_BACK_DAYS)
     if hard_dates:
         # Exact matches still drive `score` below, so ranking is unchanged.
         matched_dates = [_date_present(text, date) for date in hard_dates]
@@ -2057,11 +2060,11 @@ def validate_source_for_question(task: Dict[str, Any], source: Dict[str, Any]) -
             published = source.get("published_date")
             if published:
                 matched["published_date"] = published
-                if not _iso_within_window(published, hard_dates):
+                if not _iso_within_window(published, hard_dates, back_days=back_days):
                     reasons.append("date_mismatch")
             elif _text_states_a_date(text):
                 if not any(
-                    _date_present_in_window(text, date) for date in hard_dates
+                    _date_present_in_window(text, date, back_days=back_days) for date in hard_dates
                 ):
                     reasons.append("date_mismatch")
             elif REQUIRE_KNOWN_PUBLISH_DATE:

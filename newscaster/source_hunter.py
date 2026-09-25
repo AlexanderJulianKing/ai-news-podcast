@@ -64,8 +64,59 @@ def _query_variants(question: str, topic: str | None, formatted_date: str | None
     return [variant for variant in dict.fromkeys(variants) if variant]
 
 
-def _search_candidates(query: str, limit: int) -> list[dict[str, str]]:
-    results = search_web(query, num_results=limit)
+# Context blocks that callers append to a question. They help the answer (what the audience
+# already knows, how to write), but names in them must not become validation requirements:
+# on 2026-09-24 "U.S. State Department" from a CONTINUATION block rejected all 12 pages,
+# CBS's live coverage included, for a story about Trump's "annihilate" threat.
+_CONTEXT_MARKERS = ("\n\nCONTINUATION:", "\nCONTINUATION:", "\nInstructions:", "\n\nInstructions:")
+
+
+def _focus(question: str) -> str:
+    """The question without appended context blocks; this is what validation checks against."""
+    text = question or ""
+    cut = min((text.find(m) for m in _CONTEXT_MARKERS if m in text), default=-1)
+    return (text[:cut] if cut > 0 else text).strip()
+
+
+_QUERY_PROMPT = (
+    "Write up to 3 short web search queries that would find pages answering the research question "
+    "below. Each query is 4 to 12 words, the way a skilled researcher types into Google: specific "
+    "names, bill or case numbers if known, places, and distinctive terms. Aim each query at a "
+    "different part of the question. No quotes, no numbering, one query per line, nothing else.\n\n"
+    "Date context: {date}\nQuestion: {question}"
+)
+
+
+def _question_queries(question: str, topic: str | None, formatted_date: str | None) -> list[str]:
+    """Short search queries written from the question itself.
+
+    Before 2026-09-25 a question over 40 words was never searched: the story headline went
+    first and the hunt stopped at the first page that validated, so 27 of 35 research
+    questions on 09-24 and 09-25 were answered from headline coverage (the Riverside ballot
+    bills were never looked up). Returns [] when the question is just the headline or on failure.
+    """
+    focus = _focus(question)
+    if not getattr(_config, "SOURCE_HUNTER_QUESTION_QUERIES", True) or not focus:
+        return []
+    headline = (topic or "").strip()
+    if focus == headline or focus.removeprefix("Headline:").strip().split("\n")[0] == headline:
+        return []
+    try:
+        raw = get_llm_response(_QUERY_PROMPT.format(date=formatted_date or "unknown", question=focus),
+                               mode="standard")
+    except Exception as exc:
+        print_and_write(f"Source hunter query writing failed: {exc}; using the headline")
+        return []
+    queries = []
+    for line in (raw or "").splitlines():
+        line = line.strip().lstrip("-*•0123456789.) ").strip().strip('"')
+        if 2 <= len(line.split()) <= 16 and line not in queries:
+            queries.append(line)
+    return queries[:3]
+
+
+def _search_candidates(query: str, limit: int, days_prior: int = 1) -> list[dict[str, str]]:
+    results = search_web(query, num_results=limit, days_prior=days_prior)
     candidates = []
     for result in results:
         url = result.get("url", "")
@@ -88,6 +139,7 @@ def _format_sources(sources: list[dict[str, Any]]) -> str:
             f"SOURCE {index}\n"
             f"Title: {source.get('title') or source.get('candidate_title') or '(untitled)'}\n"
             f"URL: {source.get('final_url') or source.get('url')}\n"
+            f"Published: {source.get('published_date') or 'unknown'}\n"
             f"Content type: {source.get('content_type') or 'unknown'}\n"
             f"Relevant excerpt:\n{_clip(source.get('excerpt', ''), 5000)}"
         )
@@ -136,6 +188,9 @@ def _synthesize_answer(question: str, sources: list[dict[str, Any]], formatted_d
         "GAPS: the parts of the question the excerpts do NOT answer, phrased precisely "
         "enough that a follow-up search could target them. If the excerpts fully answer "
         "the question, write 'None'.\n"
+        "Each source shows its publication date when known. A fact from a source more than a "
+        "few days older than the date context is background: say when it happened rather "
+        "than presenting it as today's news.\n"
         "Then a short Sources section listing the URLs you relied on."
     )
     prompt = (
@@ -182,27 +237,50 @@ def answer_with_source_hunter(question: str, *, topic: str | None = None,
     question. On failure it returns ``no_evidence`` instead of guessing.
     """
     max_iterations = max_iterations or _config.SOURCE_HUNTER_MAX_ITERATIONS
+    focus = _focus(question)
+    question_queries = _question_queries(question, topic, formatted_date)
+    # A pointed follow-up often needs pages older than yesterday (the Riverside ballot
+    # bills were signed a week before 2026-09-25), so its searches and date check look
+    # back further. Headline lookups keep the 1-day search and 3-day date check.
+    window = getattr(_config, "SOURCE_HUNTER_QUESTION_WINDOW_DAYS", 30) if question_queries else None
     task = {
         "id": "production_source_hunter",
-        "question": question,
+        "question": focus,
         "category": "news_research",
         # The as-of date rides on the task so the validator's recency gate applies
         # even when the question text carries no literal date (the research-agent
         # path); previously only the overview path's "Date:" scaffold activated it.
         "as_of": formatted_date,
-        "evidence_contract": _generate_evidence_contract(question, formatted_date),
+        "evidence_contract": _generate_evidence_contract(focus, formatted_date),
     }
+    if window:
+        task["recency_back_days"] = window
     seen: set[str] = set()
     validated_sources: list[dict[str, Any]] = []
     rejected_sources: list[dict[str, Any]] = []
     attempts: list[dict[str, Any]] = []
 
-    for iteration, query in enumerate(_query_variants(question, topic, formatted_date), start=1):
-        if iteration > max_iterations or validated_sources:
+    # Question queries first; keep searching them until enough of their pages validate,
+    # because a headline page that validates rarely answers a pointed follow-up. The
+    # headline variants run only if the question queries found nothing.
+    fallback = [q for q in _query_variants(question, topic, formatted_date) if q not in question_queries]
+    queries = question_queries + fallback
+    enough = getattr(_config, "SOURCE_HUNTER_MIN_QUESTION_SOURCES", 2)
+    cap = max_iterations + len(question_queries)
+
+    for iteration, query in enumerate(queries, start=1):
+        on_question_query = iteration <= len(question_queries)
+        if iteration > cap:
             break
-        attempt: dict[str, Any] = {"iteration": iteration, "query": query}
+        if on_question_query and len(validated_sources) >= enough:
+            break
+        if not on_question_query and validated_sources:
+            break
+        attempt: dict[str, Any] = {"iteration": iteration, "query": query,
+                                   "kind": "question" if on_question_query else "fallback"}
         try:
-            candidates = _search_candidates(query, _config.SOURCE_HUNTER_CANDIDATE_LIMIT)
+            candidates = _search_candidates(query, _config.SOURCE_HUNTER_CANDIDATE_LIMIT,
+                                            days_prior=(window or 1) if on_question_query else 1)
         except Exception as exc:
             attempt["search_error"] = str(exc)
             attempts.append(attempt)

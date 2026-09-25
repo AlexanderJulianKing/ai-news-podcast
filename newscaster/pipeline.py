@@ -15,7 +15,7 @@ from newscaster.prompts import (
     RAG_REFINE_PROMPT,
 )
 from newscaster.llm import get_llm_response, call_with_default, LLMError
-from newscaster.scrapers.topic_finder import topic_finder, TopicFinderResult
+from newscaster.scrapers.topic_finder import topic_finder, TopicFinderResult, brief_is_unverified
 from newscaster.search import search_web
 from newscaster.scrapers.topic_finder import result_piper
 from newscaster.dedup import update_audience_learned, save_ledger
@@ -631,10 +631,15 @@ def _extract_audience_learned(formatted_date2, tf_result):
 
     # Side stories: use overview briefs
     # The LLM response items are ordered to match the input briefs, so we match by position
-    if tf_result.side_story_briefs:
+    # Only stories that aired: UNVERIFIED briefs are left out of the roundup, so they
+    # must not become "the audience learned ...". aired[k] is the slot of prompt item k.
+    aired = [j for j, (_h, brief) in enumerate(tf_result.side_story_briefs or [])
+             if not brief_is_unverified(brief)]
+    if aired:
         briefs_text = ""
-        for j, (oh_headline, oh_brief) in enumerate(tf_result.side_story_briefs):
-            briefs_text += f"\n--- Story {j + 1} ---\nHeadline: {oh_headline}\n{oh_brief}\n"
+        for k, j in enumerate(aired):
+            oh_headline, oh_brief = tf_result.side_story_briefs[j]
+            briefs_text += f"\n--- Story {k + 1} ---\nHeadline: {oh_headline}\n{oh_brief}\n"
         prompt = OVERVIEW_AUDIENCE_LEARNED_PROMPT.format(side_story_briefs=briefs_text)
         try:
             response = get_llm_response(prompt, mode="light")
@@ -645,7 +650,10 @@ def _extract_audience_learned(formatted_date2, tf_result):
                 for ep in arc.get("episodes", []):
                     if ep["date"] == formatted_date2 and ep["coverage"] == "side":
                         side_slot_to_slug[ep["coverage_slot"]] = slug
-            for j, item in enumerate(parsed):
+            for k, item in enumerate(parsed):
+                if k >= len(aired):
+                    break
+                j = aired[k]
                 item_learned = item.get("learned", [])
                 slug = side_slot_to_slug.get(j)
                 if slug:

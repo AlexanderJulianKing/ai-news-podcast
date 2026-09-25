@@ -958,6 +958,12 @@ def topic_finder(formatted_date):
     # Archive side stories in ledger
     for i, (oh_headline, oh_brief) in enumerate(overview_briefs):
         oh_clean = strip_arc_tags(oh_headline).strip()
+        if brief_is_unverified(oh_brief):
+            # The roundup leaves UNVERIFIED stories out, so the audience never heard it.
+            # Recording it made 2026-09-25's script say "yesterday we told you the
+            # annihilation claim remained unverified" about a story that never aired.
+            print_and_write(f'Not recording unaired side story in the ledger: {oh_clean[:80]}')
+            continue
         # Reuse the arc resolved during overview_process (resolved once, no re-call).
         oh_arc_info = overview_arc_infos[i] if i < len(overview_arc_infos) else None
         if oh_arc_info:

@@ -110,7 +110,10 @@ FACT_FINDER_AUTOEDIT_MAX_ROUNDS = 3
 
 # --- Controlled source-hunter research ---
 SOURCE_HUNTER_ENABLED = True
-SOURCE_HUNTER_MAX_ITERATIONS = 3
+SOURCE_HUNTER_MAX_ITERATIONS = 3          # headline/fallback searches, on top of the question queries
+SOURCE_HUNTER_QUESTION_QUERIES = True     # write short search queries from the question and search them first
+SOURCE_HUNTER_MIN_QUESTION_SOURCES = 2    # stop searching question queries once this many of their pages validate
+SOURCE_HUNTER_QUESTION_WINDOW_DAYS = 30   # follow-up questions search and accept pages up to this old (headline lookups: 1 and 3 days)
 SOURCE_HUNTER_CANDIDATE_LIMIT = 8
 SOURCE_HUNTER_NEARBY_SOURCE_LIMIT = 5
 SOURCE_HUNTER_NEARBY_SOURCE_DEPTH = 4

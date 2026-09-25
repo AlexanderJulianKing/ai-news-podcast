@@ -39,6 +39,7 @@ def test_source_hunter_success_uses_controlled_evidence(monkeypatch):
 
 def test_source_hunter_no_evidence_does_not_synthesize(monkeypatch):
     monkeypatch.setattr(cfg, "SOURCE_HUNTER_MAX_ITERATIONS", 1)
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_QUESTION_QUERIES", False)
     monkeypatch.setattr(cfg, "SOURCE_HUNTER_NEARBY_SOURCE_DEPTH", 0)
     with patch("newscaster.source_hunter.search_web", return_value=[
         {"headline": "Wrong page", "url": "https://example.com/webinar", "snippet": "s"}
@@ -260,3 +261,130 @@ def test_evidence_contract_advisory_for_news_research_only(monkeypatch):
     # ...but it only vetoes outside news_research.
     assert news["passed"] is True, news["reasons"]
     assert other["passed"] is False, other["reasons"]
+
+
+
+# --- 2026-09-25 research fixes -------------------------------------------------
+
+from newscaster import source_hunter as sh
+
+
+def test_focus_drops_continuation_and_instruction_blocks():
+    q = ("Headline: Trump threatens to annihilate Iran\nDate: September 24, 2026\n\n"
+         "CONTINUATION: Listeners already know: the U.S. State Department said it rejects the report.\n"
+         "Instructions:\n- Use controlled source-hunter research")
+    assert sh._focus(q) == "Headline: Trump threatens to annihilate Iran\nDate: September 24, 2026"
+    assert sh._focus("Which bills did Newsom sign?") == "Which bills did Newsom sign?"
+
+
+def test_validation_sees_only_the_focus(monkeypatch):
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_QUESTION_QUERIES", False)
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_NEARBY_SOURCE_DEPTH", 0)
+    seen_tasks = []
+    def fake_filter(task, evidence):
+        seen_tasks.append(task["question"])
+        return {"sources": [], "rejected_sources": []}
+    with patch("newscaster.source_hunter.search_web", return_value=[{"headline": "h", "url": "https://a.com/x", "snippet": "s"}]), \
+         patch("newscaster.source_hunter.fetch_discovered_evidence", return_value={"sources": [{"ok": True}]}), \
+         patch("newscaster.source_hunter.filter_validated_evidence", side_effect=fake_filter), \
+         patch("newscaster.source_hunter._generate_evidence_contract", return_value={}) as contract:
+        sh.answer_with_source_hunter("Headline: X happened\n\nCONTINUATION: the State Department said Y", topic="X happened")
+    assert seen_tasks and all("State Department" not in t for t in seen_tasks)
+    assert "State Department" not in contract.call_args[0][0]
+
+
+def _run_hunt(monkeypatch, validated_by_query, queries_text="bill numbers Newsom ballot seizure law\nNewsom signs felony ballot seizure bill"):
+    """Run a hunt where each search query returns one page that validates or not."""
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_QUESTION_QUERIES", True)
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_NEARBY_SOURCE_DEPTH", 0)
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_MIN_QUESTION_SOURCES", 2)
+    searched = []
+    def fake_search(query, num_results=8, **kw):
+        searched.append(query)
+        return [{"headline": query, "url": f"https://site.com/{len(searched)}", "snippet": "s"}]
+    def fake_fetch(task, candidates, max_source_chars=0):
+        return {"sources": [{"url": c["url"], "query": searched[-1]} for c in candidates]}
+    def fake_filter(task, evidence):
+        good = [e for e in evidence["sources"] if validated_by_query.get(e["query"], False)]
+        bad = [e for e in evidence["sources"] if e not in good]
+        return {"sources": good, "rejected_sources": bad}
+    def fake_llm(prompt, **kw):
+        return queries_text if prompt.startswith("Write up to 3 short web search queries") else "FINDINGS: x\nGAPS: None"
+    with patch("newscaster.source_hunter.search_web", side_effect=fake_search), \
+         patch("newscaster.source_hunter.fetch_discovered_evidence", side_effect=fake_fetch), \
+         patch("newscaster.source_hunter.filter_validated_evidence", side_effect=fake_filter), \
+         patch("newscaster.source_hunter._generate_evidence_contract", return_value={}), \
+         patch("newscaster.source_hunter.get_llm_response", side_effect=fake_llm):
+        result = sh.answer_with_source_hunter(
+            "Which California election-law bills has Newsom signed in response to the ballot seizure? "
+            "Give the bill numbers, authors, and effective dates.",
+            topic="California sheriff broke election law by seizing ballots, state Supreme Court rules")
+    return searched, result
+
+
+def test_question_queries_are_searched_before_the_headline(monkeypatch):
+    searched, result = _run_hunt(monkeypatch, {"bill numbers Newsom ballot seizure law": True,
+                                               "Newsom signs felony ballot seizure bill": True})
+    assert searched == ["bill numbers Newsom ballot seizure law", "Newsom signs felony ballot seizure bill"]
+    assert result.status == "success"
+
+
+def test_one_validated_page_does_not_stop_the_question_queries(monkeypatch):
+    # Only the first query's page validates; the second question query must still run,
+    # and the headline must not be searched once something validated.
+    searched, _ = _run_hunt(monkeypatch, {"bill numbers Newsom ballot seizure law": True})
+    assert searched[:2] == ["bill numbers Newsom ballot seizure law", "Newsom signs felony ballot seizure bill"]
+    assert "California sheriff broke election law by seizing ballots, state Supreme Court rules" not in searched
+
+
+def test_headline_is_the_fallback_when_question_queries_find_nothing(monkeypatch):
+    headline = "California sheriff broke election law by seizing ballots, state Supreme Court rules"
+    searched, result = _run_hunt(monkeypatch, {headline: True})
+    assert searched[:2] == ["bill numbers Newsom ballot seizure law", "Newsom signs felony ballot seizure bill"]
+    assert headline in searched[2:]          # the older variants (question text, then headline) follow
+    assert result.status == "success"
+
+
+def test_no_query_writing_when_the_question_is_the_headline(monkeypatch):
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_QUESTION_QUERIES", True)
+    with patch("newscaster.source_hunter.get_llm_response") as llm:
+        assert sh._question_queries("Headline: X happened\nDate: Sep 24, 2026", "X happened", "Sep 24") == []
+        assert sh._question_queries("X happened", "X happened", None) == []
+    llm.assert_not_called()
+
+
+def test_follow_up_questions_search_and_accept_a_wider_window(monkeypatch):
+    searched = []
+    seen_task = {}
+    def fake_search(query, num_results=8, days_prior=1):
+        searched.append((query, days_prior))
+        return [{"headline": query, "url": f"https://site.com/{len(searched)}", "snippet": "s"}]
+    def fake_filter(task, evidence):
+        seen_task.update(task)
+        return {"sources": [], "rejected_sources": []}
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_QUESTION_QUERIES", True)
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_NEARBY_SOURCE_DEPTH", 0)
+    monkeypatch.setattr(cfg, "SOURCE_HUNTER_QUESTION_WINDOW_DAYS", 30)
+    with patch("newscaster.source_hunter.search_web", side_effect=fake_search), \
+         patch("newscaster.source_hunter.fetch_discovered_evidence", return_value={"sources": [{"ok": True}]}), \
+         patch("newscaster.source_hunter.filter_validated_evidence", side_effect=fake_filter), \
+         patch("newscaster.source_hunter._generate_evidence_contract", return_value={}), \
+         patch("newscaster.source_hunter.get_llm_response", return_value="Newsom ballot seizure bill number"):
+        sh.answer_with_source_hunter("Which bills did Newsom sign after the ballot seizure?",
+                                     topic="Sheriff broke election law", formatted_date="September 25, 2026")
+    assert searched[0] == ("Newsom ballot seizure bill number", 30)
+    assert all(days == 1 for _q, days in searched[1:])      # headline fallbacks keep the 1-day search
+    assert seen_task["recency_back_days"] == 30
+
+
+def test_validator_honors_the_task_window():
+    from newscaster.source_hunter_primitives import validate_source_for_question
+    source = {"ok": True, "url": "https://gov.ca.gov/2026/09/19/bills", "title": "Governor signs ballot protection bills",
+              "text": "SACRAMENTO, September 19, 2026 - Governor Newsom signed SB 1 and AB 2 protecting ballots.",
+              "excerpt": "Governor Newsom signed SB 1 and AB 2 protecting ballots.", "published_date": "2026-09-19"}
+    base = {"id": "t", "question": "Which ballot bills did Governor Newsom sign?", "category": "news_research",
+            "as_of": "September 25, 2026", "evidence_contract": {}}
+    strict = validate_source_for_question(base, dict(source))
+    wide = validate_source_for_question(dict(base, recency_back_days=30), dict(source))
+    assert "date_mismatch" in strict["reasons"]
+    assert "date_mismatch" not in wide["reasons"]

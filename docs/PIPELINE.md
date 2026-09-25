@@ -145,16 +145,31 @@ All in `topic_finder.topic_finder`.
 - GPT-6 Luna writes the roundup script from those findings.
 
 **The source hunter** (`newscaster/source_hunter.py`):
-1. Writes an evidence contract, the facts a good answer needs.
-2. Searches, then fetches pages itself, PDFs included.
-3. Checks each page in code for the right date, year, entities and topic. For
-   news research, the contract only ranks pages; it never rejects one.
-4. Answers only from the pages it accepted, and says "no evidence" rather than
-   guess.
+1. **Writes search queries.** For a follow-up question, GPT-6 Luna writes up to 3
+   short Google queries aimed at its parts. These are searched first, over the
+   last 30 days. The story headline is searched only if they find nothing.
+   Headline lookups search the last day.
+2. **Keeps searching until it has enough.** It stops once 2 pages from the
+   question's own queries pass, not at the first page that passes.
+3. **Writes an evidence contract,** the facts a good answer needs.
+4. **Fetches pages itself,** PDFs included.
+5. **Checks each page in code** for the right date, year, entities and topic.
+   - The checks use only the question, never the "listeners already know"
+     background or the instructions attached to it.
+   - Pages up to 3 days old pass for headline lookups, and up to 30 days for
+     follow-up questions.
+   - For news research, the contract only ranks pages; it never rejects one.
+6. **Answers only from the pages it accepted,** with each page's date shown, so
+   older facts are told as background. It says "no evidence" rather than guess.
 
 If no page is accepted, the whole hunt runs again, and GPT-6 Luna writes the
 answer at medium reasoning instead of low. For side stories, an answer that
 still reads as unverified gets one more try with a broader question.
+
+These rules date from 2026-09-25. Before then, 32 of 35 lookups searched the
+headline instead of the question, so follow-ups like "which bills did Newsom
+sign" went unanswered. Replaying those 35 real lookups, the new rules won 17 of 22
+follow-up questions in a blind comparison.
 
 **The two main stories** (`newscaster/pipeline.py`, `_gather_one_topic`):
 1. **Articles.** Google search finds articles. Up to 3 are kept after relevance
@@ -202,7 +217,9 @@ still reads as unverified gets one more try with a broader question.
 - **Roundup.** Grace reads up to 5 side stories. Stories marked UNVERIFIED are
   left out.
 - **Audience memory.** After the scripts, Flash-Lite records what the audience
-  now knows about each arc, for tomorrow's framing.
+  now knows about each arc, for tomorrow's framing. A side story left out of the roundup
+  (UNVERIFIED) is recorded nowhere: not as coverage, and not as something the
+  audience learned.
 - **Outro.** A fixed text that credits the models.
 
 ## 6. Fact-check before any audio
