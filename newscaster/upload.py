@@ -131,8 +131,7 @@ def initialize_upload(youtube, options):
     if not os.path.exists(episode_file):
         sys.exit(f"Episode titles file not found: {episode_file}")
 
-    with open(episode_file, 'r') as infile:
-        titles = infile.read().split(',')
+    titles = read_episode_titles(episode_file).split(',')
 
     if not titles:
         sys.exit("No titles found in the episode titles file.")
@@ -143,8 +142,7 @@ def initialize_upload(youtube, options):
     print(titles)
     print('real_title', real_title, type(real_title))
 
-    with open(episode_file, 'r') as infile:
-        titles_content = infile.read()
+    titles_content = read_episode_titles(episode_file)
 
     real_description = (
         f"{titles_content}.\nDaily News. Always ad-free. \nMade by Alex using Claude Opus 5.5, GPT-6 Luna, GPT-6 Sol, Gemini, and Google Cloud Text to speech. \n\n"
@@ -219,6 +217,17 @@ def resumable_upload(insert_request):
             sleep_seconds = random.random() * max_sleep
             print(f"Sleeping {sleep_seconds:.2f} seconds and then retrying...")
             time.sleep(sleep_seconds)
+
+
+def read_episode_titles(path):
+    """The day's episode titles, always read as UTF-8.
+
+    The Pi's system locale is en_US (Latin-1), so a plain open() turned the curly
+    apostrophe in "Iran\u2019s" into "Iran\u00e2" plus two invisible characters in
+    the YouTube titles of 2026-09-24 and 09-25.
+    """
+    with open(path, 'r', encoding='utf-8') as infile:
+        return infile.read()
 
 
 def main():
