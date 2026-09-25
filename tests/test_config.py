@@ -80,7 +80,7 @@ def test_rag_constants_present():
     assert cfg.SEARCH_OPENROUTER_MODEL == cfg.ADVERSARY_MODEL
     assert cfg.SEARCH_OPENROUTER_ENGINE == "parallel"
     assert cfg.AGENTIC_RESEARCH_ENABLED is True
-    assert cfg.AGENTIC_RESEARCH_MAX_ITERATIONS == 5
+    assert cfg.AGENTIC_RESEARCH_MAX_ITERATIONS == 8
     assert cfg.AGENTIC_RESEARCH_MIN_ITERATIONS == 2
     assert cfg.AGENTIC_RESEARCH_ADVERSARY_ENABLED is True
     assert cfg.RAG_RESEARCH_MEMORY_ENABLED is True

@@ -140,36 +140,37 @@ All in `topic_finder.topic_finder`.
 
 ## 4. Research
 
+**Parallel work.** The 5 side stories are researched at the same time, and so are
+the 2 main stories (`PARALLEL_STORY_RESEARCH`). Within one main story the rounds run
+in order, because each question depends on the last answer.
+
 **Side stories** (`topic_finder.overview_process`):
-- The source hunter answers a question about each one.
+- A research lookup answers a question about each one.
 - GPT-6 Luna writes the roundup script from those findings.
 
-**The source hunter** (`newscaster/source_hunter.py`):
-1. **Writes search queries.** For a follow-up question, GPT-6 Luna writes up to 3
-   short Google queries aimed at its parts. These are searched first, over the
-   last 30 days. The story headline is searched only if they find nothing.
-   Headline lookups search the last day.
-2. **Keeps searching until it has enough.** It stops once 2 pages from the
-   question's own queries pass, not at the first page that passes.
-3. **Writes an evidence contract,** the facts a good answer needs.
-4. **Fetches pages itself,** PDFs included.
-5. **Checks each page in code** for the right date, year, entities and topic.
-   - The checks use only the question, never the "listeners already know"
-     background or the instructions attached to it.
-   - Pages up to 3 days old pass for headline lookups, and up to 30 days for
-     follow-up questions.
-   - For news research, the contract only ranks pages; it never rejects one.
-6. **Answers only from the pages it accepted,** with each page's date shown, so
-   older facts are told as background. It says "no evidence" rather than guess.
+**Research lookups** (`newscaster/research_tools.py`, called through
+`newscaster/source_hunter.py`). Every research question, from a side story, the
+seed pass or the agent loop, goes to a tool-using researcher:
+1. **GPT-6 Luna (medium) researches with tools,** the way Claude Code does: web
+   search, open a page (full text, in parts, with its links), and search inside a
+   page. It chooses what to open, follows links to primary sources, and rewrites
+   its searches from what it reads. It has up to 30 tool calls and 5 minutes.
+2. **Every fact needs an exact quote.** Code keeps a fact only when its quote
+   appears in the text of a page the researcher actually fetched. A lookup with no
+   verified fact returns "no evidence", and is not re-run.
+3. **The answer** lists the verified facts with their quotes and pages, the open
+   gaps, and the sources. Each source keeps the page text around its quotes, which
+   the fact check uses later.
 
-If no page is accepted, the whole hunt runs again, and GPT-6 Luna writes the
-answer at medium reasoning instead of low. For side stories, an answer that
-still reads as unverified gets one more try with a broader question.
+Why: on the 32 real lookups of Sept 24 and 25, a blind Opus comparison preferred
+this researcher's answers 31 to 1 over the fixed pipeline below and 32 to 0 over
+what aired (`benchmarks/agentic_search/`). Each lookup costs about half a cent and
+takes about 2 minutes. Switch: `RESEARCH_TOOL_LOOP_ENABLED`.
 
-These rules date from 2026-09-25. Before then, 32 of 35 lookups searched the
-headline instead of the question, so follow-ups like "which bills did Newsom
-sign" went unanswered. Replaying those 35 real lookups, the new rules won 17 of 22
-follow-up questions in a blind comparison.
+**Fallback: the fixed source hunter.** If the tool loop itself fails (the model
+call errors out), the older pipeline runs instead: Luna writes up to 3 search
+queries from the question; pages are fetched and checked in code for date,
+entities and topic; and Luna answers from the accepted excerpts.
 
 **The two main stories** (`newscaster/pipeline.py`, `_gather_one_topic`):
 1. **Articles.** Google search finds articles. Up to 3 are kept after relevance
@@ -177,8 +178,11 @@ follow-up questions in a blind comparison.
    - A first source-hunter pass, the "seed", answers a starting question. Its
      answer is fed into the loop.
 2. **Agent loop** (`newscaster/research_agent.py`, built with LangGraph):
-   - **Controller.** Opus decides what to look up next, for 2 to 5 rounds. Each
-     round runs the source hunter or fetches another article.
+   - **Controller.** Opus decides what to look up next, for 2 to 8 rounds. Each
+     round runs a research lookup or fetches another article. It sees every earlier
+     answer's open GAPS and is told to chase an answerable gap with a narrower
+     question aimed at the primary source (a bill page, a court opinion, an agency
+     release) before moving to a new topic.
    - **Memory.** Before the loop, relevant research from past episodes is pulled
      from the embedding index (`newscaster/rag/`).
    - **Adversary.** If the controller tries to stop early, Sol checks what's

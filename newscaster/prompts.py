@@ -55,6 +55,17 @@ RESEARCH_CONTROLLER_PROMPT = (
     "not resolve it either, usually because the event has not happened yet; note it as an open "
     "item and spend the iteration on a different gap. Re-asking once is reasonable when a "
     "pending event may have landed since; re-asking a third time is waste.\n\n"
+    # 2026-09-25: the loop asked which bills Newsom signed, got an answer whose GAPS listed
+    # the bill numbers and effective dates, and moved on without chasing either.
+    "Chase answerable gaps. Each completed answer ends with GAPS. When a gap is central to the "
+    "story and a specific document or source would settle it (a bill's number or effective "
+    "date, a court filing or opinion, an official statement, a figure in a report), make your "
+    "next question a narrower one aimed at that gap and at the primary source that would hold "
+    "it: the legislature's bill page for a law, the court's opinion for a ruling, the agency's "
+    "own release for an agency action. A narrower question about a gap is not a re-ask. Give up "
+    "on a gap only when a narrower attempt has also failed, or when it depends on an event that "
+    "has not happened yet. Prefer settling one important gap fully over touching many topics "
+    "lightly.\n\n"
     "Return ONLY valid JSON. No markdown, no prose outside JSON.\n\n"
     "If more research is needed, return one of:\n"
     "{\"status\":\"continue\",\"action\":\"grounded_search\",\"question\":\"...\","

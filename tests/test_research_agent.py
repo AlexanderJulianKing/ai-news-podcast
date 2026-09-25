@@ -276,3 +276,17 @@ def test_grounded_search_records_no_evidence_instead_of_failing(monkeypatch):
     assert "done_reason" not in out                    # the loop is not terminated
     assert len(out["followups"]) == 1
     assert out["followups"][0]["source_hunter_status"] == "no_evidence"
+
+
+def test_controller_sees_each_answers_gaps_even_when_long():
+    from newscaster import research_agent as ra
+    answer = "FINDINGS:\n" + ("- a long finding about the ruling. " * 60) + "\n\nGAPS:\n- The bill numbers and effective dates of the two September laws.\n\nSources:\n- https://example.com"
+    shown = json.loads(ra._recent_followups([{"iteration": 3, "question_type": "source_check", "question": "Which bills?", "answer": answer}]))
+    assert "bill numbers and effective dates" in shown[0]["gaps"]
+    assert "https://example.com" not in shown[0]["gaps"]
+
+
+def test_controller_prompt_says_to_chase_answerable_gaps():
+    from newscaster.prompts import RESEARCH_CONTROLLER_PROMPT
+    assert "Chase answerable gaps" in RESEARCH_CONTROLLER_PROMPT
+    assert "A narrower question about a gap is not a re-ask" in RESEARCH_CONTROLLER_PROMPT

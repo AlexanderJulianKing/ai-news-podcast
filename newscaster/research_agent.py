@@ -7,6 +7,7 @@ and RAG store instead of replacing them with LangChain abstractions.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
@@ -201,16 +202,31 @@ def build_research_memory_note(topic: str, formatted_date: str, formatted_date2:
         return ""
 
 
+def _split_gaps(answer: str) -> tuple[str, str]:
+    """(findings, gaps) from a source-hunter answer; gaps is '' when there is no GAPS section."""
+    text = answer or ""
+    match = re.search(r"^\W*GAPS\W*:?", text, re.MULTILINE)
+    if not match:
+        return text, ""
+    rest = text[match.end():]
+    end = re.search(r"^\W*Sources?\W*:?\s*$", rest, re.MULTILINE)
+    return text[:match.start()].strip(), (rest[:end.start()] if end else rest).strip()
+
+
 def _recent_followups(followups: list[dict[str, Any]]) -> str:
     if not followups:
         return "(none)"
     compact = []
     for item in followups[-8:]:
+        findings, gaps = _split_gaps(item.get("answer", ""))
         compact.append({
             "iteration": item.get("iteration"),
             "question_type": item.get("question_type"),
             "question": item.get("question"),
-            "answer": _clip(item.get("answer", ""), 1200),
+            "answer": _clip(findings, 1200),
+            # Kept whole: GAPS comes last in an answer, so clipping the full answer at
+            # 1,200 characters hid it in 4 of 5 answers on 2026-09-25.
+            "gaps": _clip(gaps, 1000),
         })
     return json.dumps(compact, ensure_ascii=False, indent=2)
 

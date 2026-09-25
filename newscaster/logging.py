@@ -1,4 +1,5 @@
 import os
+import threading
 import json
 from datetime import datetime
 
@@ -12,7 +13,17 @@ def _log_dir():
 os.makedirs(_log_dir(), exist_ok=True)
 
 
+# Stories are researched in parallel threads (2026-09-25), so writes and log rotation
+# take a lock; each line stays whole and a rotation can't race another write.
+_LOG_LOCK = threading.Lock()
+
+
 def print_and_write(*args):
+    with _LOG_LOCK:
+        _print_and_write(*args)
+
+
+def _print_and_write(*args):
     current_date = datetime.now()
     os.makedirs(_log_dir(), exist_ok=True)
     file_name = os.path.join(_log_dir(), current_date.strftime("log_%y_%m_%d.txt"))
@@ -50,7 +61,8 @@ def write_jsonl_log(prefix, payload):
     record = dict(payload)
     record.setdefault("timestamp", datetime.now().isoformat(timespec="seconds"))
     line = json.dumps(record, ensure_ascii=False, default=str) + '\n'
-    if os.path.exists(file_name) and os.path.getsize(file_name) + len(line.encode("utf-8")) > LOG_MAX_BYTES:
-        _rotate_log(file_name)
-    with open(file_name, 'a', encoding='utf-8') as file:
-        file.write(line)
+    with _LOG_LOCK:
+        if os.path.exists(file_name) and os.path.getsize(file_name) + len(line.encode("utf-8")) > LOG_MAX_BYTES:
+            _rotate_log(file_name)
+        with open(file_name, 'a', encoding='utf-8') as file:
+            file.write(line)

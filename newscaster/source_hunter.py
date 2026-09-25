@@ -82,7 +82,10 @@ _QUERY_PROMPT = (
     "Write up to 3 short web search queries that would find pages answering the research question "
     "below. Each query is 4 to 12 words, the way a skilled researcher types into Google: specific "
     "names, bill or case numbers if known, places, and distinctive terms. Aim each query at a "
-    "different part of the question. No quotes, no numbering, one query per line, nothing else.\n\n"
+    "different part of the question. If the question is about a law, court ruling or official "
+    "action, aim one query at the official source, such as the bill number with the legislature's "
+    "name, or the agency's name with 'press release'. No quotes, no numbering, one query per line, "
+    "nothing else.\n\n"
     "Date context: {date}\nQuestion: {question}"
 )
 
@@ -236,6 +239,19 @@ def answer_with_source_hunter(question: str, *, topic: str | None = None,
     Returns status ``success`` when at least one source validates against the
     question. On failure it returns ``no_evidence`` instead of guessing.
     """
+    if getattr(_config, "RESEARCH_TOOL_LOOP_ENABLED", False):
+        # The model researches with tools (newscaster/research_tools.py). The fixed
+        # pipeline below is the fallback, used only if the tool loop itself fails.
+        try:
+            from newscaster.research_tools import research_with_tools
+            out = research_with_tools(question, formatted_date)
+            result = SourceHunterResult(answer=out["answer"], sources=out["sources"], rejected_sources=[],
+                                        status=out["status"], metadata=out["metadata"])
+            _audit_source_hunter(question, topic, formatted_date, result)
+            return result
+        except Exception as exc:
+            print_and_write(f"Research tool loop failed ({exc}); falling back to the fixed source hunter")
+
     max_iterations = max_iterations or _config.SOURCE_HUNTER_MAX_ITERATIONS
     focus = _focus(question)
     question_queries = _question_queries(question, topic, formatted_date)
@@ -441,6 +457,10 @@ def answer_with_escalation(question: str, *, topic: str | None = None,
         question, topic=topic, formatted_date=formatted_date, mode="standard",
     )
     if result.status == "success":
+        return result
+    if (result.metadata or {}).get("engine") == "tools":
+        # The tool loop already searched as hard as it can; a second run would repeat it.
+        print_and_write(f"{label} tool loop returned {result.status}; not re-running")
         return result
     print_and_write(f"{label} standard returned {result.status}; trying advanced research reader")
     return answer_with_source_hunter(

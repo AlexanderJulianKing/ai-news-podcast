@@ -1,4 +1,6 @@
 import json
+import newscaster.config as _config
+from concurrent.futures import ThreadPoolExecutor
 import os
 import time
 from datetime import date
@@ -253,6 +255,7 @@ def gather_news(formatted_date, formatted_date2):
 
     arc_context = getattr(tf_result, "arc_context", None) or []
 
+    to_gather = []
     for topic_index, topic in enumerate(topics):
         topic_OG = topic
         existing_summary = "segment_summaries/{}_segment{}_summary.txt".format(formatted_date2, topic_index)
@@ -265,20 +268,34 @@ def gather_news(formatted_date, formatted_date2):
                 continue
             # Empty/whitespace summary file — treat as absent and re-gather.
             print_and_write(f"Slot {topic_index} summary on disk is empty/whitespace; will re-gather")
+        to_gather.append((topic_index, topic))
+
+    # The main stories are independent, so they are researched side by side; each
+    # story's own research rounds still run in order inside _gather_one_topic.
+    def _gather_slot(item):
+        topic_index, topic = item
         articles, followups = [], []
         try:
-            stories[topic_index] = _gather_one_topic(
+            summary = _gather_one_topic(
                 topic, topic_index, formatted_date, formatted_date2,
                 follow_up_prompt_text, challenging_follow_up_prompt_text,
                 articles=articles, followups=followups,
             )
         except LLMError as e:
             print_and_write(
-                f'GATHER FAILURE: topic "{topic_OG}" (slot {topic_index}) failed: {e}; '
+                f'GATHER FAILURE: topic "{topic}" (slot {topic_index}) failed: {e}; '
                 f'slot will be empty and skipped downstream'
             )
-            continue
-        slot_records[topic_index] = (articles, followups)
+            return topic_index, None, None
+        return topic_index, summary, (articles, followups)
+
+    workers = max(1, len(to_gather)) if getattr(_config, 'PARALLEL_STORY_RESEARCH', True) else 1
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for topic_index, summary, record in pool.map(_gather_slot, to_gather):
+            if summary is None:
+                continue
+            stories[topic_index] = summary
+            slot_records[topic_index] = record
 
     for i, summary_text in stories.items():
         _atomic_write_text(

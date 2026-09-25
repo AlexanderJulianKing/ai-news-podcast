@@ -123,3 +123,30 @@ def test_roundup_prompt_explains_follow_ups():
     from newscaster.prompts import OVERVIEW_ANCHOR_PROMPT
     assert "marked FOLLOW-UP" in OVERVIEW_ANCHOR_PROMPT
     assert "Never present a follow-up as a new, unrelated story" in OVERVIEW_ANCHOR_PROMPT
+
+
+def test_side_stories_run_in_parallel_but_keep_their_order(monkeypatch):
+    import threading
+    import time as _time
+    active, peak = [0], [0]
+    lock = threading.Lock()
+
+    def fake_llm(overview, system_prompt="", mode=None, **kw):
+        return "Headline " + system_prompt.split("story number ")[1].split(".")[0]
+
+    def fake_research(headline, audience_state=None):
+        with lock:
+            active[0] += 1
+            peak[0] = max(peak[0], active[0])
+        _time.sleep(0.05 * (6 - int(headline.split()[-1])))   # later stories finish first
+        with lock:
+            active[0] -= 1
+        return f"FINDINGS: about {headline}"
+
+    monkeypatch.setattr(tf._config, "PARALLEL_STORY_RESEARCH", True, raising=False)
+    monkeypatch.setattr(tf, "get_llm_response", fake_llm)
+    monkeypatch.setattr(tf, "summarize_headline_with_grounding", fake_research)
+    text, headlines, briefs, arcs = tf.overview_process("overview text")
+    assert headlines == [f"Headline {i}" for i in range(1, 6)]
+    assert [b for _h, b in briefs] == [f"FINDINGS: about Headline {i}" for i in range(1, 6)]
+    assert peak[0] > 1

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
@@ -244,7 +245,9 @@ def summarize_headline_with_grounding(headline: str, audience_state: str | None 
             # and found no current evidence. Re-running the whole apparatus on the
             # near-identical retry prompt cannot recover, so stop and mark unverified.
             break
-        if not _grounded_response_needs_retry(story):
+        if not _grounded_response_needs_retry(story) or getattr(_config, 'RESEARCH_TOOL_LOOP_ENABLED', False):
+            # The tool loop already searched hard; its GAPS can contain phrases like
+            # "no indication that", which would otherwise trigger a second full run.
             return story
         # Got a real answer that still reads as unverified or denies the story;
         # loop once more with retry_prompt, which pushes past false negatives.
@@ -299,46 +302,62 @@ def _followup_note(arc_info, ledger, today=None):
 
 
 def overview_process(overview, headline_arc_map=None, ledger=None):
+    """Research the day's 5 side stories and assemble the roundup writer's input.
+
+    The stories are independent, so they run in parallel (PARALLEL_STORY_RESEARCH);
+    results are assembled in story order either way.
+    """
+    workers = 5 if getattr(_config, 'PARALLEL_STORY_RESEARCH', True) else 1
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = list(pool.map(lambda i: _research_side_story(overview, i, headline_arc_map, ledger), range(5)))
     story_overviews = ''
     overview_headlines = []
     overview_briefs = []
     overview_arc_infos = []  # parallel to overview_briefs; reused by the archival step
-    for i in range(5):
-        number = str(i + 1)
-        headline_finder_prompt = f'Find story number {number}. Only give the headline of that story.'
-
-        try:
-            headline_n = get_llm_response(overview, system_prompt=headline_finder_prompt, mode='light')
-        except Exception as e:
-            print_and_write(f'Headline extraction failed in overview for story {number}: {e}')
+    for result in results:
+        if result is None:
             continue
-
-        # Resolve the arc ONCE here so the audience_state lookup (for writing) and the
-        # later ledger archival agree and don't each pay for a separate LLM match.
-        arc_info = resolve_arc_identity(headline_n, headline_arc_map, ledger) if headline_arc_map else None
-        prior_state = _audience_state_for_arc(arc_info, ledger)
-        if prior_state:
-            print_and_write(f'Side story "{strip_arc_tags(headline_n).strip()[:60]}" is a continuation; injecting prior audience_state')
-
-        story_finder_prompt = "Tell me more about the story behind this headline from today's paper. Include as many details as possible :\n" + headline_n
-        try:
-            print_and_write(story_finder_prompt)
-            story = summarize_headline_with_grounding(headline_n, audience_state=prior_state)
-            print_and_write(story)
-            # The roundup writer sees each story's headline and, for a story the show has
-            # covered before, when and how, so it can tie the new facts back to it.
-            header = f"STORY: {strip_arc_tags(headline_n).strip()}\n"
-            note = None if brief_is_unverified(story) else _followup_note(arc_info, ledger)
-            if note:
-                header += note + "\n"
-            story_overviews = story_overviews + '\n' + header + story
-            overview_headlines.append(headline_n)
-            overview_briefs.append((headline_n, story))
-            overview_arc_infos.append(arc_info)
-        except Exception as e:
-            print_and_write(f'Overview source-hunter research failed: {e}')
-
+        text, headline_n, story, arc_info = result
+        story_overviews = story_overviews + '\n' + text
+        overview_headlines.append(headline_n)
+        overview_briefs.append((headline_n, story))
+        overview_arc_infos.append(arc_info)
     return story_overviews, overview_headlines, overview_briefs, overview_arc_infos
+
+
+def _research_side_story(overview, i, headline_arc_map, ledger):
+    """One side story: (roundup text, headline, brief, arc_info), or None if it failed."""
+    number = str(i + 1)
+    headline_finder_prompt = f'Find story number {number}. Only give the headline of that story.'
+
+    try:
+        headline_n = get_llm_response(overview, system_prompt=headline_finder_prompt, mode='light')
+    except Exception as e:
+        print_and_write(f'Headline extraction failed in overview for story {number}: {e}')
+        return None
+
+    # Resolve the arc ONCE here so the audience_state lookup (for writing) and the
+    # later ledger archival agree and don't each pay for a separate LLM match.
+    arc_info = resolve_arc_identity(headline_n, headline_arc_map, ledger) if headline_arc_map else None
+    prior_state = _audience_state_for_arc(arc_info, ledger)
+    if prior_state:
+        print_and_write(f'Side story "{strip_arc_tags(headline_n).strip()[:60]}" is a continuation; injecting prior audience_state')
+
+    story_finder_prompt = "Tell me more about the story behind this headline from today's paper. Include as many details as possible :\n" + headline_n
+    try:
+        print_and_write(story_finder_prompt)
+        story = summarize_headline_with_grounding(headline_n, audience_state=prior_state)
+        print_and_write(story)
+        # The roundup writer sees each story's headline and, for a story the show has
+        # covered before, when and how, so it can tie the new facts back to it.
+        header = f"STORY: {strip_arc_tags(headline_n).strip()}\n"
+        note = None if brief_is_unverified(story) else _followup_note(arc_info, ledger)
+        if note:
+            header += note + "\n"
+        return header + story, headline_n, story, arc_info
+    except Exception as e:
+        print_and_write(f'Overview source-hunter research failed: {e}')
+        return None
 
 
 import re

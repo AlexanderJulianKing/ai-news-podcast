@@ -99,7 +99,8 @@ RAG_AUGMENT_ENABLED = False          # gates the retrieve-then-refine pass
 
 # --- Agentic selected-story research ---
 AGENTIC_RESEARCH_ENABLED = True
-AGENTIC_RESEARCH_MAX_ITERATIONS = 5
+PARALLEL_STORY_RESEARCH = True   # research the 5 side stories side by side, and the 2 main stories side by side
+AGENTIC_RESEARCH_MAX_ITERATIONS = 8   # 5 until 2026-09-25; the loop now chases open gaps, which takes rounds
 AGENTIC_RESEARCH_MIN_ITERATIONS = 2
 AGENTIC_RESEARCH_ADVERSARY_ENABLED = True
 RAG_RESEARCH_MEMORY_ENABLED = True
@@ -110,6 +111,15 @@ FACT_FINDER_AUTOEDIT_MAX_ROUNDS = 3
 
 # --- Controlled source-hunter research ---
 SOURCE_HUNTER_ENABLED = True
+# The model researches with tools (search, open page, find in page) instead of the fixed
+# search-and-filter pipeline. Blind comparison on 32 real lookups (2026-09-25): 31-1 over the
+# patched source hunter, 32-0 over what aired (benchmarks/agentic_search/). Facts must carry a
+# quote that code finds on a fetched page. The fixed pipeline remains the fallback on errors.
+RESEARCH_TOOL_LOOP_ENABLED = True
+RESEARCH_TOOL_MODEL = "openai/gpt-6-luna"
+RESEARCH_TOOL_EFFORT = "medium"
+RESEARCH_TOOL_MAX_STEPS = 30
+RESEARCH_TOOL_MAX_SECONDS = 300       # per lookup; then it must answer from what it has read
 SOURCE_HUNTER_MAX_ITERATIONS = 3          # headline/fallback searches, on top of the question queries
 SOURCE_HUNTER_QUESTION_QUERIES = True     # write short search queries from the question and search them first
 SOURCE_HUNTER_MIN_QUESTION_SOURCES = 2    # stop searching question queries once this many of their pages validate

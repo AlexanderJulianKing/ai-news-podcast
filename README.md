@@ -29,9 +29,10 @@ Each morning, one run:
 3. **Picks** a main story, an everyday story, and five side stories. This takes
    two scoring passes, a web-searched brief per shortlisted headline, and final
    editorial calls.
-4. **Researches** the main stories with an agent loop. The loop decides what to
-   look up next, fetches and checks its own sources, and has a second model
-   challenge it before it stops.
+4. **Researches** the main stories with an agent loop. Opus decides what to look
+   up next and chases open gaps, a tool-using researcher does each lookup, and a
+   second model challenges the result before it stops. Stories are researched in
+   parallel.
 5. **Writes** the script as a conversation between an anchor and two reporters,
    plus a roundup, intro and outro.
 6. **Fact-checks** every quote and claim against the saved sources and fixes
@@ -66,9 +67,10 @@ The comments in `newscaster/config.py` record why each model was chosen.
 - **Honest front-page reading.** A normal, visible Chromium runs on a virtual
   screen, and the rendered page is read over the DevTools protocol. Nothing is
   disguised. A screenshot of each page is kept for checking.
-- **Source hunter.** It writes an evidence contract, fetches pages itself, checks
-  them, and answers only from pages it accepted. If it can't support an answer,
-  it says "no evidence" rather than guessing.
+- **Tool-using researcher.** GPT-6 Luna searches, opens pages, searches inside
+  them and follows links until a question is answered. Every fact must carry a
+  quote that code finds on a page it fetched; otherwise the answer is "no
+  evidence". A fixed fetch-and-validate pipeline is the fallback.
 - **Agentic research loop.** Built with LangGraph. Opus is the controller, GPT-6
   Sol is the adversary, and memory from past episodes comes from embeddings.
 - **Structured repeat tagging.** The model returns a verdict per numbered
