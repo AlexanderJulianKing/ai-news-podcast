@@ -127,11 +127,18 @@ def render_page(url, *, wait_seconds=None, screenshot_path=None):
     )
     try:
         time.sleep(wait)
-        try:
-            tabs = json.load(urllib.request.urlopen("http://127.0.0.1:{}/json".format(port), timeout=10))
-            page = next(t for t in tabs if t.get("type") == "page")
-        except Exception as e:
-            raise RenderError("could not reach the browser: {}".format(e))
+        # A cold start at 4 a.m. can take longer than the wait (NPR, 2026-09-25), so keep
+        # asking for up to BROWSER_CONNECT_GRACE more seconds before giving up.
+        deadline = time.time() + getattr(_config, "BROWSER_CONNECT_GRACE", 30)
+        while True:
+            try:
+                tabs = json.load(urllib.request.urlopen("http://127.0.0.1:{}/json".format(port), timeout=10))
+                page = next(t for t in tabs if t.get("type") == "page")
+                break
+            except Exception as e:
+                if time.time() >= deadline:
+                    raise RenderError("could not reach the browser: {}".format(e))
+                time.sleep(2)
         try:
             title, text, shot = asyncio.run(asyncio.wait_for(
                 _read_page(page["webSocketDebuggerUrl"], bool(screenshot_path)), timeout=45))
@@ -167,7 +174,10 @@ def prune_screenshots(folder, keep_days=14):
             os.remove(path)
 
 
-ORDER_NOTE = ("List the items in the order the page shows them, starting with the most prominent story at the top "
+ORDER_NOTE = ("This is the live front page as it looks right now, so treat every story on it as current news, "
+              "with or without a timestamp, unless the page itself dates it before yesterday. (On 2026-09-25 at 4 a.m. "
+              "the 'published today' rule alone left 4 of about 30 AP stories.) "
+              "List the items in the order the page shows them, starting with the most prominent story at the top "
               "of the page. Skip navigation, ads, newsletter prompts, and evergreen features.")
 
 

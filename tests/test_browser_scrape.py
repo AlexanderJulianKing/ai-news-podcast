@@ -64,3 +64,8 @@ def test_reap_orphans_kills_only_our_browsers(monkeypatch, tmp_path):
     assert killed == [111]                                  # never our own process group
     assert not (tmp_path / "newscaster_chromium_old").exists()
     assert (tmp_path / "someone_else").exists()
+
+
+def test_order_note_treats_the_live_page_as_current():
+    assert "treat every story on it as current news" in browser.ORDER_NOTE
+    assert "with or without a timestamp" in browser.ORDER_NOTE

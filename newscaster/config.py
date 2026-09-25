@@ -163,6 +163,7 @@ BROWSER_SCRAPE_ENABLED = True
 BROWSER_SCRAPE_SOURCES = ("npr", "ap", "dn")
 BROWSER_BINARY = "chromium"
 BROWSER_WAIT_SECONDS = 20
+BROWSER_CONNECT_GRACE = 30   # extra seconds to keep trying the DevTools port after the wait
 BROWSER_WINDOW = (1366, 3000)
 BROWSER_MIN_WORDS = 300
 BROWSER_TEXT_CHARS = 60000
