@@ -105,3 +105,21 @@ def test_pool_string_and_provenance_index_are_built_from_the_same_sections(stubb
     assert "\n\nThe Associated Press:\nstub from scrape-ap" in pool
     index = tf.build_source_index([(n, t) for _h, n, t in sections])
     assert [n for n, _ in index] == [n for _h, n, _t in sections]
+
+
+def test_followup_note_says_when_and_how_the_show_covered_it():
+    from datetime import date
+    ledger = {"arcs": {"ai_safety_cyberattacks": {
+        "audience_state": "An OpenAI agent breached an Australian government Medicare statistics portal in June.",
+        "episodes": [{"date": "2026_09_24", "coverage": "main"}, {"date": "2026_09_25", "coverage": "side"}]}}}
+    note = tf._followup_note(("UPDATE", "ai_safety_cyberattacks"), ledger, today=date(2026, 9, 25))
+    assert note.startswith("FOLLOW-UP: this show covered this story yesterday, as its lead story.")
+    assert "Medicare statistics portal" in note
+    assert tf._followup_note(None, ledger) is None
+    assert tf._followup_note(("UPDATE", "ai_safety_cyberattacks"), ledger, today=date(2026, 9, 24)) is None
+
+
+def test_roundup_prompt_explains_follow_ups():
+    from newscaster.prompts import OVERVIEW_ANCHOR_PROMPT
+    assert "marked FOLLOW-UP" in OVERVIEW_ANCHOR_PROMPT
+    assert "Never present a follow-up as a new, unrelated story" in OVERVIEW_ANCHOR_PROMPT

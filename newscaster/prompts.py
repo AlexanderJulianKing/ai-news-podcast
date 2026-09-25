@@ -170,6 +170,12 @@ OVERVIEW_ANCHOR_PROMPT = (
     'a total length: write however many words the stories actually need. If a story is marked UNVERIFIED, '
     'or its brief has no findings, leave it out of the broadcast entirely rather than mentioning it '
     'vaguely. Never substitute a joke or a turn of phrase for a fact you do not have. '
+    # 2026-09-25: the roundup told a follow-up to the previous day's lead (the OpenAI agent
+    # that breached an Australian government portal) as "an investigation into a security incident".
+    'Some stories are marked FOLLOW-UP: the show has covered them before. Open that story\'s paragraph '
+    'with one short clause that reminds listeners what the story is and that we covered it, for example '
+    "'Following up on Tuesday\'s story about the Los Angeles transit strike,' and then give the new facts. Never present a follow-up as a new, unrelated story, and never "
+    "refer to it only as 'an incident' or 'the case'. "
     "Numbers should be written in word form, like 'two hundred fifty five'. "
     'Also use wordplay and puns whenever you can. Do NOT put puns or wordplay in quotation marks — just use them naturally in the sentence.'
 )

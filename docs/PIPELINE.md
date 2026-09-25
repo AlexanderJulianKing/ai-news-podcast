@@ -215,7 +215,10 @@ follow-up questions in a blind comparison.
   - **Missing speakers.** A reply with no speaker lines is asked again, up to 5
     times.
 - **Roundup.** Grace reads up to 5 side stories. Stories marked UNVERIFIED are
-  left out.
+  left out. The writer sees each story's headline, and a FOLLOW-UP note for any
+  story the show covered before (when, whether it led or was in the roundup, and
+  what listeners already know). A follow-up opens with a short tie-back such as
+  "Following up on yesterday's story about…" instead of sounding like a new story.
 - **Audience memory.** After the scripts, Flash-Lite records what the audience
   now knows about each arc, for tomorrow's framing. A side story left out of the roundup
   (UNVERIFIED) is recorded nowhere: not as coverage, and not as something the

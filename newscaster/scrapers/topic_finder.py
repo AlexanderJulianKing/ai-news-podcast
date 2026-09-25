@@ -266,6 +266,38 @@ def _audience_state_for_arc(arc_info, ledger):
     return arc.get("audience_state") or None
 
 
+def _followup_note(arc_info, ledger, today=None):
+    """A FOLLOW-UP line for the roundup writer when the show covered this arc before today.
+
+    The side-story research reports only what is new, so without this the roundup told
+    2026-09-25's listeners that Australia opened a forensic investigation into "a security
+    incident", never saying it was the OpenAI breach that led the show the day before.
+    """
+    if not arc_info or not ledger:
+        return None
+    arc = ledger.get("arcs", {}).get(arc_info[1])
+    if not arc:
+        return None
+    today = today or date.today()
+    earlier = [e for e in arc.get("episodes", []) if e.get("date", "") < today.strftime("%Y_%m_%d")]
+    if not earlier:
+        return None
+    last = max(earlier, key=lambda e: e["date"])
+    try:
+        days = (today - datetime.strptime(last["date"], "%Y_%m_%d").date()).days
+    except ValueError:
+        return None
+    when = "yesterday" if days == 1 else f"{days} days ago"
+    how = "as its lead story" if last.get("coverage") == "main" else "in the roundup"
+    known = (arc.get("audience_state") or "").strip()
+    if len(known) > 300:
+        known = known[:300].rsplit(" ", 1)[0] + "..."
+    note = f"FOLLOW-UP: this show covered this story {when}, {how}."
+    if known:
+        note += f" Listeners already know: {known}"
+    return note
+
+
 def overview_process(overview, headline_arc_map=None, ledger=None):
     story_overviews = ''
     overview_headlines = []
@@ -293,7 +325,13 @@ def overview_process(overview, headline_arc_map=None, ledger=None):
             print_and_write(story_finder_prompt)
             story = summarize_headline_with_grounding(headline_n, audience_state=prior_state)
             print_and_write(story)
-            story_overviews = story_overviews + '\n' + story
+            # The roundup writer sees each story's headline and, for a story the show has
+            # covered before, when and how, so it can tie the new facts back to it.
+            header = f"STORY: {strip_arc_tags(headline_n).strip()}\n"
+            note = None if brief_is_unverified(story) else _followup_note(arc_info, ledger)
+            if note:
+                header += note + "\n"
+            story_overviews = story_overviews + '\n' + header + story
             overview_headlines.append(headline_n)
             overview_briefs.append((headline_n, story))
             overview_arc_infos.append(arc_info)
