@@ -13,4 +13,4 @@ The show's intro music since 2026-09-26, composed by Claude on 2026-09-25. The n
 
 **The switch.** `OFF_THE_WIRE_INTRO_ENABLED` in `newscaster/config.py`. If the bank is missing or anything fails, the classic theme is used.
 
-The full concert piece, its score and the design history are in `theme_song/sketches/2026-09-25 Off the Wire/` on the Mac. That folder is not in the repo.
+The full concert piece, its score, the loop transcriptions and the design history are on the Mac in `~/Music/GarageBand/Newscaster theme/`, outside the repo. The original GarageBand project is backed up in `~/Music/GarageBand/Newscaster theme backups/`.
