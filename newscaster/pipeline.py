@@ -747,14 +747,27 @@ def write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list,
         )
 
 
+def make_intro(formatted_date2):
+    """The day's intro: 'Off the Wire' when enabled, the classic theme otherwise or if it fails."""
+    from newscaster.audio.intro_music import fun_intromaker
+
+    if getattr(_config, 'OFF_THE_WIRE_INTRO_ENABLED', False):
+        try:
+            from newscaster.audio.off_the_wire import make_intro as off_the_wire_intro
+            off_the_wire_intro(formatted_date2)
+            return
+        except Exception as e:
+            print_and_write(f"Off the Wire intro failed ({e!r}); using the classic theme")
+    fun_intromaker(formatted_date2)
+
+
 def generate_audio(formatted_date2, voices_list):
     """Stage 3: Synthesize speech, add intro music, and assemble final podcast."""
     from newscaster.audio.tts import text2speech
-    from newscaster.audio.intro_music import fun_intromaker
     from newscaster.audio.assembly import assemble_podcast
 
     text2speech(formatted_date2, voices_list)
-    fun_intromaker(formatted_date2)
+    make_intro(formatted_date2)
     assemble_podcast(formatted_date2)
 
 

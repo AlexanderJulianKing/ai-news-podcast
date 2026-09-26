@@ -105,6 +105,13 @@ AGENTIC_RESEARCH_MIN_ITERATIONS = 2
 AGENTIC_RESEARCH_ADVERSARY_ENABLED = True
 RAG_RESEARCH_MEMORY_ENABLED = True
 
+# --- Intro music ---
+# 'Off the Wire' (theme_song/off_the_wire/): a one-second logo, a groove that fits the host's reading and changes
+# daily, a button ~4 s after the last word. Needs the Steinway sample bank below (built on a Mac, copied to the Pi,
+# never committed). If it is missing or anything fails, the classic theme is used.
+OFF_THE_WIRE_INTRO_ENABLED = True
+OFF_THE_WIRE_BANK_PATH = "theme_song/off_the_wire/steinway_bank_48k.npz"
+
 # --- Fact-finder auto-edit (agentic editor: fix confirmed factual errors before TTS) ---
 FACT_FINDER_AUTOEDIT_ENABLED = True
 FACT_FINDER_AUTOEDIT_MAX_ROUNDS = 3

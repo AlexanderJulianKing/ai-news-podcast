@@ -35,3 +35,6 @@ docs/superpowers/
 
 # Front-page screenshots from the browser scraper
 screenshots/
+
+# Off the Wire intro: pre-rendered GarageBand Steinway samples (Apple sample content, never redistributed)
+theme_song/off_the_wire/*.npz
