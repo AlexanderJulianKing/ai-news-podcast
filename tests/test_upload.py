@@ -1,6 +1,7 @@
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from newscaster.upload import fit_title_to_limit
+from newscaster.upload import fit_title_to_limit, resumable_upload, write_upload_marker
 
 
 def test_short_title_is_left_unchanged():
@@ -42,3 +43,18 @@ def test_truncates_when_llm_errors():
         out = fit_title_to_limit(long_title)
     assert 0 < len(out) <= 100
     assert " " in out  # truncated at a word boundary, not mid-word
+
+
+def test_resumable_upload_returns_video_id():
+    request = SimpleNamespace(
+        uri="https://example.com/upload",
+        headers={},
+        body="{}",
+        next_chunk=lambda: (None, {"id": "video-123"}),
+    )
+    assert resumable_upload(request) == "video-123"
+
+
+def test_write_upload_marker_is_nonempty(tmp_path):
+    write_upload_marker("2026_07_22", "video-123", str(tmp_path))
+    assert tmp_path.joinpath("2026_07_22_UPLOAD_COMPLETE.flag").read_text() == "video-123\n"

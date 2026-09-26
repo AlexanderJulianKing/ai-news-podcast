@@ -6,6 +6,7 @@ from datetime import date
 from typing import Dict
 
 import google.auth.exceptions
+import google_auth_httplib2
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -21,6 +22,7 @@ from newscaster.logging import print_and_write
 httplib2.RETRIES = 1
 
 MAX_RETRIES = 10
+UPLOAD_HTTP_TIMEOUT_SECONDS = 180
 
 RETRIABLE_EXCEPTIONS = (httplib2.HttpLib2Error, IOError, ConnectionResetError,
                         ConnectionAbortedError, ConnectionRefusedError)
@@ -72,7 +74,10 @@ def get_authenticated_service():
         with open(token_file, 'w') as token:
             token.write(creds.to_json())
 
-    return build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, credentials=creds)
+    authed_http = google_auth_httplib2.AuthorizedHttp(
+        creds, http=httplib2.Http(timeout=UPLOAD_HTTP_TIMEOUT_SECONDS)
+    )
+    return build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, http=authed_http)
 
 
 def fit_title_to_limit(title, limit=YOUTUBE_TITLE_LIMIT, max_attempts=3):
@@ -175,12 +180,25 @@ def initialize_upload(youtube, options):
         media_body=MediaFileUpload(options.file, chunksize=-1, resumable=True)
     )
 
-    resumable_upload(insert_request)
+    video_id = resumable_upload(insert_request)
+    write_upload_marker(formatted_date2, video_id)
+    return video_id
+
+
+def write_upload_marker(formatted_date, video_id, directory="output_scripts"):
+    """Atomically record a completed upload so the scheduler can verify it."""
+    os.makedirs(directory, exist_ok=True)
+    marker = os.path.join(directory, f"{formatted_date}_UPLOAD_COMPLETE.flag")
+    temporary = f"{marker}.tmp.{os.getpid()}"
+    with open(temporary, "w") as outfile:
+        outfile.write(f"{video_id}\n")
+    os.replace(temporary, marker)
+    print(f"Upload completion marker written: {marker}")
+    return marker
 
 
 def resumable_upload(insert_request):
     response = None
-    error = None
     retry = 0
     print(insert_request)
 
@@ -189,6 +207,7 @@ def resumable_upload(insert_request):
     print("  Request Headers:", insert_request.headers)
     print("  Request Body:", insert_request.body)
     while response is None:
+        error = None
         try:
             print("Uploading file...")
             print('inserting chunk')
@@ -197,8 +216,9 @@ def resumable_upload(insert_request):
             if response:
                 if 'id' in response:
                     print(f"Video id '{response['id']}' was successfully uploaded.")
+                    return response['id']
                 else:
-                    sys.exit(f"The upload failed with an unexpected response: {response}")
+                    raise RuntimeError(f"The upload failed with an unexpected response: {response}")
         except HttpError as e:
             if e.resp.status in RETRIABLE_STATUS_CODES:
                 error = f"A retriable HTTP error {e.resp.status} occurred:\n{e.content}"
@@ -249,4 +269,5 @@ def main():
     try:
         initialize_upload(youtube, args)
     except HttpError as e:
-        print(f"An HTTP error {e.resp.status} occurred:\n{e.content}")
+        print(f"An HTTP error {e.resp.status} occurred:\n{e.content}", file=sys.stderr)
+        raise SystemExit(1)

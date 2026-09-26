@@ -55,7 +55,38 @@ while true; do
     if [ -f "output_video.mp4" ]; then
         echo made_movie
         echo uploading_movie
-        python3 uploader2.py --file="output_video.mp4" --title="Summer vacation in California" --description="Had fun surfing in Santa Cruz" --keywords="surfing,Santa Cruz" --category="25" --privacyStatus="public"
+        upload_marker="output_scripts/${date}_UPLOAD_COMPLETE.flag"
+        upload_succeeded=false
+        if [ -s "$upload_marker" ]; then
+            echo "YouTube upload already verified by $upload_marker; skipping duplicate upload"
+            upload_succeeded=true
+        else
+            for upload_attempt in 1 2 3; do
+                echo "YouTube upload attempt ${upload_attempt}/3"
+                if python3 uploader2.py --file="output_video.mp4" --category="25" --privacyStatus="public"; then
+                    if [ -s "$upload_marker" ]; then
+                        echo "YouTube upload verified by $upload_marker"
+                        upload_succeeded=true
+                        break
+                    fi
+                    echo "Uploader exited successfully but did not write $upload_marker"
+                else
+                    echo "YouTube upload attempt ${upload_attempt}/3 failed"
+                fi
+
+                if [ "$upload_attempt" -lt 3 ]; then
+                    upload_backoff=$((upload_attempt * 60))
+                    echo "Starting a fresh upload session in ${upload_backoff} seconds..."
+                    sleep "$upload_backoff"
+                fi
+            done
+        fi
+
+        if [ "$upload_succeeded" != true ]; then
+            failure_time=$(date --iso-8601=seconds)
+            failure_message="[$failure_time] YouTube upload failed after 3 fresh sessions for $date"
+            echo "$failure_message" | tee -a logs/upload_failures.log
+        fi
     else
         echo "moviemaker failed — skipping upload to avoid uploading stale video"
     fi
