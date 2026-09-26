@@ -1,4 +1,5 @@
 import os
+import re
 import time
 from datetime import datetime
 
@@ -46,7 +47,7 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
 
     def _fetch_dialogue(story_text, prompt, reporter_name):
         """Content-shape retry: re-prompt if the LLM returns a script missing
-        the expected Grace/reporter lines. Network/transport failures are
+        the expected Grace/reporter lines or ends mid-sentence. Network/transport failures are
         already retried by the router — those raise LLMError here, which we
         propagate so the caller can decide what to do with this segment."""
         attempt = 0
@@ -60,6 +61,10 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
                 continue
             if f'{reporter_name}:' not in response:
                 print_and_write(f'Missing reporter line ({reporter_name}) in response (attempt {attempt}); retrying')
+                time.sleep(2)
+                continue
+            if not _dialogue_looks_finished(response, reporter_name):
+                print_and_write(f'Unfinished dialogue for reporter {reporter_name} (attempt {attempt}); retrying')
                 time.sleep(2)
                 continue
             return response
@@ -80,6 +85,16 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
             dialogue = dialogue.strip().replace("\u2019", "'")
             lines.append(f'{speaker}: {dialogue}')
         return '\n'.join(lines)
+
+    def _dialogue_looks_finished(text, reporter_name):
+        """Check the final spoken line, ignoring non-dialogue source notes."""
+        dialogue = _normalize_dialogue(text)
+        prefixes = ('Grace:', f'{reporter_name}:')
+        spoken_lines = [line for line in dialogue.splitlines() if line.startswith(prefixes)]
+        if not spoken_lines:
+            return False
+        last_text = spoken_lines[-1].split(':', 1)[1].strip()
+        return bool(re.search(r'[.!?]["\u201d\'\u2019)\]\*]*$', last_text))
 
     def _score_dialogue(text, reporter_name):
         if not text:

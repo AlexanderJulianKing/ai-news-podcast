@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -301,15 +302,119 @@ def _followup_note(arc_info, ledger, today=None):
     return note
 
 
-def overview_process(overview, headline_arc_map=None, ledger=None):
-    """Research the day's 5 side stories and assemble the roundup writer's input.
+def _clean_overview_headline(text):
+    headline = re.sub(r'\*\*', '', text).strip()
+    return re.sub(r'^\[(?:UPDATE|MAJOR ESCALATION|SIDE-COVERED|DEVELOPMENT)(?::[^\]]+)?\]\s*', '', headline, flags=re.I)
+
+
+def _parse_overview_candidates(overview):
+    """The model's picks in its ranking: list items, or plain lines if it wrote no list markers."""
+    lines = [line.strip() for line in (overview or '').splitlines() if line.strip()]
+    headlines = []
+    for line in lines:
+        match = re.match(r'^(?:[-*\u2022]\s+|\d+[.)]\s+)(.+?)$', line)
+        if match:
+            headline = _clean_overview_headline(match.group(1))
+            if headline:
+                headlines.append(headline)
+    if headlines:
+        return headlines
+    # No list markers: take each plain line as a headline, skipping lead-ins such as "Here are the picks:"
+    for line in lines:
+        if line.endswith(':') or len(line.split()) < 3:
+            continue
+        headline = _clean_overview_headline(line)
+        if headline:
+            headlines.append(headline)
+    return headlines
+
+
+def _overview_lexical_repeat(candidate, main_headline):
+    """Conservative content-word fallback for a failed same-event check."""
+    aliases = {'data': 'database', 'system': 'database', 'citizenship': 'eligibility'}
+    candidate_words = {aliases.get(word, word) for word in _content_tokens(candidate)}
+    main_words = {aliases.get(word, word) for word in _content_tokens(main_headline)}
+    if not candidate_words or not main_words:
+        return False
+    shared = candidate_words & main_words
+    return len(shared) >= 4 and len(shared) / min(len(candidate_words), len(main_words)) >= 0.5
+
+
+def _parse_overview_repeat_numbers(reply, count):
+    """Candidate numbers from a numbers-only reply ("4, 5", "4 and 5", "NONE"). Anything wordier is rejected, so a
+    stray number in an explanation (e.g. "$1 billion") can never drop a story; the caller then uses the fallback."""
+    value = str(reply or '').strip().lower().rstrip('.')
+    if re.fullmatch(r'(?:none|no matches|no matching candidates)', value):
+        return set()
+    if not re.fullmatch(r'\d+(?:\s*(?:,|and|&)\s*\d+)*', value):
+        raise ValueError(f'Unparseable same-event answer: {reply!r}')
+    numbers = {int(number) for number in re.findall(r'\d+', value)}
+    if any(number < 1 or number > count for number in numbers):
+        raise ValueError(f'Unparseable same-event answer: {reply!r}')
+    return numbers
+
+
+def _filter_overview_candidates(overview, main_headlines, headline_arc_map=None, ledger=None):
+    candidates = _parse_overview_candidates(overview)
+    if not candidates:
+        return []
+    arc_map = headline_arc_map or {}
+    main_slugs = set()
+    for headline in main_headlines:
+        info = resolve_arc_identity(headline, arc_map, ledger, use_llm=False)
+        if info:
+            main_slugs.add(info[1])
+    prompt = (
+        'Which numbered candidate headlines report the same news event as either main story, '
+        'or a direct development of one? Reply with ONLY the candidate numbers separated by commas, '
+        'or NONE. Match events, not merely subjects.\n\n'
+        + '\n'.join(f'Main {i}: {headline}' for i, headline in enumerate(main_headlines, 1))
+        + '\n\nCandidates:\n'
+        + '\n'.join(f'{i}. {headline}' for i, headline in enumerate(candidates, 1))
+    )
+    try:
+        repeated_numbers = _parse_overview_repeat_numbers(
+            get_llm_response(prompt, mode='light'), len(candidates)
+        )
+        lexical_fallback = False
+    except Exception as error:
+        print_and_write(f'Overview same-event check failed; using lexical overlap: {error}')
+        repeated_numbers = set()
+        lexical_fallback = True
+
+    kept = []
+    for i, candidate in enumerate(candidates, 1):
+        arc_info = resolve_arc_identity(candidate, arc_map, ledger, use_llm=False)
+        if arc_info and arc_info[1] in main_slugs:
+            print_and_write(f'Dropped overview candidate "{candidate}": same arc as main story ({arc_info[1]})')
+            continue
+        if i in repeated_numbers:
+            print_and_write(f'Dropped overview candidate "{candidate}": same event as main story')
+            continue
+        if lexical_fallback and any(_overview_lexical_repeat(candidate, main) for main in main_headlines):
+            print_and_write(f'Dropped overview candidate "{candidate}": lexical overlap with main story')
+            continue
+        kept.append(candidate)
+    return kept[:5]
+
+
+def overview_process(overview, headline_arc_map=None, ledger=None, headlines=None):
+    """Research up to five side stories and assemble the roundup writer's input.
 
     The stories are independent, so they run in parallel (PARALLEL_STORY_RESEARCH);
     results are assembled in story order either way.
     """
-    workers = 5 if getattr(_config, 'PARALLEL_STORY_RESEARCH', True) else 1
+    story_count = len(headlines) if headlines is not None else len(_parse_overview_candidates(overview)) or 5
+    story_count = min(story_count, 5)
+    if not story_count:
+        return '', [], [], []
+    workers = min(story_count, 5) if getattr(_config, 'PARALLEL_STORY_RESEARCH', True) else 1
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        results = list(pool.map(lambda i: _research_side_story(overview, i, headline_arc_map, ledger), range(5)))
+        results = list(pool.map(
+            lambda i: _research_side_story(overview, i, headline_arc_map, ledger,
+                                           headlines[i] if headlines is not None else None),
+            range(story_count),
+        ))
     story_overviews = ''
     overview_headlines = []
     overview_briefs = []
@@ -325,16 +430,16 @@ def overview_process(overview, headline_arc_map=None, ledger=None):
     return story_overviews, overview_headlines, overview_briefs, overview_arc_infos
 
 
-def _research_side_story(overview, i, headline_arc_map, ledger):
+def _research_side_story(overview, i, headline_arc_map, ledger, headline_n=None):
     """One side story: (roundup text, headline, brief, arc_info), or None if it failed."""
     number = str(i + 1)
-    headline_finder_prompt = f'Find story number {number}. Only give the headline of that story.'
-
-    try:
-        headline_n = get_llm_response(overview, system_prompt=headline_finder_prompt, mode='light')
-    except Exception as e:
-        print_and_write(f'Headline extraction failed in overview for story {number}: {e}')
-        return None
+    if headline_n is None:
+        headline_finder_prompt = f'Find story number {number}. Only give the headline of that story.'
+        try:
+            headline_n = get_llm_response(overview, system_prompt=headline_finder_prompt, mode='light')
+        except Exception as e:
+            print_and_write(f'Headline extraction failed in overview for story {number}: {e}')
+            return None
 
     # Resolve the arc ONCE here so the audience_state lookup (for writing) and the
     # later ledger archival agree and don't each pay for a separate LLM match.
@@ -358,9 +463,6 @@ def _research_side_story(overview, i, headline_arc_map, ledger):
     except Exception as e:
         print_and_write(f'Overview source-hunter research failed: {e}')
         return None
-
-
-import re
 
 
 def _parse_tier1_scores(response):
@@ -928,9 +1030,13 @@ def topic_finder(formatted_date):
 
     overview = get_llm_response(research_document, system_prompt=overview_prompt, mode='standard')
     print_and_write('\noverview1:', overview)
+    overview_candidates = _filter_overview_candidates(
+        overview, [important_headline, everyman_headline], headline_arc_map, ledger
+    )
+    overview = '\n'.join(f'- {headline}' for headline in overview_candidates)
 
     overview_raw, overview_headlines, overview_briefs, overview_arc_infos = overview_process(
-        overview, headline_arc_map=headline_arc_map, ledger=ledger
+        overview, headline_arc_map=headline_arc_map, ledger=ledger, headlines=overview_candidates
     )
     print_and_write('\noverview2:', overview_raw)
 

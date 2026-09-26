@@ -215,7 +215,7 @@ def test_claude_empty_text_block_raises_malformed():
     fake_message = MagicMock()
     fake_message.content = [fake_block]
     fake_client = MagicMock()
-    fake_client.messages.create.return_value = fake_message
+    fake_client.messages.stream.return_value.__enter__.return_value.get_final_message.return_value = fake_message
 
     with patch.object(claude_mod.anthropic, 'Anthropic', return_value=fake_client):
         with pytest.raises(LLMMalformedResponseError):
@@ -239,7 +239,7 @@ def test_claude_include_usage_returns_token_breakdown():
         },
     }
     fake_client = MagicMock()
-    fake_client.messages.create.return_value = fake_message
+    fake_client.messages.stream.return_value.__enter__.return_value.get_final_message.return_value = fake_message
 
     with patch.object(claude_mod.anthropic, 'Anthropic', return_value=fake_client):
         text, usage = claude_mod.claude("p", model_to_use="claude-opus-4-8", include_usage=True)

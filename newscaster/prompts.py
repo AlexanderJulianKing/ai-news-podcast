@@ -372,8 +372,8 @@ TIER3_EVERYMAN_STORY_PROMPT = (
 
 
 TIER3_OVERVIEW_PICK_PROMPT = (
-    "Given the following research briefs on today's candidate stories, pick the day's 5 most important headlines. "
-    "Only mention the 5 headlines. These will be the \"minor\" stories of the day.\n"
+    "Given the following research briefs on today's candidate stories, pick the day's 7 most important headlines. "
+    "Only mention the 7 headlines, most important first, one per line as a bullet list. These will be the \"minor\" stories of the day.\n"
     "Also, do not pick the major stories of the day, which are: {excluded_headlines}. "
     "Do not pick any stories related to the major stories. For example, if a story is about how the US is involved in some sort of conflict, "
     "do not pick another story about that same conflict. Also, do not pick inconsequential sensational stories like local crimes, "

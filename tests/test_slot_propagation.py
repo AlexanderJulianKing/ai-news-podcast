@@ -49,7 +49,7 @@ def test_segments_writer_uses_slot_in_filename(tmp_path, monkeypatch):
     stories = {1: "story content for slot 1"}
     voices_list = ['Ethan', 'Chloe', 'Ethan', 'Chloe', 'Grace']
 
-    valid_script = "Grace: hello there\nChloe: I'm reporting from somewhere according to the wire\n" * 30
+    valid_script = "Grace: hello there.\nChloe: I'm reporting from somewhere according to the wire.\n" * 30
 
     with patch('newscaster.script.segments.get_llm_response', return_value=valid_script):
         segments_writer(stories, "2026_11_05", voices_list, "November 5, 2026", arc_context=[None, None])

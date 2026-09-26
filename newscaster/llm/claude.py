@@ -94,19 +94,30 @@ def _usage_to_dict(usage, model_to_use):
     }
 
 
+def _create_message(client, **kwargs):
+    """Stream the reply and return the final Message.
+
+    The SDK refuses non-streaming requests whose max_tokens could take over 10 minutes (32000 does) whenever the
+    client timeout equals its default (600 s read, 5 s connect), and long replies are safer streamed anyway.
+    """
+    with client.messages.stream(**kwargs) as stream:
+        return stream.get_final_message()
+
+
 def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='You are an intelligent assistant.',
            include_usage=False):
     """One logical attempt against the Anthropic API.
 
     Raises a typed LLMError on failure; the router decides whether to retry or fall back.
     """
-    max_output_tokens = 16000
+    max_output_tokens = 32000
     thinking = True
 
     try:
-        client = anthropic.Anthropic(api_key=_config.ANTHROPIC_API_KEY, timeout=httpx.Timeout(300.0, connect=5.0))
+        client = anthropic.Anthropic(api_key=_config.ANTHROPIC_API_KEY, timeout=httpx.Timeout(600.0, connect=5.0))
         if thinking == False:
-            message = client.messages.create(
+            message = _create_message(
+                client,
                 model=model_to_use,
                 max_tokens=max_output_tokens,
                 system=system_prompt,
@@ -123,7 +134,8 @@ def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='
                 ]
             )
         else:
-            message = client.messages.create(
+            message = _create_message(
+                client,
                 model=model_to_use,
                 max_tokens=max_output_tokens,
                 system=system_prompt,
@@ -148,6 +160,17 @@ def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='
     except Exception as e:
         cls = classify(e)
         raise cls(str(e), provider='anthropic', model=model_to_use) from e
+
+    if getattr(message, "stop_reason", None) == "max_tokens":
+        usage = getattr(message, "usage", None)
+        output_tokens = getattr(usage, "output_tokens", None)
+        if isinstance(usage, dict):
+            output_tokens = usage.get("output_tokens")
+        count = f" ({output_tokens} output tokens)" if output_tokens is not None else ""
+        raise LLMMalformedResponseError(
+            f"Claude reply hit the output cap{count}",
+            provider='anthropic', model=model_to_use,
+        )
 
     for block in message.content:
         if block.type == 'text':
