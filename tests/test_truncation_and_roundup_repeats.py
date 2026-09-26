@@ -91,7 +91,13 @@ def test_script_retries_mid_word_then_accepts_reporter_thanks(tmp_path, monkeypa
     assert (tmp_path / 'output_scripts/2026_09_26_segment_0.txt').read_text() == complete
 
 
+# The one script that aired cut off (2026-09-26, "...power over sp"). Checked across all 424 aired scripts on the
+# Pi that day: it was the only one without terminal punctuation.
+KNOWN_TRUNCATED = {'2026_09_26_segment_1.txt'}
+
+
 def test_all_existing_complete_segment_scripts_pass_terminal_check(tmp_path, monkeypatch):
+    """Every aired script on this machine passes the guard, except the known cut-off one, which it must catch."""
     files = sorted((Path(__file__).resolve().parents[1] / 'output_scripts').glob('*_segment_*.txt'))
     if not files:
         pytest.skip('No existing segment scripts in this checkout')
@@ -103,8 +109,12 @@ def test_all_existing_complete_segment_scripts_pass_terminal_check(tmp_path, mon
         with patch.object(segments, 'get_llm_response', return_value=script), \
              patch.object(segments.time, 'sleep') as sleep:
             segments.segments_writer({0: 'Story'}, f'test_{index}', [reporters[0]], 'Test day')
-        sleep.assert_not_called()
-        assert (tmp_path / f'output_scripts/test_{index}_segment_0.txt').exists(), path.name
+        written = (tmp_path / f'output_scripts/test_{index}_segment_0.txt').exists()
+        if path.name in KNOWN_TRUNCATED:
+            assert sleep.called and not written, path.name
+        else:
+            sleep.assert_not_called()
+            assert written, path.name
 
 
 MAIN = [
