@@ -47,6 +47,9 @@ python3 -m benchmarks.rag_recall.rag_recall_bench --db benchmarks/rag_recall/dat
 # add the known-item task (LLM paraphrase queries + Gemini embeddings; needs keys.txt):
 python3 -m benchmarks.rag_recall.rag_recall_bench --known-item
 
+# embed the small set of continuing episodes using the production query shape:
+python3 -m benchmarks.rag_recall.rag_recall_bench --production-query-cross-episode
+
 # metric math is unit-tested:
 python3 -m pytest benchmarks/rag_recall/test_rag_recall_bench.py
 ```
@@ -56,39 +59,51 @@ reproducibility (`--refresh-queries` to regenerate). Results are written to
 `outputs/rag_recall_results_<label>.json`. Both `outputs/` and `data/` are
 git-ignored — the index contains scraped article text and is not committed.
 
-## Results — production index snapshot 2026-06-22
+## Results — production index snapshot 2026-07-20
 
-Index: 44 chunks (21 article + 23 follow-up), 7 story arcs, 4 days (2026-06-19
-to 06-22). Production retrieval config: `top_k=6`, `min_sim=0.65`.
+Index: 394 chunks, 54 story arcs, 32 days (2026-06-19 to 2026-07-20).
+Production retrieval config: `top_k=6`, `min_sim=0.65`.
 
-| Task | recall@1 | recall@3 | recall@5 | recall@6 | recall@10 | MRR | MAP | precision@6 |
-|---|---|---|---|---|---|---|---|---|
-| Arc-cohesion (multi-relevant) | 0.18 | 0.53 | 0.77 | 0.81 | 0.91 | **0.97** | 0.88 | 0.71 |
-| Known-item (paraphrased query) | 0.43 | 0.73 | 0.80 | **0.84** | 0.91 | 0.61 | — | — |
-| Arc cross-day (production memory) | — | — | — | — | — | — | — | — |
+| Task | queries | hit@1 | hit@3 | hit@6 | recall@6 | precision@6 | MRR | MAP |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Cross-episode, reviewed labels | 12 | **1.00** | **1.00** | **1.00** | 0.25 | **0.93** | **1.00** | 0.84 |
+| Cross-episode, raw ledger labels | 9 | 0.78 | 1.00 | 1.00 | 0.25 | 0.76 | 0.87 | 0.68 |
+| Arc-cohesion | 394 | — | — | — | 0.62 | 0.67 | **0.92** | 0.75 |
 
-Mean query/source word overlap (known-item): **0.44** — queries are genuinely
-reworded, so retrieval is semantic, not lexical. Mean fraction of same-arc
-partners clearing `min_sim=0.65`: **0.83**.
+The cross-episode benchmark groups chunks by story arc and date, then uses only
+the current episode's article vectors as a proxy for the production query.
+Follow-up chunks are excluded because they are created after retrieval. Candidate
+chunks must be strictly older than the query episode and must clear the real
+similarity threshold. This prevents same-day and future-episode leakage. The
+reviewed result additionally uses `relevance_groups.json` to join ledger slugs
+that a human review confirmed describe the same continuing story. The raw-ledger
+result remains visible so this correction is auditable.
 
 ### Reading the numbers
-- **MRR 0.97 (arc-cohesion)**: for nearly every chunk, the single nearest
-  neighbor is from the same story. The embedding space cleanly separates stories.
-- **Known-item recall@6 0.84 / recall@10 0.91**: given a paraphrased question,
-  the exact source chunk lands in the production top-6 84% of the time. This is
-  the headline generalization result.
-- **`recall@1` looks low on arc-cohesion (0.18) by construction**: with ~6
-  relevant partners per query, `recall@k` is capped at `k / n_relevant`, so
-  `recall@1` maxes out near 1/6 ≈ 0.17 even when the top hit is always correct
-  (hence MRR 0.97). Use `recall@6`/MRR/MAP, not `recall@1`, for the multi-relevant
-  task; `precision@k` is only meaningful here (the known-item task has one target).
+
+- **Cross-episode hit@1 and MRR 1.00:** all 12 continuing episodes surfaced
+  relevant prior coverage as the first result. The hit-rate 95% Wilson interval
+  is 0.76–1.00, reflecting the small sample.
+- **Cross-episode precision@6 0.93:** 93% of the six returned chunks belonged to
+  the correct continuing story, not merely one lucky hit among irrelevant results.
+- **Cross-episode recall@6 0.25 is not a failure:** later episodes can have dozens
+  of relevant historical chunks, while production intentionally returns only six.
+  The average mathematical recall ceiling at `k=6` is only 0.30. The retriever
+  achieves 0.25, or **93% of attainable recall**. The operational requirement is
+  to surface useful prior coverage, so hit rate, precision, and ceiling-normalized
+  recall are the primary metrics; raw full-set recall answers a different question.
+- **Arc-cohesion MRR 0.92 across 394 queries:** a same-story chunk is usually the
+  first relevant neighbor across the full production snapshot. This remains an
+  easier, partly same-day task and is supporting evidence rather than the headline.
 
 ### Honest caveats
-- **Young index (N=44, 4 days).** These numbers describe this snapshot; rerun as
-  the index grows for tighter estimates.
-- **Cross-day is the production-realistic metric and is not yet measurable** —
-  the current index has no arc spanning more than one day. It will populate as
-  multi-day stories accumulate; the code computes it automatically.
-- **Arc-cohesion is an intra-story signal** (same-day same-story chunks are
-  textually similar), so it is an easier task than cross-day retrieval. Known-item
-  is the more demanding, more generalizable measure.
+
+- The 12 continuing episodes come from only 2 reviewed multi-day stories, so they are correlated
+  and do not yet demonstrate broad story diversity. Keep accumulating episodes and
+  rerun before treating 100% as a stable population estimate.
+- The free cross-episode query is an article-vector centroid, not a fresh embedding
+  of the exact production prompt. Use `--production-query-cross-episode` to run the
+  closer API-backed version when sending the episode evidence to the configured
+  embedding provider is approved.
+- The older 2026-06-22 known-item run scored recall@6 0.84 on 44 paraphrased
+  queries. It is retained as historical evidence, not the current headline result.

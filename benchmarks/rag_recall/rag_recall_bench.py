@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sqlite3
@@ -44,6 +45,7 @@ if str(REPO_ROOT) not in sys.path:
 HERE = Path(__file__).resolve().parent
 DEFAULT_DB = HERE / "data" / "pi_research_index.db"
 DEFAULT_OUT = HERE / "outputs"
+DEFAULT_RELEVANCE_GROUPS = HERE / "relevance_groups.json"
 DEFAULT_K_VALUES = (1, 3, 5, 6, 10)
 
 # Production retrieval defaults, for the threshold-sensitivity readout.
@@ -144,6 +146,30 @@ def rank_by_cosine(query_vec, chunks, exclude_ids=()):
     return [cid for cid, _ in scored], dict(scored)
 
 
+def rank_prior_by_cosine(query_vec, chunks, query_date, min_sim=PROD_MIN_SIM):
+    """Rank only chunks that production could have seen before ``query_date``.
+
+    This prevents two optimistic benchmark leaks: same-episode chunks and future
+    episodes. It also applies the production similarity floor before measuring
+    the final returned list.
+    """
+    prior = [c for c in chunks if c["date"] < query_date]
+    ranked, sims = rank_by_cosine(query_vec, prior)
+    ranked = [cid for cid in ranked if sims[cid] >= min_sim]
+    return ranked, sims
+
+
+def wilson_interval(successes, total, z=1.96):
+    """95% Wilson confidence interval for a binary success rate."""
+    if total <= 0:
+        return [float("nan"), float("nan")]
+    p = successes / total
+    denom = 1 + z * z / total
+    centre = (p + z * z / (2 * total)) / denom
+    half = z * math.sqrt((p * (1 - p) + z * z / (4 * total)) / total) / denom
+    return [centre - half, centre + half]
+
+
 # --------------------------------------------------------------------------- #
 # Task 1: arc-cohesion (no API)
 # --------------------------------------------------------------------------- #
@@ -173,6 +199,138 @@ def run_arc_eval(chunks, k_values, cross_day=False):
             "relevant_above_min_sim_frac": cleared / len(relevant),
         })
     return _aggregate(per_query, k_values, n_total=len(chunks))
+
+
+def load_arc_aliases(path):
+    """Return ledger slug -> reviewed canonical story mapping."""
+    if not path:
+        return {}
+    payload = json.loads(Path(path).read_text())
+    aliases = {}
+    for canonical, slugs in payload.get("groups", {}).items():
+        for slug in slugs:
+            if slug in aliases and aliases[slug] != canonical:
+                raise ValueError(f"arc slug {slug!r} appears in multiple relevance groups")
+            aliases[slug] = canonical
+    return aliases
+
+
+def _cross_episode_cases(chunks, arc_aliases=None):
+    arc_aliases = arc_aliases or {}
+    episodes = {}
+    for chunk in chunks:
+        if not chunk["arc_slug"]:
+            continue
+        canonical = arc_aliases.get(chunk["arc_slug"], chunk["arc_slug"])
+        episodes.setdefault((canonical, chunk["date"]), []).append(chunk)
+    cases = []
+    for (arc_slug, date), current in sorted(episodes.items(), key=lambda item: item[0][1]):
+        relevant = {
+            c["chunk_id"] for c in chunks
+            if arc_aliases.get(c["arc_slug"], c["arc_slug"]) == arc_slug
+            and c["date"] < date
+        }
+        if not relevant:
+            continue
+        query_chunks = [c for c in current if c["chunk_type"] == "article"]
+        if not query_chunks:
+            query_chunks = current  # defensive fallback for malformed/legacy episodes
+        cases.append({
+            "arc_slug": arc_slug, "date": date, "current": current,
+            "query_chunks": query_chunks, "relevant": relevant,
+        })
+    return cases
+
+
+def _score_cross_episode_cases(chunks, cases, query_vecs, k_values, min_sim):
+    per_query = []
+    for case, query_vec in zip(cases, query_vecs):
+        arc_slug, date = case["arc_slug"], case["date"]
+        current, query_chunks, relevant = (
+            case["current"], case["query_chunks"], case["relevant"]
+        )
+        ranked, _ = rank_prior_by_cosine(query_vec, chunks, date, min_sim=min_sim)
+        row = {
+            "episode": f"{date}:{arc_slug}",
+            "date": date,
+            "arc_slug": arc_slug,
+            "n_current_chunks": len(current),
+            "n_query_article_chunks": len(query_chunks),
+            "n_relevant": len(relevant),
+            "n_returned": min(PROD_TOP_K, len(ranked)),
+            "rr": reciprocal_rank(ranked, relevant),
+            "ap": average_precision(ranked, relevant),
+        }
+        for k in k_values:
+            row[f"recall@{k}"] = recall_at_k(ranked, relevant, k)
+            row[f"precision@{k}"] = precision_at_k(ranked, relevant, k)
+            row[f"hit@{k}"] = float(any(cid in relevant for cid in ranked[:k]))
+        per_query.append(row)
+
+    agg = _aggregate(per_query, k_values, n_total=len(chunks))
+    if not per_query:
+        return agg
+    for k in k_values:
+        hits = int(sum(q[f"hit@{k}"] for q in per_query))
+        agg[f"hit_rate@{k}"] = hits / len(per_query)
+        agg[f"hit_rate@{k}_95ci"] = wilson_interval(hits, len(per_query))
+        ceilings = [min(k, q["n_relevant"]) / q["n_relevant"] for q in per_query]
+        agg[f"recall@{k}_ceiling"] = _nanmean(ceilings)
+        agg[f"recall@{k}_ceiling_fraction"] = _nanmean([
+            q[f"recall@{k}"] / ceiling
+            for q, ceiling in zip(per_query, ceilings)
+        ])
+    agg["mean_returned@production_k"] = _nanmean([q["n_returned"] for q in per_query])
+    agg["n_continuing_episodes"] = len(per_query)
+    agg["n_cross_episode_arcs"] = len({q["arc_slug"] for q in per_query})
+    agg["min_sim"] = min_sim
+    agg["_per_query"] = per_query
+    return agg
+
+
+def run_cross_episode_eval(chunks, k_values, min_sim=PROD_MIN_SIM, arc_aliases=None):
+    """Free chronological proxy using current-episode article vectors only.
+
+    Follow-up chunks are deliberately excluded from each query to avoid using
+    evidence created after production retrieval. Candidates are strictly older.
+    ``hit@k`` asks whether memory surfaced any relevant prior coverage; recall@k
+    measures how much of all prior coverage returned.
+    """
+    cases = _cross_episode_cases(chunks, arc_aliases=arc_aliases)
+    query_vecs = [
+        np.mean([c["vec"] for c in case["query_chunks"]], axis=0)
+        for case in cases
+    ]
+    return _score_cross_episode_cases(chunks, cases, query_vecs, k_values, min_sim)
+
+
+def run_production_query_cross_episode_eval(
+        chunks, k_values, min_sim=PROD_MIN_SIM, arc_aliases=None):
+    """Cross-episode evaluation with queries shaped like the production query."""
+    from newscaster.rag.embeddings import embed_texts  # lazy: this task uses the API
+
+    cases = _cross_episode_cases(chunks, arc_aliases=arc_aliases)
+    if not cases:
+        return {"n_queries": 0, "n_chunks": len(chunks),
+                "note": "no continuing episodes"}
+    queries = []
+    for case in cases:
+        evidence = "\n\n".join(
+            f"Headline: {c.get('headline') or '(unknown)'}\n{c['text']}"
+            for c in case["query_chunks"]
+        )[:12000]
+        queries.append(
+            f"Topic: {case['arc_slug'].replace('_', ' ')}\n"
+            f"Today: {case['date']}\n\nCurrent seed evidence:\n{evidence}"
+        )
+    query_vecs = embed_texts(queries, task_type="RETRIEVAL_QUERY")
+    if len(query_vecs) != len(cases):
+        raise RuntimeError(
+            f"embed_texts returned {len(query_vecs)} vectors for {len(cases)} queries"
+        )
+    result = _score_cross_episode_cases(chunks, cases, query_vecs, k_values, min_sim)
+    result["query_shape"] = "production topic/date/current seed evidence"
+    return result
 
 
 def _aggregate(per_query, k_values, n_total):
@@ -247,7 +405,8 @@ def run_known_item_eval(chunks, k_values, cache_path, refresh=False):
     qvecs = embed_texts([q for _, q in items], task_type="RETRIEVAL_QUERY")
     per_query = []
     for (c, q), qvec in zip(items, qvecs):
-        ranked, _ = rank_by_cosine(qvec, chunks)  # include self; self is the target
+        ranked, sims = rank_by_cosine(qvec, chunks)  # include self; self is the target
+        production_ranked = [cid for cid in ranked if sims[cid] >= PROD_MIN_SIM]
         relevant = {c["chunk_id"]}
         rec = {f"recall@{k}": recall_at_k(ranked, relevant, k) for k in k_values}
         overlap = len(_tokens(q) & _tokens(c["text"])) / max(1, len(_tokens(q)))
@@ -255,11 +414,22 @@ def run_known_item_eval(chunks, k_values, cache_path, refresh=False):
             "chunk_id": c["chunk_id"], "query": q, **rec,
             "rr": reciprocal_rank(ranked, relevant),
             "query_source_word_overlap": overlap,
+            "target_similarity": sims[c["chunk_id"]],
+            "production_hit": float(c["chunk_id"] in production_ranked[:PROD_TOP_K]),
+            "n_returned": min(PROD_TOP_K, len(production_ranked)),
         })
     agg = _aggregate(per_query, k_values, n_total=len(chunks))
     agg["mean_query_source_word_overlap"] = _nanmean(
         [q["query_source_word_overlap"] for q in per_query]
     )
+    production_hits = int(sum(q["production_hit"] for q in per_query))
+    agg[f"production_recall@{PROD_TOP_K}"] = production_hits / len(per_query)
+    agg[f"production_recall@{PROD_TOP_K}_95ci"] = wilson_interval(
+        production_hits, len(per_query)
+    )
+    agg["mean_target_similarity"] = _nanmean([q["target_similarity"] for q in per_query])
+    agg["mean_returned@production_k"] = _nanmean([q["n_returned"] for q in per_query])
+    agg["min_sim"] = PROD_MIN_SIM
     agg["_per_query"] = per_query
     return agg
 
@@ -284,7 +454,11 @@ def print_report(results, k_values):
     print(f"production retrieval config: top_k={PROD_TOP_K}, min_sim={PROD_MIN_SIM}")
 
     for key, title in (("arc", "ARC-COHESION (same-story retrieval, multi-relevant)"),
-                       ("arc_cross_day", "ARC CROSS-DAY (production memory use)"),
+                       ("cross_episode_raw_ledger",
+                        "CROSS-EPISODE (raw ledger labels)"),
+                       ("cross_episode", "CROSS-EPISODE (reviewed relevance labels)"),
+                       ("production_query_cross_episode",
+                        "CROSS-EPISODE (production-shaped query)"),
                        ("known_item", "KNOWN-ITEM (paraphrased-query single-target)")):
         block = results.get(key)
         if not block:
@@ -312,6 +486,17 @@ def print_report(results, k_values):
             print(f"   mean query/source word overlap: "
                   f"{_fmt(block['mean_query_source_word_overlap'])} "
                   f"(low => genuinely paraphrased, semantic retrieval)")
+        if f"hit_rate@{PROD_TOP_K}" in block:
+            lo, hi = block[f"hit_rate@{PROD_TOP_K}_95ci"]
+            print(f"   production hit-rate@{PROD_TOP_K}={_fmt(block[f'hit_rate@{PROD_TOP_K}'])} "
+                  f"(95% CI {_fmt(lo)}-{_fmt(hi)}; min_sim={block['min_sim']})")
+            print(f"   recall@{PROD_TOP_K} ceiling={_fmt(block[f'recall@{PROD_TOP_K}_ceiling'])}  "
+                  f"fraction of attainable recall={_fmt(block[f'recall@{PROD_TOP_K}_ceiling_fraction'])}")
+        if f"production_recall@{PROD_TOP_K}" in block:
+            lo, hi = block[f"production_recall@{PROD_TOP_K}_95ci"]
+            print(f"   thresholded production recall@{PROD_TOP_K}="
+                  f"{_fmt(block[f'production_recall@{PROD_TOP_K}'])} "
+                  f"(95% CI {_fmt(lo)}-{_fmt(hi)}; min_sim={block['min_sim']})")
     print("=" * 70 + "\n")
 
 
@@ -322,10 +507,16 @@ def main(argv=None):
                     help="comma-separated k values")
     ap.add_argument("--known-item", action="store_true",
                     help="also run the LLM/embedding known-item task (uses the API)")
+    ap.add_argument("--production-query-cross-episode", action="store_true",
+                    help="embed production-shaped queries for continuing episodes (uses API)")
     ap.add_argument("--refresh-queries", action="store_true",
                     help="regenerate cached known-item queries")
     ap.add_argument("--out-dir", default=str(DEFAULT_OUT))
     ap.add_argument("--label", default="pi", help="label for the output filename")
+    ap.add_argument(
+        "--relevance-groups", default=str(DEFAULT_RELEVANCE_GROUPS),
+        help="reviewed JSON groups that canonicalize fragmented story-arc slugs",
+    )
     args = ap.parse_args(argv)
 
     db_path = Path(args.db)
@@ -347,6 +538,7 @@ def main(argv=None):
     finally:
         con.close()
 
+    aliases = load_arc_aliases(args.relevance_groups) if args.relevance_groups else {}
     results = {
         "db": str(db_path),
         "n_chunks": len(chunks),
@@ -355,12 +547,22 @@ def main(argv=None):
         "embed_model": embed_model, "embed_dim": embed_dim,
         "k_values": k_values,
         "arc": run_arc_eval(chunks, k_values, cross_day=False),
-        "arc_cross_day": run_arc_eval(chunks, k_values, cross_day=True),
+        "relevance_groups": args.relevance_groups if aliases else None,
+        "n_reviewed_arc_aliases": len(aliases),
+        "cross_episode_raw_ledger": run_cross_episode_eval(chunks, k_values),
+        "cross_episode": run_cross_episode_eval(chunks, k_values, arc_aliases=aliases),
     }
 
-    if args.known_item:
+    if args.known_item or args.production_query_cross_episode:
         import newscaster.config as config
         config.init()
+    if args.production_query_cross_episode:
+        results["production_query_cross_episode"] = (
+            run_production_query_cross_episode_eval(
+                chunks, k_values, arc_aliases=aliases
+            )
+        )
+    if args.known_item:
         results["known_item"] = run_known_item_eval(
             chunks, k_values, out_dir / "known_item_queries.json",
             refresh=args.refresh_queries,
@@ -371,6 +573,12 @@ def main(argv=None):
     saveable = json.loads(json.dumps(results))
     if "known_item" in saveable:
         saveable["known_item"].pop("_per_query", None)
+    if "cross_episode" in saveable:
+        saveable["cross_episode"].pop("_per_query", None)
+    if "cross_episode_raw_ledger" in saveable:
+        saveable["cross_episode_raw_ledger"].pop("_per_query", None)
+    if "production_query_cross_episode" in saveable:
+        saveable["production_query_cross_episode"].pop("_per_query", None)
     out_path = out_dir / f"rag_recall_results_{args.label}.json"
     out_path.write_text(json.dumps(saveable, indent=2))
     print(f"wrote {out_path}")

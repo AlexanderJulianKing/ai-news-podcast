@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "reviewed_on": "2026-07-20",
+  "description": "Human-reviewed equivalence groups for ledger slugs that represent the same continuing news story. Unlisted slugs remain distinct.",
+  "groups": {
+    "us_iran_conflict_hormuz_2026": [
+      "us_iran_hormuz_talks",
+      "us_iran_strikes_4",
+      "us_iran_escalation_2",
+      "us_iran_strikes_5"
+    ]
+  }
+}

@@ -13,8 +13,11 @@ from benchmarks.rag_recall.rag_recall_bench import (
     load_chunks,
     precision_at_k,
     rank_by_cosine,
+    rank_prior_by_cosine,
     recall_at_k,
     reciprocal_rank,
+    run_cross_episode_eval,
+    wilson_interval,
 )
 
 
@@ -79,6 +82,63 @@ def test_rank_by_cosine_zero_query_returns_empty():
     chunks = [{"chunk_id": "a", "vec": np.array([1.0, 0.0])}]
     ranked, sims = rank_by_cosine(np.array([0.0, 0.0]), chunks)
     assert ranked == [] and sims == {}
+
+
+def test_rank_prior_excludes_same_day_and_future_and_applies_threshold():
+    chunks = [
+        {"chunk_id": "old", "date": "2026_01_01", "vec": np.array([0.8, 0.6])},
+        {"chunk_id": "same", "date": "2026_01_02", "vec": np.array([1.0, 0.0])},
+        {"chunk_id": "future", "date": "2026_01_03", "vec": np.array([1.0, 0.0])},
+    ]
+    ranked, _ = rank_prior_by_cosine(
+        np.array([1.0, 0.0]), chunks, "2026_01_02", min_sim=0.75
+    )
+    assert ranked == ["old"]
+    ranked, _ = rank_prior_by_cosine(
+        np.array([1.0, 0.0]), chunks, "2026_01_02", min_sim=0.85
+    )
+    assert ranked == []
+
+
+def test_cross_episode_query_uses_articles_not_post_retrieval_followups():
+    base = {
+        "slot": 0, "outlet": None, "headline": None, "url": None, "text": "x",
+    }
+    chunks = [
+        {**base, "chunk_id": "prior", "date": "2026_01_01", "arc_slug": "arc",
+         "chunk_type": "article", "vec": np.array([1.0, 0.0])},
+        {**base, "chunk_id": "article", "date": "2026_01_02", "arc_slug": "arc",
+         "chunk_type": "article", "vec": np.array([1.0, 0.0])},
+        {**base, "chunk_id": "followup", "date": "2026_01_02", "arc_slug": "arc",
+         "chunk_type": "followup", "vec": np.array([-1.0, 0.0])},
+    ]
+    result = run_cross_episode_eval(chunks, [1], min_sim=0.65)
+    assert result["n_queries"] == 1
+    assert result["hit_rate@1"] == 1.0
+
+
+def test_cross_episode_reviewed_aliases_join_fragmented_ledger_arcs():
+    base = {
+        "slot": 0, "outlet": None, "headline": None, "url": None, "text": "x",
+        "chunk_type": "article", "vec": np.array([1.0, 0.0]),
+    }
+    chunks = [
+        {**base, "chunk_id": "prior", "date": "2026_01_01", "arc_slug": "story_v1"},
+        {**base, "chunk_id": "current", "date": "2026_01_02", "arc_slug": "story_v2"},
+    ]
+    raw = run_cross_episode_eval(chunks, [1])
+    reviewed = run_cross_episode_eval(
+        chunks, [1], arc_aliases={"story_v1": "story", "story_v2": "story"}
+    )
+    assert raw["n_queries"] == 0
+    assert reviewed["n_queries"] == 1
+    assert reviewed["hit_rate@1"] == 1.0
+
+
+def test_wilson_interval_is_bounded_and_not_falsely_certain():
+    lo, hi = wilson_interval(9, 9)
+    assert 0.70 < lo < 0.71
+    assert hi == 1.0
 
 
 def test_load_chunks_roundtrip(tmp_path):

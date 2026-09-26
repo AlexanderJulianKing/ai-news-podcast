@@ -1,0 +1,1554 @@
+{
+ "_about": "A holdout set of 20 invented lead-pick mornings, written by an author who saw no labels, no model output, and none of the prompts under test. It is meant to be used once, as an out-of-sample test of a prompt tuned on the earlier sets, so no scenario here repeats one from hypothetical_cases.json, hypothetical_cases_hard.json or hypothetical_cases_hard2.json. Every event is fictional and set in late 2026 or early 2027; real institutions (the Fed, FDA, CDC, Congress, the Supreme Court, states, foreign governments) appear only as institutions, and no living person is named or quoted. Ten mornings carry 5 or 6 briefs and ten carry 8 to 11. Every morning has at least three stories a serious editor could defend as the lead; the rest are credible mid-tier items. Outlet counts run from 1 to 5 and do not track importance. Five mornings carry a potentially major story whose brief opens with an UNVERIFIED line, and two mornings set a very large story with a thin brief against smaller stories with rich ones. The design axis is magnitude on two sides: each morning sets a story about power (who holds it, how government works) against a story about people's lives (verified changes to health, income, costs, coverage or work), and the four combinations of very large and mid-size are spread five mornings each. Each case's axis text records which cell it is. Brief order within each morning carries no information about importance. Invented names used here: Marchant Electric, Halvern Systems, Tessamine Labs, Nyssa-2, Kelbridge Analytics, the AI Accountability Act, Copperline Energy, Aster-1, Anvery Therapeutics, relvitide, Bellhaven Nutrition, Ashbrook Health Plans, Stonepine Health, Arroyo Basin Water Authority, Fairmile AI, Cedarline Health, Tolvara Biosciences, denavicel, Pellworth Compute, Provexa, Ansley Bio, vexalimab. Brief order within each morning was reshuffled once by the coordinator with a fixed seed.",
+ "cases": [
+  {
+   "case_id": "hypo_y01_nuclear_test_vs_overdose_drop",
+   "axis": "Cell c: both sides very large. A decision to set off a nuclear device for the first time since 1992 against the largest one-year fall in overdose deaths the CDC has counted, with a NATO member calling allies together after a third cable is cut.",
+   "probe": {
+    "nuclear_test_resumption": 6,
+    "overdose_deaths_drop": 5,
+    "baltic_cable_article_4": 1,
+    "housing_alarm_rule": 3
+   },
+   "coverage_notes": [
+    "- baltic_cables: last led 2026_11_09 (5 days ago), 3 roundup mentions since. Audience already knows: two data cables between Finland and Germany were cut within nine days, and Finnish police boarded a cargo ship that had been anchored over one of them."
+   ],
+   "briefs": [
+    {
+     "headline": "[DEVELOPMENT: baltic_cables] Finland calls NATO consultations under Article 4 after a third cable is cut",
+     "reported_by": [
+      "BBC",
+      "Reuters",
+      "The Guardian",
+      "Al Jazeera",
+      "The Associated Press"
+     ],
+     "brief": "What happened: Finland requested consultations under Article 4 of the NATO treaty after a third data cable between Finland and Germany was cut on Thursday. Allied representatives meet in Brussels on Friday.\nKey facts: Article 4 has been invoked seven times since 1949. Finnish authorities say the cut is 190 kilometers offshore in the same corridor as the two earlier breaks. The cable carried about 40 percent of Finland's international data capacity; the operator rerouted traffic in four hours and says repair will take three weeks. Sweden and Estonia are sending patrol vessels to escort shipping through the corridor.\nContext: Two cables on the route were cut in October, and Finnish police boarded a cargo ship that had anchored over one of them.\nSourcing: The Finnish government, NATO's statement, and the cable operator's outage notice."
+    },
+    {
+     "headline": "Citrus Disease: inspectors confirm black spot in three Florida counties",
+     "reported_by": [
+      "The Associated Press"
+     ],
+     "brief": "What happened: State and federal inspectors confirmed citrus black spot in groves in three Florida counties that had been free of it.\nKey facts: The finding covers about 11,000 acres, which will be placed under a movement quarantine for fruit leaving the counties.\nContext: The disease was first found in Florida in 2010 and reduces yield rather than making fruit unsafe.\nSourcing: The state agriculture department and the federal inspection service."
+    },
+    {
+     "headline": "Housing Rule: federal housing officials will require carbon monoxide alarms in assisted units by July",
+     "reported_by": [
+      "The Associated Press",
+      "NPR",
+      "The Guardian"
+     ],
+     "brief": "What happened: The housing department published a final rule requiring a carbon monoxide alarm in every federally assisted unit by July 1.\nKey facts: The rule covers about 4.7 million units and is costed at $260 million, payable from existing capital funds.\nContext: Congress directed the department to write it in 2022 after deaths in public housing.\nSourcing: The rule as published in the Federal Register."
+    },
+    {
+     "headline": "Argentine Rates: the central bank raises its policy rate to 68 percent after the peso falls",
+     "reported_by": [
+      "Al Jazeera",
+      "CNBC",
+      "The Guardian",
+      "BBC"
+     ],
+     "brief": "What happened: Argentina's central bank raised its policy rate by 19 points to 68 percent after the peso lost 12 percent against the dollar in a week.\nKey facts: Reserves stand near $19 billion. The government moved a $2.3 billion bond payment due in January into a rescheduling talk with holders.\nContext: The country last restructured its foreign debt in 2020.\nSourcing: The central bank's statement and exchange data."
+    },
+    {
+     "headline": "Overdose Deaths: the CDC's count falls by 31,400 in a year",
+     "reported_by": [
+      "STAT"
+     ],
+     "brief": "What happened: The CDC's provisional count puts US overdose deaths at 54,900 for the twelve months ending in August, against 86,300 for the same period a year earlier.\nKey facts: The 36 percent fall is the largest one-year decline since the agency began publishing the monthly count in 2015. Deaths involving fentanyl fell 41 percent; deaths involving methamphetamine rose 4 percent. Thirty-eight states recorded declines and six recorded increases, with the largest declines in Ohio, West Virginia and Kentucky. Agency researchers credit wider naloxone distribution paid for with opioid settlement money, and say a change in the composition of the street supply accounts for part of the drop that they cannot yet measure.\nContext: The count peaked at about 111,000 deaths in the twelve months ending in March 2022.\nSourcing: The CDC's provisional data release and state vital statistics offices."
+    },
+    {
+     "headline": "Nuclear Testing: the Energy Department tells Congress an explosive test will take place in Nevada in March",
+     "reported_by": [
+      "Reuters",
+      "NPR"
+     ],
+     "brief": "What happened: The Energy Department told the armed services committees that it will conduct an explosive nuclear test at the Nevada site in March and that preparation of the shaft has begun. It would be the first US explosive nuclear test since September 1992.\nKey facts: The letter describes a device below 5 kilotons, meant to confirm a warhead design modified without testing. The site's readiness contract was raised by $1.4 billion in October. Russia's foreign ministry said Moscow would test in response. The US signed the Comprehensive Test Ban Treaty in 1996 and never ratified it; 187 states have signed.\nContext: The US has held to a testing moratorium since 1992 and has certified warheads through simulation and subcritical experiments.\nSourcing: The department's letter to Congress, the contract modification, and a statement from Russia's foreign ministry."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y02_bolivia_unverified_vs_embassy_evacuation",
+   "axis": "Cell a: a very large power story against a mid-size lives story. A reported military takeover in Bolivia that no one can confirm and a US embassy evacuation with warships moving toward Venezuela sit against a recall of electrical panels blamed for fires and deaths in American homes.",
+   "probe": {
+    "bolivia_takeover_unverified": 5,
+    "us_embassy_evacuation": 8,
+    "electrical_panel_recall": 7,
+    "pipeline_intrusion": 2
+   },
+   "coverage_notes": [
+    "- venezuela_pressure: last led 2026_12_01 (4 days ago), 2 roundup mentions since. Audience already knows: the US moved two destroyers and an amphibious group into the southern Caribbean and told Americans to leave Venezuela, and Caracas recalled its charge d'affaires from Washington.",
+    "- pipeline_cyber: 4 side-story mentions (2026_11_08 to 2026_12_02); never a full segment."
+   ],
+   "briefs": [
+    {
+     "headline": "Japan: the prime minister resigns after losing a party leadership vote",
+     "reported_by": [
+      "BBC",
+      "Reuters"
+     ],
+     "brief": "What happened: Japan's prime minister resigned after losing a governing party leadership ballot 212 to 189. A successor is expected within ten days.\nKey facts: The government had lost its upper house majority in July. The yen moved less than 1 percent on the news.\nContext: It is the fourth change of prime minister in five years.\nSourcing: The party's announcement and public broadcaster coverage."
+    },
+    {
+     "headline": "[SIDE-COVERED: pipeline_cyber] Pipeline Intrusion: an operator says intruders were inside its network for eleven months",
+     "reported_by": [
+      "Ars Technica",
+      "Reuters"
+     ],
+     "brief": "What happened: An operator of refined product pipelines in the Southeast told regulators that intruders had access to its control network from January to December and were removed last week.\nKey facts: The filing says the intruders reached systems that set line pressure but that no command was issued and deliveries were not interrupted. The company serves 11 states and moves about 2.4 million barrels a day. Federal investigators attribute the intrusion to a state-linked group and have not named a country. The pipeline safety agency ordered a review of five other operators.\nContext: A ransomware attack shut a large fuel pipeline for six days in 2021.\nSourcing: The company's regulatory filing, the pipeline safety agency's order, and two people briefed on the investigation."
+    },
+    {
+     "headline": "Germany's constitutional court upholds the debt limit",
+     "reported_by": [
+      "The Guardian",
+      "BBC",
+      "Reuters",
+      "CNBC"
+     ],
+     "brief": "What happened: Germany's constitutional court rejected a challenge to the borrowing limit written into the constitution, in a 6 to 2 decision.\nKey facts: The ruling leaves a 24 billion euro gap in next year's budget that the government must close by March.\nContext: The limit has been suspended four times since 2020, each time by a parliamentary vote.\nSourcing: The court's published decision and finance ministry comment."
+    },
+    {
+     "headline": "College enrollment rose 2 percent this fall",
+     "reported_by": [
+      "NPR",
+      "The Associated Press"
+     ],
+     "brief": "What happened: The Education Department reported undergraduate enrollment up 2 percent from last fall, the third annual rise.\nKey facts: Community colleges grew 4.4 percent and four-year private colleges were flat. Enrollment remains 6 percent below 2019.\nContext: The department changed its counting method in 2025 to include dual-enrolled high school students.\nSourcing: The department's fall enrollment release."
+    },
+    {
+     "headline": "Reports of a military takeover in Bolivia",
+     "reported_by": [
+      "Al Jazeera",
+      "BBC",
+      "The Guardian"
+     ],
+     "brief": "UNVERIFIED: Whether the president is in custody cannot be confirmed. Two Bolivian outlets report he was flown to a military base; the armed forces command has said nothing, and the presidential palace has not answered calls since Tuesday evening.\nWhat happened: Soldiers and armored vehicles took positions around the Bolivian congress and the state television building on Tuesday evening. State television has broadcast music since 9 p.m. local time. The army chief read a statement saying the armed forces are acting to restore order and that congress is suspended.\nKey facts: Flights out of La Paz and Santa Cruz are cancelled, and monitoring groups report internet connectivity at 27 percent of normal. Brazil, Chile and Argentina called for constitutional order to be respected. The US State Department said it is seeking information.\nContext: Bolivia's last coup attempt, in June 2024, collapsed within three hours.\nSourcing: Bolivian broadcast monitoring, two Bolivian newspapers, three foreign ministries, and network measurement groups."
+    },
+    {
+     "headline": "Holiday Shipping: a parcel carrier says volume fell 8 percent",
+     "reported_by": [
+      "CNBC"
+     ],
+     "brief": "What happened: A large parcel carrier told investors that packages handled between Thanksgiving and December 1 were 8 percent below last year.\nKey facts: The company kept its full-year forecast and said it hired 41,000 seasonal workers, 9,000 fewer than a year ago.\nContext: Parcel volumes have fallen in three of the last four holiday seasons.\nSourcing: The company's investor update."
+    },
+    {
+     "headline": "Electrical Panels: Marchant Electric recalls 1.6 million panels tied to 41 fires",
+     "reported_by": [
+      "The Associated Press",
+      "CNBC"
+     ],
+     "brief": "What happened: Marchant Electric and the Consumer Product Safety Commission announced a recall of 1.6 million residential breaker panels sold between 2013 and 2024, after a breaker design was found to fail to trip under sustained overload.\nKey facts: The commission's notice lists 41 fires, 12 injuries and three deaths. Owners are told to have an electrician install a replacement bus assembly at the company's expense; the company estimates eight weeks to reach the first 200,000 homes. Panels were sold through two national home improvement chains and to builders in 44 states. The commission said it opened its investigation in March after a state fire marshal referred four cases.\nContext: The last recall of this size in residential electrical equipment was in 2018.\nSourcing: The recall notice, the commission's incident file, and the company's statement."
+    },
+    {
+     "headline": "[DEVELOPMENT: venezuela_pressure] The State Department empties its Caracas embassy as an amphibious group moves south",
+     "reported_by": [
+      "The Associated Press",
+      "Al Jazeera",
+      "Reuters"
+     ],
+     "brief": "What happened: The State Department ordered all remaining staff out of the US embassy in Caracas and suspended consular work there. Four military aircraft carried 58 people to Curacao overnight. The Pentagon confirmed that an amphibious ready group with 2,200 Marines entered the southern Caribbean.\nKey facts: Venezuela's government called the move preparation for an attack and put its armed forces on their highest alert. Officials would not say whether strikes are planned. About 6,000 US citizens are registered in Venezuela. Oil shipments from Venezuelan terminals stopped Wednesday, and Brent rose 4 percent.\nContext: Washington cut off direct diplomatic contact in 2019 and restored a small staff in 2024.\nSourcing: State Department and Pentagon briefings, Venezuelan government statements, and shipping data."
+    },
+    {
+     "headline": "[UPDATE: student_visa_rule] A judge extends the pause on the new student visa limits",
+     "reported_by": [
+      "NPR"
+     ],
+     "brief": "What happened: A federal judge extended an order blocking the rule that would cap student visas at 24 months, keeping it on hold until March.\nKey facts: About 310,000 current students would be affected. The government said it will not appeal before the March hearing.\nContext: The rule was published in September and has never taken effect.\nSourcing: The court's order and filings from both sides."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y03_family_premiums_vs_los_angeles_strike",
+   "axis": "Cell b: a mid-size power story against a very large lives story. A national count of what family health coverage now costs sits against a teachers' strike that closes the country's second largest school district, while an election agency loses the quorum it needs to act.",
+   "probe": {
+    "family_premium_survey": 5,
+    "los_angeles_teacher_strike": 4,
+    "election_commission_quorum": 1,
+    "cargo_pilot_rest_rule": 2
+   },
+   "coverage_notes": [
+    "- fec_deadlock: 5 side-story mentions (2026_10_14 to 2026_11_20); never a full segment."
+   ],
+   "briefs": [
+    {
+     "headline": "[SIDE-COVERED: fec_deadlock] The Federal Election Commission loses its quorum with two more departures",
+     "reported_by": [
+      "NPR",
+      "The Guardian",
+      "BBC"
+     ],
+     "brief": "What happened: Two commissioners left the Federal Election Commission on Friday, leaving three of six seats filled and the agency one short of the four votes it needs to act.\nKey facts: The commission cannot open investigations, issue advisory opinions or approve settlements without four members. It has 312 open enforcement matters, 41 of them about the November election. The Senate has not voted on a nominee since 2023, and two nominations are pending in committee. The five-year statute of limitations will expire on 28 of the open matters by June.\nContext: The commission was without a quorum for ten months in 2019 and 2020.\nSourcing: The commission's public docket, its own statement, and Senate committee records."
+    },
+    {
+     "headline": "Cargo Pilots: the FAA proposes matching rest rules to those for passenger flights",
+     "reported_by": [
+      "Reuters"
+     ],
+     "brief": "What happened: The Federal Aviation Administration proposed applying passenger-flight duty and rest limits to cargo pilots, ending an exemption in place since 2012.\nKey facts: The rule would cover about 9,000 pilots and take effect two years after it is final. Two cargo carriers put the cost at $400 million a year.\nContext: Congress directed the agency to reconsider the exemption in 2024.\nSourcing: The proposed rule and carrier comments."
+    },
+    {
+     "headline": "Ireland's governing coalition collapses over a housing bill",
+     "reported_by": [
+      "BBC",
+      "The Guardian",
+      "Al Jazeera",
+      "Reuters",
+      "The Associated Press"
+     ],
+     "brief": "What happened: Ireland's junior coalition partner withdrew after the housing bill was amended, leaving the government without a majority.\nKey facts: An election must be held within three months. The outgoing government will handle day-to-day business until then.\nContext: The coalition had governed since 2024.\nSourcing: Statements from both parties and the parliamentary record."
+    },
+    {
+     "headline": "Los Angeles Schools: teachers strike and 429,000 students stay home",
+     "reported_by": [
+      "The Press-Enterprise",
+      "NPR",
+      "The Associated Press",
+      "CNBC"
+     ],
+     "brief": "What happened: Teachers at Los Angeles Unified School District walked out Monday after eighteen months of bargaining, closing all 1,000 campuses. The district said schools will stay closed for the length of the strike and that meal distribution sites will open at 40 locations.\nKey facts: The union of 33,000 teachers asked for a 9 percent raise over two years and caps of 24 students per elementary class; the district offered 4 percent and no cap, citing a $700 million shortfall after enrollment fell. California pays districts by daily attendance, so each closed day costs the district about $26 million. About 74 percent of the district's students qualify for free meals.\nContext: The district's last strike, in 2019, lasted six days.\nSourcing: District and union statements, the district's budget filing, and state attendance funding rules."
+    },
+    {
+     "headline": "Family Coverage: the employer survey puts the average family premium at $29,800",
+     "reported_by": [
+      "KFF Health News",
+      "CNBC"
+     ],
+     "brief": "What happened: The annual employer health benefits survey found the average premium for family coverage reached $29,800 this year, up 14 percent, with workers paying $7,900 of it.\nKey facts: The rise is the largest in the survey's 28 years and follows an 8 percent rise last year. Employers named obesity drugs and hospital prices as the two largest drivers. Twenty-nine percent of firms with more than 200 workers said they will drop or restrict dependent coverage next year, against 11 percent last year. The average deductible for single coverage rose to $2,180. About 154 million people under 65 hold employer coverage.\nContext: Premiums rose 47 percent over the last five years while wages rose 23 percent.\nSourcing: The published survey of 2,100 employers and the researchers' briefing."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y04_small_reactor_vs_nominee_defeat",
+   "axis": "Cell d: both sides mid-size. A small reactor's first sustained run on the grid sits against a third defeat for a presidential nominee and a year of rising car insurance bills.",
+   "probe": {
+    "small_reactor_grid_run": 1,
+    "budget_nominee_rejected": 6,
+    "auto_insurance_increase": 5,
+    "quebec_power_contract": 4
+   },
+   "briefs": [
+    {
+     "headline": "Small Reactor: Copperline Energy's Aster-1 runs 100 hours at full power on the grid",
+     "reported_by": [
+      "Quanta Magazine",
+      "Ars Technica",
+      "Reuters",
+      "CNBC"
+     ],
+     "brief": "What happened: Copperline Energy said its Aster-1 small modular reactor in Idaho ran at its full 77 megawatts for 100 hours and sent power to the regional grid. Nuclear regulators confirmed inspectors were present throughout.\nKey facts: It is the first US reactor licensed under the small modular rules to deliver power commercially. The unit was built in 41 months at a cost of $1.9 billion, about 60 percent above the 2022 estimate. The company holds orders for six more units from two utilities and a data center operator, with the first due in 2030. The reactor uses fuel enriched to 9 percent, supplied from a single domestic plant that is running at capacity.\nContext: The last new US reactor to reach commercial operation was a large unit in Georgia in 2024.\nSourcing: The company's filing, the regulator's inspection statement, and grid operator data."
+    },
+    {
+     "headline": "Wind Power: output fell 4 percent this year, an industry report says",
+     "reported_by": [
+      "Ars Technica"
+     ],
+     "brief": "What happened: A trade group's annual report put US wind generation 4 percent below last year, the second annual decline.\nKey facts: The report attributes most of the fall to slower wind speeds across the Plains and 1.1 gigawatts of turbines retired.\nContext: Wind supplied about 10 percent of US electricity last year.\nSourcing: The trade group's report and federal generation data."
+    },
+    {
+     "headline": "Kenya's president dissolves his cabinet after protests",
+     "reported_by": [
+      "Al Jazeera",
+      "BBC",
+      "The Guardian"
+     ],
+     "brief": "What happened: Kenya's president dismissed all cabinet secretaries except the foreign minister after three weeks of protests over a finance bill.\nKey facts: Police reported 14 deaths since the protests began. The president said a new cabinet will be named within two weeks.\nContext: He dissolved the cabinet once before, in July 2024.\nSourcing: The president's address and police figures."
+    },
+    {
+     "headline": "Quebec signs a twenty-year power export contract with New York",
+     "reported_by": [
+      "CNBC",
+      "BBC"
+     ],
+     "brief": "What happened: Quebec's utility and New York signed a twenty-year contract to deliver 1,250 megawatts of hydroelectric power starting in 2029.\nKey facts: The contract is worth about $20 billion and depends on a transmission line under review by two state agencies.\nContext: An earlier version of the line was rejected by Maine voters in 2021 and rerouted.\nSourcing: The signed contract and both governments' announcements."
+    },
+    {
+     "headline": "Auto Insurance: premiums rose 19 percent over the year",
+     "reported_by": [
+      "CNBC",
+      "NPR",
+      "The Associated Press"
+     ],
+     "brief": "What happened: The Labor Department's price index for car insurance rose 19 percent over the twelve months ending in November, the largest annual rise in the index since 1976.\nKey facts: Insurers told state regulators that repair costs rose 12 percent and that the average claim now runs $6,400, against $4,100 in 2021. Twelve states approved increases above 25 percent this year. The average annual premium for full coverage is about $2,600. Two insurers stopped writing new policies in Louisiana and Florida.\nContext: The index rose 20 percent in 2023, fell back in 2024, and has risen each month since March.\nSourcing: The Labor Department series, state insurance department filings, and company statements."
+    },
+    {
+     "headline": "Budget Office: the Senate rejects the president's nominee, 47 to 53",
+     "reported_by": [
+      "NPR",
+      "The Associated Press"
+     ],
+     "brief": "What happened: The Senate voted 47 to 53 against confirming the president's nominee to run the Office of Management and Budget, with six members of the president's party voting no.\nKey facts: It is the third of the president's nominees rejected on the floor this year, after two at the Justice Department. The office has been run by an acting director for fourteen months, which the Government Accountability Office said in October exceeds the limit set by the vacancies law. The White House said it will name a replacement next week and disputed the accountability office's reading. Two senators who voted no cited the office's withholding of appropriated transit money.\nContext: Before this year, the Senate had rejected four cabinet-level nominees since 1989.\nSourcing: The roll call, the accountability office's opinion, and White House comment."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y05_ai_liability_law_vs_benefit_errors",
+   "axis": "Cell a: a very large power story against a mid-size lives story, on a morning where six of the ten briefs are about artificial intelligence in different ways. A federal liability law for model developers sits against a state's software wrongly cutting families off food aid, a copyright verdict the audience has already heard in full, and a Supreme Court argument over bought location data.",
+   "probe": {
+    "ai_liability_law": 3,
+    "benefits_screening_errors": 8,
+    "ai_copyright_verdict": 5,
+    "open_weights_release": 1,
+    "location_data_argument": 6,
+    "datacenter_power_bills": 10
+   },
+   "coverage_notes": [
+    "- ai_datacenter_power: 6 side-story mentions (2026_09_30 to 2026_11_24); never a full segment."
+   ],
+   "briefs": [
+    {
+     "headline": "Open Weights: Tessamine Labs publishes the weights of its newest model",
+     "reported_by": [
+      "Ars Technica"
+     ],
+     "brief": "What happened: Tessamine Labs released the full weights of Nyssa-2, a model the company says matches its own paid service on most public tests, under a license permitting commercial use.\nKey facts: The company says it removed a set of capabilities before release and published the removal method. Two testing groups reported restoring some of them within a day using public fine-tuning code. The download reached 140,000 copies in 48 hours, which makes a recall impossible. The Commerce reporting rule that takes effect in April applies to models above a compute threshold this model is below.\nContext: The company released an earlier model's weights in 2025 and has said openness is its strategy against larger rivals.\nSourcing: The company's release notes, two testing groups' write-ups, and download counts."
+    },
+    {
+     "headline": "Three models pass a licensed engineer's exam, a benchmark group says",
+     "reported_by": [
+      "Quanta Magazine",
+      "Ars Technica"
+     ],
+     "brief": "What happened: An independent testing group reported that three commercial models scored above the passing mark on a retired civil engineering licensure exam under timed conditions.\nKey facts: The group says two of the three failed the same exam in March. State licensing boards do not accept exam scores from software.\nContext: The group publishes its questions and scoring after each round.\nSourcing: The group's published results and method."
+    },
+    {
+     "headline": "AI Liability: Congress passes a bill making model developers answerable for harms, 68 to 30",
+     "reported_by": [
+      "Reuters",
+      "The Associated Press",
+      "NPR",
+      "The Guardian"
+     ],
+     "brief": "What happened: The Senate passed the AI Accountability Act 68 to 30, after the House passed it 289 to 141 last week. The president has said he will sign it.\nKey facts: The law lets people sue the developer of a model for injuries caused by its outputs, with a defense for developers who follow a testing and disclosure standard the Commerce Department must write within eighteen months. It covers models trained above a compute threshold, which the department may raise. It preempts state liability laws on the same subject, which ends four state statutes and eleven pending bills. Damages are capped at $50 million per claim unless a developer is found to have concealed a test result.\nContext: Two earlier versions died in committee in 2025 and in June.\nSourcing: The enrolled bill, both roll calls, and statements from the White House and four state attorneys general."
+    },
+    {
+     "headline": "A grounded container ship closes the Savannah shipping channel",
+     "reported_by": [
+      "CNBC",
+      "The Associated Press",
+      "Reuters",
+      "BBC",
+      "NPR"
+     ],
+     "brief": "What happened: A container ship ran aground in the Savannah River channel on Sunday and blocked traffic to the port.\nKey facts: Eleven ships are waiting. The Coast Guard expects to refloat the vessel at Tuesday's high tide. No injuries or spill were reported.\nContext: Savannah is the third busiest US container port.\nSourcing: Coast Guard statements and port authority notices."
+    },
+    {
+     "headline": "[UPDATE: ai_copyright_trial] A jury orders Halvern Systems to pay $3.2 billion to book publishers",
+     "reported_by": [
+      "Ars Technica",
+      "The Guardian",
+      "Reuters"
+     ],
+     "brief": "What happened: A federal jury in San Francisco found that Halvern Systems infringed copyright by training on 480,000 books obtained from a pirate library, and awarded $3.2 billion to a class of publishers and authors.\nKey facts: The jury rejected the company's fair use defense for the copies themselves while accepting it for the training step. Halvern said it will appeal and that the award exceeds its cash on hand. Three other labs face the same claim in the same court. The judge has not ruled on the publishers' request to order the model withdrawn.\nContext: The judge ruled in August that buying and scanning books is fair use, narrowing the trial to the pirated copies.\nSourcing: The verdict form, the August ruling, and statements from both sides."
+    },
+    {
+     "headline": "Location Data: the Supreme Court hears whether police may buy it without a warrant",
+     "reported_by": [
+      "SCOTUSblog",
+      "NPR"
+     ],
+     "brief": "What happened: The Supreme Court heard argument on whether police buying location records from data brokers need a warrant. The case comes from a Colorado prosecution built on 61 days of purchased movement data.\nKey facts: Several justices asked whether the 2018 rule for cell tower records extends to a commercial purchase, and the government's lawyer conceded that no statute governs the practice. Federal agencies have spent at least $96 million on such data since 2018, according to records the plaintiffs filed. Fourteen states have passed their own warrant requirements. A decision is expected by June.\nContext: The Court held in 2018 that police need a warrant to obtain months of past cell site records from carriers.\nSourcing: The argument transcript, the case record, and the plaintiffs' exhibits."
+    },
+    {
+     "headline": "Colombia and Venezuela reopen their main border crossing",
+     "reported_by": [
+      "Al Jazeera"
+     ],
+     "brief": "What happened: Colombia and Venezuela reopened the Cucuta crossing to trucks after a nine-week closure.\nKey facts: Trade across the border ran about $1.2 billion last year. Passenger crossings resume in January.\nContext: The crossing was closed after a customs dispute in September.\nSourcing: Both governments' announcements."
+    },
+    {
+     "headline": "Benefits Screening: a state says its eligibility software wrongly cut 41,000 households from food aid",
+     "reported_by": [
+      "KFF Health News"
+     ],
+     "brief": "What happened: Michigan's human services department said an automated eligibility system it began using in August wrongly ended food assistance for 41,000 households, and that benefits are being restored with back payments.\nKey facts: The department says the system, built by Kelbridge Analytics, treated a missing wage record as unreported income and closed cases without the notice state rules require. The error ran for fourteen weeks before a legal aid office traced it. About 96,000 people are affected, 38,000 of them children. Restored benefits will cost $34 million, which the state will seek from the vendor. The department has paused the system's use in disability determinations.\nContext: The state replaced a 1990s case system last year under a federal modernization grant.\nSourcing: The department's notice to caseworkers, the vendor's contract, and a legal aid office's filings."
+    },
+    {
+     "headline": "Geothermal Leasing: Interior opens 3 million acres in Nevada and Utah",
+     "reported_by": [
+      "The Associated Press"
+     ],
+     "brief": "What happened: The Interior Department opened 3 million acres in Nevada and Utah to geothermal leasing under a shortened environmental review.\nKey facts: The first auction is set for February. The department estimates the acreage could support 4 gigawatts by 2035.\nContext: Congress created the shortened review for geothermal in 2024.\nSourcing: The department's leasing notice."
+    },
+    {
+     "headline": "[SIDE-COVERED: ai_datacenter_power] Data Centers: residential power bills rose 12 percent in three states as new load came online",
+     "reported_by": [
+      "Ars Technica",
+      "CNBC",
+      "NPR"
+     ],
+     "brief": "What happened: Regulators in Virginia, Ohio and Georgia published rate reviews showing residential electricity bills rose an average of 12 percent over the year, and attributed between five and eight points of that to transmission and generation built for data centers.\nKey facts: The three states added 9.4 gigawatts of data center load in two years. Virginia's review found residential customers carry 61 percent of the transmission costs while data centers use 26 percent of the power. Two of the three commissions opened dockets on a separate rate class for loads above 100 megawatts. Data center operators said in filings that they already pay for interconnection and oppose a separate class.\nContext: Federal energy regulators declined in June to set a national rule on how these costs are split.\nSourcing: The three commissions' rate reviews, utility filings, and grid interconnection queues."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y06_convention_call_vs_hiv_shot",
+   "axis": "Cell c: both sides very large. The thirty-fourth state votes to call a constitutional convention on the same morning a twice-yearly shot is reported to have stopped nearly all HIV infections in a large trial, with Mexico refusing to take deportation flights from third countries.",
+   "probe": {
+    "constitutional_convention_call": 5,
+    "hiv_prevention_shot": 1,
+    "mexico_deportation_refusal": 3,
+    "union_membership_count": 4
+   },
+   "briefs": [
+    {
+     "headline": "HIV: a twice-yearly shot prevented infection in 96 percent of an 8,200-person trial",
+     "reported_by": [
+      "STAT",
+      "BBC"
+     ],
+     "brief": "What happened: Anvery Therapeutics published results of an 8,200-person trial in which two injections a year of relvitide prevented HIV infection in 96 percent of participants, against 71 percent for daily pills in the comparison group.\nKey facts: The trial ran on three continents and 3,100 participants were women. Four infections occurred in the injection group and 61 in the pill group. Side effects were injection site pain and, in 2 percent, a reversible drop in kidney function. The company files with the FDA in January, will set a US list price of $23,000 a year, and has licensed generic production for 118 lower-income countries at about $40 a year.\nContext: About 31,000 people are diagnosed with HIV in the US each year, and roughly a third of those for whom daily prevention pills are indicated take them.\nSourcing: The published trial, the company's pricing announcement, and the licensing agreement filed with the patent pool."
+    },
+    {
+     "headline": "Brazil: congress overrides the veto of an amnesty bill",
+     "reported_by": [
+      "Al Jazeera"
+     ],
+     "brief": "What happened: Brazil's congress voted to override the president's veto of a bill reducing sentences for people convicted over the 2023 attack on government buildings.\nKey facts: The override passed 331 to 158 in the lower house and 46 to 27 in the senate. The supreme court has three challenges pending.\nContext: About 1,200 people were convicted in connection with the attack.\nSourcing: The congressional record and court filings."
+    },
+    {
+     "headline": "Mexico says it will stop accepting deportation flights carrying citizens of other countries",
+     "reported_by": [
+      "Al Jazeera",
+      "Reuters",
+      "The Associated Press",
+      "The Guardian",
+      "BBC"
+     ],
+     "brief": "What happened: Mexico's foreign ministry said it will no longer accept US deportation flights carrying people who are not Mexican citizens, effective January 15, and will take only its own nationals.\nKey facts: About 41,000 people from other countries were flown to Mexican airports this year under an arrangement made in 2025. The ministry said shelters in three border states are at capacity and that the arrangement was never written into a treaty. The Department of Homeland Security said removals will continue and did not say where the flights will go. Guatemala and Honduras have their own agreements, which cover their citizens only.\nContext: Mexico accepted the first such flights in March 2025 after tariff talks.\nSourcing: The foreign ministry's note, US departmental comment, and flight records compiled by a university tracking project."
+    },
+    {
+     "headline": "Union Membership: the share of workers in unions falls to 9.4 percent",
+     "reported_by": [
+      "NPR",
+      "CNBC"
+     ],
+     "brief": "What happened: The Labor Department reported union membership at 9.4 percent of wage and salary workers, down from 9.9 percent.\nKey facts: Private sector membership was 5.6 percent and public sector 31 percent. Membership rose in three states and fell in 34.\nContext: The share was 20 percent in 1983, the first year of the series.\nSourcing: The department's annual union members release."
+    },
+    {
+     "headline": "A thirty-fourth legislature votes to call a constitutional convention",
+     "reported_by": [
+      "The Associated Press",
+      "NPR",
+      "SCOTUSblog"
+     ],
+     "brief": "What happened: South Carolina's Senate passed a resolution calling for a convention to propose a balanced budget amendment, which supporters count as the thirty-fourth state application. Article V requires applications from two thirds of the states, or 34, before Congress must call a convention.\nKey facts: Archivists at the National Archives count 28 live applications, because six states passed resolutions with different wording or later rescinded them. Congress has never set a procedure for counting applications, and no convention has been called since 1787. The House Judiciary Committee scheduled a hearing for next week. Four state legislatures have rescission bills filed for January. Nothing binds a convention's agenda once it meets, a question no court has answered.\nContext: An earlier campaign reached 32 counted applications in 1983.\nSourcing: The South Carolina resolution, the National Archives list of applications, and the committee's notice."
+    },
+    {
+     "headline": "The FCC sets a March auction for mid-band spectrum",
+     "reported_by": [
+      "Ars Technica",
+      "Reuters",
+      "CNBC"
+     ],
+     "brief": "What happened: The Federal Communications Commission voted 3 to 2 to auction 200 megahertz of mid-band spectrum in March.\nKey facts: Analysts expect bids near $30 billion. The Defense Department keeps priority use of 60 megahertz until 2031.\nContext: Congress restored the agency's auction authority in 2025 after a three-year lapse.\nSourcing: The commission's order and the auction notice."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y07_thin_voter_rolls_vs_rich_briefs",
+   "axis": "Cell a: a very large power story against a mid-size lives story, with the largest story carrying the thinnest brief. Three states report that voter registration records were altered and almost nothing is confirmed, while a nurses' strike, a school funding ruling and a pharmacy price rule come with full detail.",
+   "probe": {
+    "voter_roll_alteration_unverified": 1,
+    "five_state_nurse_strike": 5,
+    "school_funding_ruling": 3,
+    "pharmacy_cash_price_rule": 4
+   },
+   "briefs": [
+    {
+     "headline": "Three states report changes to voter registration records",
+     "reported_by": [
+      "Ars Technica"
+     ],
+     "brief": "UNVERIFIED: Nothing about who made the changes, how many records were touched, or whether voting systems were reached has been confirmed. Federal cyber officials declined to comment, and two of the three states would not answer questions beyond their written notices.\nWhat happened: Election officials in Arizona, Michigan and Georgia said their statewide voter registration databases contain records altered outside the normal update process, and that they have taken the online registration portals offline.\nKey facts: Arizona's notice says addresses and party affiliations were changed on an unspecified number of records. Michigan's says only that it is investigating. Georgia said its file will be restored from backups.\nContext: The three states hold primaries in March and June.\nSourcing: Three state notices and a declined comment from the federal cyber agency."
+    },
+    {
+     "headline": "Ohio River: the Army Corps closes a lock for emergency repair",
+     "reported_by": [
+      "CNBC",
+      "The Associated Press",
+      "Reuters",
+      "NPR",
+      "BBC"
+     ],
+     "brief": "What happened: The Army Corps of Engineers closed a lock near Louisville after a gate failure, halting barge traffic.\nKey facts: About 55 million tons of cargo pass the lock each year. The Corps expects repairs to take three weeks and says tows will be staged above and below.\nContext: The lock was built in 1961 and a replacement has been authorized but not funded.\nSourcing: The Corps' navigation notice and river industry statements."
+    },
+    {
+     "headline": "School Funding: a state supreme court strikes down the formula and orders $2.4 billion more a year",
+     "reported_by": [
+      "The Associated Press",
+      "NPR",
+      "The Guardian",
+      "CNBC"
+     ],
+     "brief": "What happened: Pennsylvania's supreme court ruled 5 to 2 that the state's school funding formula violates the state constitution's education clause and ordered the legislature to add at least $2.4 billion a year, phased over four years, starting with the budget due in June.\nKey facts: The case was filed in 2014 by six districts. The court adopted the trial court's finding that per-student spending ranges from $12,400 to $28,900 and that the gap tracks local property wealth. The ruling keeps jurisdiction, so the court can review the legislature's response. The state's general fund surplus is $1.6 billion, so the order implies either new revenue or cuts elsewhere.\nContext: Twenty-three states have had school funding formulas struck down since 1989; in four of them the legislature did not fully comply.\nSourcing: The opinion, the trial record, and the state budget office's figures."
+    },
+    {
+     "headline": "Drug Prices: a rule requiring pharmacies to post cash prices takes effect",
+     "reported_by": [
+      "KFF Health News",
+      "STAT"
+     ],
+     "brief": "What happened: A federal rule requiring pharmacies to display the cash price of the 250 most dispensed drugs, and to tell customers when the cash price is below their insurance copay, took effect Monday.\nKey facts: It covers about 62,000 retail pharmacies. Prices must appear at the counter and in a machine-readable file that researchers can download. The rule ends contract terms that had barred pharmacists from mentioning a cheaper cash price, a practice two state investigations documented in 2024. Pharmacy benefit managers sued in October to block the machine-readable file as a trade secret and lost; an appeal is pending. Enforcement begins in April, with penalties of $300 a day per store.\nContext: A 2018 law banned those contract terms for Medicare drugs only; this rule extends the ban to all payers.\nSourcing: The final rule, the district court opinion, and two state attorney general reports."
+    },
+    {
+     "headline": "Nurses Strike: 34,000 nurses walk out at 62 hospitals in five states",
+     "reported_by": [
+      "NPR",
+      "KFF Health News",
+      "The Associated Press"
+     ],
+     "brief": "What happened: Nurses at 62 hospitals run by three chains struck at 7 a.m. Monday after contract talks that began in June ended without agreement. The hospitals are in Pennsylvania, Illinois, Missouri, Oregon and Florida.\nKey facts: The union of 34,000 nurses is asking for minimum staffing ratios written into the contract, which the chains have refused in every round since 2019, and a 14 percent raise over three years against an offer of 8 percent. The chains have hired about 9,000 temporary nurses at roughly three times the hourly cost and cancelled elective surgery for at least ten days. Two hospitals diverted ambulances Monday morning. Illinois and Oregon sent inspectors to review staffing plans.\nContext: A 2022 strike at one of the chains lasted three days and ended with a raise and no ratio language.\nSourcing: Union and company statements, strike contingency filings with two state health departments, and hospital diversion logs."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y08_kosovo_troops_vs_formula_recall",
+   "axis": "Cell b: a mid-size power story against a very large lives story. Serbian armor crossing into northern Kosovo sits against a recall that removes most of the country's powdered infant formula from shelves, with a rent cap starting in subsidized housing and a voting case taken up by the Supreme Court.",
+   "probe": {
+    "kosovo_troop_movement": 4,
+    "infant_formula_recall": 3,
+    "subsidized_rent_cap": 6,
+    "citizenship_proof_case": 1
+   },
+   "coverage_notes": [
+    "- subsidized_rent_rule: last led 2026_10_28 (9 days ago), 4 roundup mentions since. Audience already knows: the housing department wrote a rule capping yearly rent increases at 7 percent in privately owned buildings that take federal subsidies, and landlord groups sued to stop it."
+   ],
+   "briefs": [
+    {
+     "headline": "Voter Registration: the Supreme Court will decide whether states may require proof of citizenship",
+     "reported_by": [
+      "SCOTUSblog"
+     ],
+     "brief": "What happened: The Supreme Court agreed to hear Arizona's appeal of a ruling that struck down its requirement that people registering to vote show a birth certificate, passport or naturalization papers.\nKey facts: The case tests whether the federal voter registration law bars states from adding documents to the federal form. Eight states have passed similar laws since 2024, four of them blocked in lower courts. Arizona's law was in effect for state elections for eleven weeks in 2025, during which county recorders rejected about 21,000 registrations. Argument is set for March and a decision is expected by June, before most states' registration deadlines for the 2028 cycle.\nContext: The Court ruled in 2013 that Arizona could not reject the federal form for lacking such documents, on statutory grounds it left open to revision.\nSourcing: The Court's order list, the appeals court opinion, and county registration records."
+    },
+    {
+     "headline": "The Bank of England cuts its rate a quarter point",
+     "reported_by": [
+      "CNBC",
+      "BBC",
+      "Reuters"
+     ],
+     "brief": "What happened: The Bank of England cut its policy rate to 3.25 percent in a 6 to 3 vote.\nKey facts: UK inflation was 2.4 percent in November. The bank lowered its growth forecast for next year to 0.9 percent.\nContext: It is the third cut this year.\nSourcing: The bank's statement and minutes."
+    },
+    {
+     "headline": "Infant Formula: Bellhaven Nutrition recalls all powdered formula after bacteria are found at its plant",
+     "reported_by": [
+      "The Associated Press",
+      "STAT",
+      "KFF Health News",
+      "NPR",
+      "CNBC"
+     ],
+     "brief": "What happened: Bellhaven Nutrition recalled every lot of powdered infant formula made at its Ohio plant since June and shut the plant, after FDA inspectors found cronobacter in an area where dry powder is blended. The FDA warned parents not to use the products and published the affected brand names.\nKey facts: The plant makes about 44 percent of US powdered formula, including store brands sold by four national chains and products on the approved list in 31 state nutrition programs. The FDA said nine infant illnesses and one death are under investigation, with no confirmed link yet, and that it will allow imports from three European manufacturers under an emergency process. It expects supply to stay tight for at least ten weeks.\nContext: A 2022 shutdown at a different plant removed about 20 percent of supply and produced months of shortages.\nSourcing: The FDA's inspection findings and consumer alert, the company's recall notice, and state nutrition program lists."
+    },
+    {
+     "headline": "Serbia moves an armored brigade into northern Kosovo",
+     "reported_by": [
+      "BBC",
+      "Al Jazeera",
+      "Reuters",
+      "The Guardian"
+     ],
+     "brief": "What happened: Serbian armored units crossed into four municipalities in northern Kosovo before dawn and took positions around three town halls, saying they are protecting Serb residents after clashes at a disputed election. Kosovo's government called it an invasion and asked NATO for help.\nKey facts: NATO's Kosovo force has about 4,600 troops, including 640 Americans, and moved a reserve battalion north. Alliance officials said there has been no exchange of fire between Serbian troops and the NATO force. Serbia's president said the units will withdraw once the election result is annulled. The EU suspended Serbia's accession talks and the US embassy in Belgrade told citizens to avoid the north.\nContext: Serbia massed troops on the border in 2023 and pulled back after US and EU pressure, without crossing.\nSourcing: NATO's statement, both governments, and EU announcements."
+    },
+    {
+     "headline": "Poland's president vetoes a media ownership bill",
+     "reported_by": [
+      "The Guardian",
+      "BBC",
+      "Al Jazeera",
+      "Reuters",
+      "The Associated Press"
+     ],
+     "brief": "What happened: Poland's president vetoed a bill limiting foreign ownership of broadcasters. Parliament lacks the votes to override.\nKey facts: The bill would have capped non-European ownership at 49 percent, affecting one national news channel.\nContext: A similar bill was vetoed in 2021.\nSourcing: The president's office and parliamentary records."
+    },
+    {
+     "headline": "[DEVELOPMENT: subsidized_rent_rule] The 7 percent rent cap takes effect in subsidized buildings after the court refuses to block it",
+     "reported_by": [
+      "KFF Health News",
+      "The Guardian"
+     ],
+     "brief": "What happened: A federal appeals court refused to block the rule capping annual rent increases at 7 percent in privately owned buildings that accept federal subsidies, and the rule took effect Monday for leases renewing after January 1.\nKey facts: The rule covers about 2.1 million apartments housing 4.6 million people. Owners who exceed the cap lose their subsidy contract. The court's order says the landlord groups are unlikely to win on the merits, and their case continues. Two large owners told investors they will let contracts lapse on 14,000 units when they expire in 2028, which would move those buildings to market rent.\nContext: Rents in these buildings rose an average of 9.8 percent last year, according to the housing department's own data.\nSourcing: The court's order, the rule as published, and two owners' investor filings."
+    },
+    {
+     "headline": "Veterans' Health: the VA opens enrollment to 900,000 more veterans",
+     "reported_by": [
+      "NPR"
+     ],
+     "brief": "What happened: The Department of Veterans Affairs opened health enrollment to veterans in two income categories that had been closed since 2003.\nKey facts: The department estimates 900,000 become eligible and expects 340,000 to enroll within three years. It says it will add 4,100 staff.\nContext: Congress lifted the enrollment restriction in a law passed in July.\nSourcing: The department's enrollment notice and staffing plan."
+    },
+    {
+     "headline": "[UPDATE: airline_merger] The Justice Department appeals the ruling clearing the airline merger",
+     "reported_by": [
+      "Reuters",
+      "CNBC"
+     ],
+     "brief": "What happened: The Justice Department filed notice of appeal of the ruling that let two airlines merge, and did not ask for a stay.\nKey facts: The merger closed in November. The appeal could take a year, and the department said it may seek divestitures rather than unwinding the deal.\nContext: The judge ruled in October that the department had not shown likely harm on overlapping routes.\nSourcing: The notice of appeal and department comment."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y09_nato_withdrawal_vs_medicare_advantage_exit",
+   "axis": "Cell c: both sides very large. Formal notice that the US will leave NATO in a year sits against an insurer dropping Medicare Advantage coverage for 2.9 million people, a chain closing rural hospitals, and artillery exchanges between Ethiopia and Eritrea that no outside power has moved on.",
+   "probe": {
+    "nato_withdrawal_notice": 8,
+    "medicare_advantage_exit": 4,
+    "rural_hospital_closures": 1,
+    "ethiopia_eritrea_shelling": 5
+   },
+   "coverage_notes": [
+    "- rural_hospital_closures: 7 side-story mentions (2026_08_19 to 2026_11_30); never a full segment."
+   ],
+   "briefs": [
+    {
+     "headline": "[SIDE-COVERED: rural_hospital_closures] Stonepine Health will close 31 rural hospitals in nine states",
+     "reported_by": [
+      "KFF Health News",
+      "NPR",
+      "The Associated Press",
+      "STAT",
+      "The Guardian"
+     ],
+     "brief": "What happened: Stonepine Health said it will close 31 rural hospitals by April, all of them the only hospital in their county, and convert eleven of them to clinics without inpatient beds or emergency rooms.\nKey facts: The company says the hospitals lost $410 million over two years. The closures remove obstetric care from 22 counties and leave residents of nine counties more than 50 miles from an emergency room. About 2,900 staff are affected. Four states said they will use grant money to keep emergency departments open; three said they cannot. The company's remaining 140 hospitals are in metropolitan areas.\nContext: 146 rural hospitals have closed or dropped inpatient care since 2010, and the pace doubled after a federal payment change in 2025.\nSourcing: The company's announcement and financial filings, state health department responses, and a university rural health program's county distance analysis."
+    },
+    {
+     "headline": "The EU opens accession talks with Moldova",
+     "reported_by": [
+      "BBC",
+      "The Guardian"
+     ],
+     "brief": "What happened: EU member states agreed to open the first negotiating chapters with Moldova.\nKey facts: Talks cover judicial reform and public procurement first. Officials put the earliest possible membership at 2034.\nContext: Moldova was granted candidate status in 2022.\nSourcing: The European Council's conclusions."
+    },
+    {
+     "headline": "A judge blocks the new payday lending rule",
+     "reported_by": [
+      "CNBC"
+     ],
+     "brief": "What happened: A federal judge in Texas blocked a rule limiting lenders to two consecutive withdrawal attempts from a borrower's account.\nKey facts: The rule was to take effect January 1 and covers about 12,000 lenders. The agency said it will appeal.\nContext: A version of the rule has been written, withdrawn and rewritten since 2017.\nSourcing: The court's order."
+    },
+    {
+     "headline": "Medicare Advantage: Ashbrook Health Plans will drop coverage for 2.9 million members next year",
+     "reported_by": [
+      "KFF Health News",
+      "CNBC",
+      "The Associated Press"
+     ],
+     "brief": "What happened: Ashbrook Health Plans told federal regulators it will end its Medicare Advantage plans in 22 states at the end of the year, which moves 2.9 million members to other plans or back to traditional Medicare.\nKey facts: Members get a special enrollment period through February. Those returning to traditional Medicare may buy supplemental coverage without health screening in 14 states; in the other eight, insurers may refuse or charge more based on health. About 640,000 affected members live in counties where one other Advantage plan operates, and 61,000 in counties with none. The company blamed a change in the risk adjustment formula and said the plans lost $2.1 billion this year.\nContext: About 35 million people are in Medicare Advantage, slightly more than half of Medicare enrollment.\nSourcing: The company's filing with the Centers for Medicare and Medicaid Services, county plan listings, and state supplemental insurance rules."
+    },
+    {
+     "headline": "Ethiopia and Eritrea exchange artillery along their border for a fourth day",
+     "reported_by": [
+      "Al Jazeera",
+      "BBC",
+      "Reuters"
+     ],
+     "brief": "What happened: Ethiopian and Eritrean forces shelled positions across their border for a fourth day, the heaviest fighting since the 2018 peace agreement. Both governments accuse the other of starting it.\nKey facts: A regional humanitarian office counts 34,000 people displaced and at least 90 civilian deaths. The African Union called for a ceasefire. The US State Department issued a written statement urging restraint and has announced no other action. Aid convoys to the Tigray region stopped Tuesday.\nContext: The two countries fought a border war from 1998 to 2000 in which an estimated 80,000 people died, and signed a peace agreement in 2018.\nSourcing: Both governments, the African Union, and UN humanitarian reporting."
+    },
+    {
+     "headline": "Battery Recall: 340,000 electric bike packs are pulled after 23 fires",
+     "reported_by": [
+      "Ars Technica",
+      "The Associated Press",
+      "CNBC",
+      "NPR"
+     ],
+     "brief": "What happened: A bicycle importer recalled 340,000 lithium battery packs after 23 fires.\nKey facts: The Consumer Product Safety Commission lists four injuries. Owners are told to stop charging the packs indoors and will receive replacements.\nContext: New York City recorded 18 deaths from such fires in 2023 and passed a certification law in 2024.\nSourcing: The recall notice and the commission's incident reports."
+    },
+    {
+     "headline": "The Census Bureau moves its 2030 field test",
+     "reported_by": [
+      "NPR"
+     ],
+     "brief": "What happened: The Census Bureau delayed its 2030 field test from March to September, citing hiring.\nKey facts: The test covers three counties and about 180,000 addresses. The bureau said the 2030 schedule is unchanged.\nContext: The 2020 count undercounted several groups, according to the bureau's own review.\nSourcing: The bureau's program update."
+    },
+    {
+     "headline": "The US gives NATO formal notice that it will withdraw in one year",
+     "reported_by": [
+      "Reuters",
+      "BBC"
+     ],
+     "brief": "What happened: The State Department delivered notice to the depositary government that the US will withdraw from the North Atlantic Treaty, which takes effect one year from the date of the notice under Article 13.\nKey facts: A law passed in 2023 says no funds may be used to withdraw without Senate consent or an act of Congress, and the administration's legal opinion holds that the president may give notice without either. Four senators of the president's party said they will sue. About 84,000 US troops are stationed in Europe; the Pentagon said no movement orders have been issued. Allied leaders called an emergency summit for Thursday. Article 5 has been invoked once, by the US in 2001.\nContext: No member has left the alliance since it was founded in 1949; France withdrew from the integrated command in 1966 and returned in 2009.\nSourcing: The delivered notice, the administration's published legal opinion, the 2023 statute, and allied government statements."
+    },
+    {
+     "headline": "Winter Wheat: drought cuts the crop rating to its lowest in a decade",
+     "reported_by": [
+      "The Associated Press",
+      "CNBC"
+     ],
+     "brief": "What happened: The Agriculture Department rated 29 percent of winter wheat good or excellent, the lowest for this date since 2016.\nKey facts: Kansas and Oklahoma had their driest autumn on record. Wheat futures rose 6 percent this week.\nContext: The US supplies about 10 percent of world wheat exports.\nSourcing: The department's crop progress report and futures prices."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y10_canada_election_vs_southwest_blackout",
+   "axis": "Cell d: both sides mid-size. A nine-hour blackout during a December cold snap across four Southwest states sits against a snap election called in Canada and a court decision on whether drug rebates must reach patients.",
+   "probe": {
+    "southwest_blackout": 3,
+    "canada_snap_election": 2,
+    "rebate_passthrough_ruling": 4,
+    "irs_filing_season": 1
+   },
+   "briefs": [
+    {
+     "headline": "Filing Season: the IRS will begin accepting returns on January 26",
+     "reported_by": [
+      "CNBC",
+      "NPR",
+      "The Associated Press"
+     ],
+     "brief": "What happened: The IRS said filing season opens January 26, a week later than last year, because of software changes for new deduction rules.\nKey facts: The agency expects 163 million individual returns and says refunds on electronically filed returns should take under 21 days.\nContext: The agency delayed the 2025 opening for the same reason.\nSourcing: The agency's announcement."
+    },
+    {
+     "headline": "Canada: the government falls on a budget vote and an election is set for February",
+     "reported_by": [
+      "BBC",
+      "Reuters",
+      "The Guardian",
+      "Al Jazeera"
+     ],
+     "brief": "What happened: Canada's minority government lost a budget vote 172 to 166 and the prime minister asked the governor general to dissolve parliament. The election is set for February 22.\nKey facts: The budget contained a carbon levy change and a cut to the immigration target. Polls before the vote put the two main parties within three points. A caretaker convention now limits new spending and appointments. Talks with Washington on softwood lumber and dairy quotas, scheduled for January, will be postponed.\nContext: It is Canada's third federal election since 2021.\nSourcing: The Commons vote record, the prime minister's statement, and the elections agency's calendar."
+    },
+    {
+     "headline": "Blackout: 2.1 million customers in four states lose power for nine hours",
+     "reported_by": [
+      "The Associated Press",
+      "CNBC"
+     ],
+     "brief": "What happened: The grid operator for parts of Arizona, New Mexico, Nevada and Utah ordered rolling outages Tuesday morning after two gas plants failed to start in freezing weather, cutting power to 2.1 million customers for up to nine hours.\nKey facts: The operator says demand ran 8 percent above its forecast and that 4.4 gigawatts of gas capacity did not come online, most of it at plants without freeze protection. Three deaths are under investigation by county medical examiners, two of them involving home oxygen equipment. Hospitals in Phoenix and Albuquerque ran on generators. Federal energy regulators opened an inquiry. Power was restored to all customers by 6 p.m.\nContext: Federal regulators recommended mandatory freeze protection for gas plants after a 2021 Texas outage; the rule applies to plants built after 2024 only.\nSourcing: The grid operator's event report, utility restoration logs, county medical examiner statements, and the federal inquiry notice."
+    },
+    {
+     "headline": "A court upholds the rule requiring drug rebates to reach patients at the counter",
+     "reported_by": [
+      "STAT",
+      "KFF Health News",
+      "Reuters",
+      "CNBC",
+      "NPR"
+     ],
+     "brief": "What happened: A federal appeals court upheld the rule requiring pharmacy benefit managers to pass manufacturer rebates through to patients at the pharmacy counter, in a 2 to 1 decision that clears it to take effect in July.\nKey facts: The rule applies to employer plans covering about 110 million people. The government's analysis estimates that patients taking insulin, inhalers and multiple sclerosis drugs would save an average of $310 a year, and that premiums would rise about $2 a month because plans now use rebates to hold premiums down. The three largest benefit managers, which handle about 79 percent of prescriptions, said they are weighing a Supreme Court appeal. Employers must update plan documents by June.\nContext: A version of the rule for Medicare was written in 2020 and delayed by Congress three times.\nSourcing: The opinion, the government's regulatory analysis, and company statements."
+    },
+    {
+     "headline": "Chile elects a new president in a runoff",
+     "reported_by": [
+      "Al Jazeera",
+      "BBC"
+     ],
+     "brief": "What happened: Chile's runoff produced a 53 to 47 result and a transfer of power scheduled for March.\nKey facts: Turnout was 85 percent under compulsory voting. The winner campaigned on pension changes and copper royalties.\nContext: Chileans rejected two proposed constitutions, in 2022 and 2023.\nSourcing: The electoral service's count."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y11_contempt_standoff_vs_biosignature",
+   "axis": "Cell a: a very large power story against a mid-size lives story. A cabinet department told to pay daily fines says it will not comply with the order, while two telescope teams report a chemical pair on a distant planet and an airline refund rule reaches passengers.",
+   "probe": {
+    "contempt_noncompliance": 2,
+    "exoplanet_biosignature": 5,
+    "airline_refund_rule": 3,
+    "farm_payment_round": 8
+   },
+   "coverage_notes": [
+    "- farm_payments: last led 2026_11_24 (12 days ago), 5 roundup mentions since. Audience already knows: the Agriculture Department has been sending payments to soybean and sorghum growers whose export sales collapsed after the retaliatory tariffs, drawing on a Depression-era fund."
+   ],
+   "briefs": [
+    {
+     "headline": "Sanctions Case: a bank agrees to a $900 million penalty",
+     "reported_by": [
+      "CNBC",
+      "Reuters"
+     ],
+     "brief": "What happened: A European bank agreed to pay $900 million and accept a monitor over 3,800 transactions that violated sanctions between 2018 and 2023.\nKey facts: The bank admitted the conduct. No individuals were charged.\nContext: The bank paid a smaller penalty for similar conduct in 2015.\nSourcing: The Justice Department's settlement papers."
+    },
+    {
+     "headline": "The Interior Department says it will not comply with a judge's order to release land grant money",
+     "reported_by": [
+      "NPR",
+      "SCOTUSblog",
+      "The Guardian"
+     ],
+     "brief": "What happened: A federal judge held the Interior Department in civil contempt and imposed fines of $500,000 a day for failing to release $3.1 billion Congress appropriated for state land and water grants. The department's filing two hours later said it will not disburse the money while its appeal is pending and that the court lacks power to order payment.\nKey facts: The order requires a compliance report every Friday. The department has withheld the money since March under a policy of reviewing grants for consistency with administration priorities. Forty-one states and three territories are plaintiffs. The Justice Department asked the appeals court for an emergency stay Tuesday night. The judge wrote that no court has fined an executive department for refusing an appropriation since 1974.\nContext: The Supreme Court left a similar withholding in place in a one-paragraph order in September, without deciding the underlying question.\nSourcing: The contempt order, the department's filing, and the emergency stay application."
+    },
+    {
+     "headline": "Refunds: airlines must now pay cash within 48 hours for cancelled flights",
+     "reported_by": [
+      "CNBC",
+      "NPR"
+     ],
+     "brief": "What happened: A Transportation Department rule took effect requiring airlines to refund fares in cash within 48 hours when a flight is cancelled or delayed more than three hours, without the passenger asking.\nKey facts: The rule covers domestic carriers and foreign carriers flying to the US, about 850 million passenger trips a year. Airlines may offer vouchers only if the passenger accepts one in writing. Checked bag fees must be refunded when a bag arrives more than twelve hours late. Two carriers sued and lost in September. Enforcement penalties run to $27,500 per passenger per violation, and the department said its first audits start in March.\nContext: Passengers filed about 51,000 refund complaints with the department last year.\nSourcing: The final rule, the September opinion, and departmental complaint data."
+    },
+    {
+     "headline": "Climate Talks: the meeting ends with a pledge on an adaptation fund",
+     "reported_by": [
+      "The Guardian",
+      "Al Jazeera",
+      "BBC",
+      "Reuters"
+     ],
+     "brief": "What happened: The annual UN climate meeting closed with a pledge of $40 billion a year by 2032 for an adaptation fund.\nKey facts: The text is not binding and names no contributor shares. Delegates deferred a decision on fossil fuel language to next year.\nContext: An earlier adaptation pledge made in 2009 was met nine years late.\nSourcing: The final text and delegation statements."
+    },
+    {
+     "headline": "Two teams report methane and oxygen together in the air of a planet 41 light-years away",
+     "reported_by": [
+      "Quanta Magazine",
+      "BBC",
+      "Ars Technica"
+     ],
+     "brief": "What happened: Two groups using different instruments reported detecting methane and oxygen in the atmosphere of a planet orbiting a small star 41 light-years away, and published their data together.\nKey facts: The detections are at 5.1 and 4.6 sigma, above the threshold physicists treat as a detection. The two gases react with each other, so their presence together implies something replenishing them; the authors list three non-biological explanations they cannot yet rule out, including ocean chemistry on a young world. The planet is about 1.4 times Earth's radius and receives 80 percent of Earth's sunlight. Confirming observations are scheduled for March, and a third instrument's data are still embargoed.\nContext: A 2023 claim of a biological marker on another planet was withdrawn after reanalysis.\nSourcing: Two published papers, the observing schedule, and comments from four astronomers who reviewed the data."
+    },
+    {
+     "headline": "South Korea and Japan sign an intelligence sharing agreement",
+     "reported_by": [
+      "Al Jazeera",
+      "BBC",
+      "Reuters",
+      "NPR",
+      "The Associated Press"
+     ],
+     "brief": "What happened: South Korea and Japan signed an agreement to share satellite and missile tracking data directly rather than through US systems.\nKey facts: The agreement runs five years and renews automatically. Both parliaments must be notified but need not vote.\nContext: An earlier pact was suspended in 2019 during a trade dispute and restored in 2023.\nSourcing: Both defense ministries."
+    },
+    {
+     "headline": "The Interior Department lists the monarch butterfly as threatened",
+     "reported_by": [
+      "The Associated Press",
+      "Quanta Magazine"
+     ],
+     "brief": "What happened: The Fish and Wildlife Service listed the monarch butterfly as threatened, with exemptions for farming and household gardening.\nKey facts: Eastern monarch overwintering area fell 59 percent over two decades. The rule takes effect in 30 days.\nContext: The service found listing warranted in 2020 but deferred it for higher priorities.\nSourcing: The listing rule and the service's status assessment."
+    },
+    {
+     "headline": "[DEVELOPMENT: farm_payments] The Agriculture Department sends a third round of payments to soybean growers",
+     "reported_by": [
+      "The Associated Press",
+      "CNBC",
+      "NPR",
+      "Reuters"
+     ],
+     "brief": "What happened: The Agriculture Department said a third round of payments, $4.2 billion, will reach soybean and sorghum growers before the end of the month.\nKey facts: The three rounds total $17 billion. Payments are capped at $250,000 per operation. Export sales to China remain 62 percent below their 2024 level.\nContext: The department has drawn on the same Depression-era credit fund three times since 2018.\nSourcing: The department's announcement and export sales reports."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y12_california_boil_water_vs_senate_rules",
+   "axis": "Cell b: a mid-size power story against a very large lives story. A treatment plant failure puts 2.4 million Californians under a boil-water order while the Senate changes how it confirms judges and a court ends the tip credit for 1.1 million workers.",
+   "probe": {
+    "california_boil_water": 3,
+    "senate_judicial_rules_change": 6,
+    "tip_credit_ruling": 4,
+    "bridge_repair_grants": 2
+   },
+   "briefs": [
+    {
+     "headline": "Thailand's constitutional court removes a cabinet minister",
+     "reported_by": [
+      "Al Jazeera",
+      "BBC"
+     ],
+     "brief": "What happened: Thailand's constitutional court removed the interior minister over a land holding, in a 6 to 3 decision.\nKey facts: The coalition keeps its majority. A replacement must be named within fifteen days.\nContext: The court has removed four ministers and two prime ministers since 2008.\nSourcing: The court's ruling."
+    },
+    {
+     "headline": "Bridge Grants: Transportation awards $4 billion to 38 states",
+     "reported_by": [
+      "The Associated Press",
+      "CNBC",
+      "NPR"
+     ],
+     "brief": "What happened: The Transportation Department awarded $4 billion in bridge repair grants to 38 states.\nKey facts: The largest single award, $620 million, goes to a Mississippi River crossing carrying 78,000 vehicles a day. Work on most projects begins in 2028.\nContext: The program was funded by the 2021 infrastructure law and has three years of awards left.\nSourcing: The department's award list."
+    },
+    {
+     "headline": "Boil Water: 2.4 million Southern Californians are told to boil water after a treatment plant fails",
+     "reported_by": [
+      "The Press-Enterprise",
+      "KFF Health News"
+     ],
+     "brief": "What happened: The Arroyo Basin Water Authority issued a boil-water notice for 2.4 million people in Riverside, San Bernardino and eastern Los Angeles counties after a disinfection failure at its largest treatment plant went undetected for about 30 hours.\nKey facts: State regulators say chlorine residual fell below the required level across a 900-mile distribution area and that coliform bacteria were found at nine of 44 sampling points. The notice stays in place until two consecutive days of clean samples, which the authority says is Friday at the earliest. Schools in three districts closed Wednesday, hospitals switched to bottled water for cleaning, and the state opened 21 distribution sites. The authority says a sensor failed and an alarm was not forwarded to the night operator.\nContext: The plant serves about a quarter of the region's drinking water and had a smaller outage in 2023.\nSourcing: The authority's notice, the state water board's preliminary findings, and county emergency declarations."
+    },
+    {
+     "headline": "Tipped Wages: a court ends the tip credit for 1.1 million workers",
+     "reported_by": [
+      "NPR",
+      "CNBC",
+      "KFF Health News",
+      "BBC",
+      "The Guardian"
+     ],
+     "brief": "What happened: A federal appeals court upheld the Labor Department rule that bars employers from paying the $2.13 tipped wage for time spent on work that does not produce tips, and struck the industry's challenge in a 2 to 1 decision.\nKey facts: The department estimates 1.1 million workers are covered, mostly in restaurants. Employers must track and separate side work; the rule requires the full minimum wage whenever untipped tasks exceed 30 minutes in a row or 20 percent of a shift. Restaurant groups said they will ask the Supreme Court and that the recordkeeping is the harder part. Seven states already require the full minimum wage before tips.\nContext: The department wrote the rule in 2021, a different court vacated a version of it in 2024, and the department reissued it in April.\nSourcing: The opinion, the rule's economic analysis, and industry and union statements."
+    },
+    {
+     "headline": "[UPDATE: county_jail_ruling] A judge extends federal oversight of a county jail",
+     "reported_by": [
+      "The Guardian"
+     ],
+     "brief": "What happened: A federal judge extended court oversight of a county jail system for two more years, citing staffing shortfalls.\nKey facts: The jail holds about 4,200 people. The county must hire 340 officers and report monthly.\nContext: Oversight began under a 2022 consent decree.\nSourcing: The court's order."
+    },
+    {
+     "headline": "The Senate changes its rules to confirm district judges in blocks",
+     "reported_by": [
+      "NPR",
+      "SCOTUSblog",
+      "The Associated Press",
+      "Reuters"
+     ],
+     "brief": "What happened: The Senate voted 52 to 48 to change its rules so that district court nominees can be confirmed in groups of up to twenty on a single vote, after two hours of debate for the group.\nKey facts: The change was made by overruling the chair rather than by the two-thirds vote the standing rules require for a rule change. There are 87 district vacancies and 61 pending nominees. The minority leader said the next majority will use the same method for appeals courts. Under the old practice each nominee took up to thirty hours of floor time, which the majority said left no time for legislation.\nContext: The Senate lowered the threshold for judicial nominees in 2013 and for Supreme Court nominees in 2017, both times by the same method.\nSourcing: The roll call, the parliamentarian's ruling, and the courts' vacancy list."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y13_unverified_island_landing_vs_diabetes_count",
+   "axis": "Cell a: a very large power story against a mid-size lives story. Reports that Chinese forces have landed on an island the Philippines garrisons cannot be confirmed, while the CDC puts diagnosed diabetes at one in nine adults and Congress overrides a veto of the defense bill.",
+   "probe": {
+    "island_landing_unverified": 2,
+    "diabetes_prevalence": 5,
+    "defense_veto_override": 1,
+    "graduate_loan_cap": 7,
+    "transit_funding_freeze": 6
+   },
+   "coverage_notes": [
+    "- transit_funding_freeze: last led 2026_12_09 (5 days ago), 3 roundup mentions since. Audience already knows: the Transportation Department has withheld $19 billion in transit grants from states that did not change their immigration enforcement policies, and four transit agencies said they would cut service in January."
+   ],
+   "briefs": [
+    {
+     "headline": "Defense Bill: Congress overrides the veto, 289 to 138 and 68 to 31",
+     "reported_by": [
+      "The Associated Press",
+      "NPR",
+      "BBC"
+     ],
+     "brief": "What happened: The House and Senate voted to override the president's veto of the annual defense authorization, enacting it over his objection.\nKey facts: The bill bars the transfer of troops out of Europe below 76,000 without a certification to Congress, requires Senate confirmation for the head of the Joint Special Operations Command, and blocks the use of military construction money for domestic detention facilities. The White House called the restrictions unconstitutional and said the president will treat three of them as advisory. It is the first veto override of this presidency and the fifth of a defense bill since 1961.\nContext: The defense authorization has passed every year since 1961, and has been vetoed five times.\nSourcing: Both roll calls, the enrolled bill, and the White House signing-statement style response."
+    },
+    {
+     "headline": "Reports of a Chinese landing on an island held by the Philippines",
+     "reported_by": [
+      "Reuters",
+      "Al Jazeera"
+     ],
+     "brief": "UNVERIFIED: Neither the landing nor the fate of the garrison is confirmed. China's defense ministry has not answered questions, and no imagery from the past eighteen hours has been published.\nWhat happened: Two Philippine officials say Chinese marines landed on Thitu Island in the Spratlys before dawn and that the 40-person garrison and about 250 civilian residents are cut off. The Philippine military says it lost contact with the outpost at 4 a.m. and will not say more.\nKey facts: Manila's national security council met at 7 a.m. and issued no statement. The 1951 US-Philippine defense treaty covers armed attacks on Philippine forces in the Pacific, which the State Department said in 2024 includes the South China Sea.\nContext: China has built airfields on three nearby reefs since 2015 and has not previously landed on an island another country garrisons.\nSourcing: Two Philippine defense officials speaking anonymously and a declined comment from China's defense ministry."
+    },
+    {
+     "headline": "The Fed holds rates steady and lowers its growth forecast",
+     "reported_by": [
+      "CNBC",
+      "Reuters",
+      "The Associated Press"
+     ],
+     "brief": "What happened: The Federal Reserve left its policy rate unchanged at 3.5 to 3.75 percent in a 10 to 2 vote.\nKey facts: The committee's projections show one cut next year, against two in September, and growth of 1.6 percent. Two members preferred a quarter-point cut.\nContext: The last change was a quarter-point cut in September.\nSourcing: The committee's statement and projection materials."
+    },
+    {
+     "headline": "Europe's Rocket: the new launcher reaches orbit on its third attempt",
+     "reported_by": [
+      "Ars Technica",
+      "Quanta Magazine",
+      "BBC"
+     ],
+     "brief": "What happened: Europe's new medium-lift rocket reached orbit on its third flight, placing four navigation satellites.\nKey facts: The first two flights failed in 2025. The operator has eleven launches booked for next year.\nContext: Europe has had no independent medium-lift capacity since 2023.\nSourcing: The launch operator and the space agency."
+    },
+    {
+     "headline": "Diabetes: the CDC puts diagnosed diabetes at one in nine adults",
+     "reported_by": [
+      "STAT",
+      "KFF Health News",
+      "NPR",
+      "The Associated Press",
+      "CNBC"
+     ],
+     "brief": "What happened: The CDC's national report put diagnosed diabetes at 11.3 percent of US adults, up from 9.4 percent five years ago, and said another 4.1 percent have it undiagnosed.\nKey facts: The count is about 29 million diagnosed adults. Diagnoses among adults under 45 rose 24 percent over the five years, the fastest of any age group. Rates are 16.9 percent among American Indian adults and 8.4 percent among white adults. The report says use of the new weight and glucose drugs is too recent to show in these numbers, and that the agency will report on their effect in 2028. Direct medical costs are put at $307 billion a year.\nContext: The agency changed its survey method in 2024 to add home blood draws, which it says raised measured prevalence by about half a point.\nSourcing: The national diabetes statistics report and the survey's methods appendix."
+    },
+    {
+     "headline": "[DEVELOPMENT: transit_funding_freeze] The transit money stays frozen for a fifth week and two agencies cut service",
+     "reported_by": [
+      "The Associated Press",
+      "CNBC"
+     ],
+     "brief": "What happened: The Transportation Department left $19 billion in transit grants frozen for a fifth week, and two agencies announced service cuts starting in February.\nKey facts: The cuts amount to 8 percent of trips in Philadelphia and 11 percent in Denver. A hearing in the states' lawsuit is set for January 12.\nContext: The department tied the money to state immigration enforcement policies in November.\nSourcing: Agency board votes and the department's grant status page."
+    },
+    {
+     "headline": "Graduate Loans: a $100,000 lifetime cap takes effect for new borrowers",
+     "reported_by": [
+      "NPR",
+      "CNBC"
+     ],
+     "brief": "What happened: A federal borrowing cap of $100,000 for most graduate students and $200,000 for medical, dental and veterinary students took effect for loans disbursed after January 1, replacing the program that let students borrow up to the full cost of attendance.\nKey facts: The Education Department estimates 1.1 million students borrow above the new caps each year, with the largest gaps in medicine, law and social work. Schools say private lenders will fill part of the gap at higher rates and without income-driven repayment. Four medical schools announced tuition freezes. Students already enrolled keep the old limits for three years.\nContext: Congress set the caps in the reconciliation law passed in 2025.\nSourcing: The department's implementation notice, the statute, and school announcements."
+    },
+    {
+     "headline": "[UPDATE: opioid_settlement] A judge approves the final distribution of settlement money",
+     "reported_by": [
+      "KFF Health News",
+      "Reuters",
+      "STAT",
+      "NPR"
+     ],
+     "brief": "What happened: A federal judge approved the last distribution plan in the opioid settlements, releasing $6.8 billion to states over eighteen years.\nKey facts: States must spend at least 70 percent on treatment and prevention and report annually. Objections from two counties were overruled.\nContext: The settlements total about $54 billion since 2021.\nSourcing: The court's order and the settlement administrator."
+    },
+    {
+     "headline": "A state sues a fertilizer maker over nitrate in rural wells",
+     "reported_by": [
+      "The Guardian",
+      "NPR"
+     ],
+     "brief": "What happened: Nebraska's attorney general sued a fertilizer manufacturer over nitrate contamination in about 4,000 private wells.\nKey facts: The suit seeks treatment systems and monitoring. The company says farm application, not manufacturing, explains the readings.\nContext: State testing has found nitrate above the federal limit in parts of 22 counties.\nSourcing: The complaint and state testing data."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y14_five_ai_stories_all_midsize",
+   "axis": "Cell d: both sides mid-size, on a morning where five of the nine briefs involve artificial intelligence in different ways. A state suit over hiring software, an insurer dropping a claims algorithm, a drug designed by software, a data center's water permit and a classroom tool the audience has heard about in passing.",
+   "probe": {
+    "hiring_algorithm_suit": 4,
+    "claims_algorithm_withdrawn": 2,
+    "ai_designed_antibiotic": 9,
+    "datacenter_water_permit": 7,
+    "classroom_ai_results": 8
+   },
+   "coverage_notes": [
+    "- ai_teacher_tools: 3 side-story mentions (2026_10_02 to 2026_11_18); never a full segment."
+   ],
+   "briefs": [
+    {
+     "headline": "The US and Vietnam sign a port access agreement",
+     "reported_by": [
+      "Al Jazeera",
+      "Reuters"
+     ],
+     "brief": "What happened: The US and Vietnam signed an agreement allowing US Navy logistics ships to call at Cam Ranh Bay three times a year.\nKey facts: The agreement covers supply and repair visits, not basing. It runs for five years.\nContext: US warships have made occasional port calls since 2016.\nSourcing: Both defense ministries."
+    },
+    {
+     "headline": "Claims Software: Cedarline Health drops an algorithm and will re-examine 600,000 denials",
+     "reported_by": [
+      "KFF Health News",
+      "STAT"
+     ],
+     "brief": "What happened: Cedarline Health said it will stop using software that recommended cutting off rehabilitation and nursing home stays, and will re-examine about 600,000 denials issued since 2024, after a state insurance regulator ordered a review.\nKey facts: The regulator's order says clinicians overrode the software in under 1 percent of cases and that the insurer's own appeal data show 76 percent of denials were reversed when a patient appealed. The insurer covers 4.2 million people including 900,000 in Medicare Advantage. Re-examined claims will be paid with interest where the denial was wrong; the insurer set aside $190 million. Three class actions on the same software are consolidated in federal court.\nContext: Federal regulators told Medicare Advantage plans in 2024 that software may inform but not replace an individual coverage decision.\nSourcing: The regulator's order, the insurer's statement and reserve disclosure, and the consolidated complaint."
+    },
+    {
+     "headline": "Grazing Rule: land managers finalize terms for 155 million acres",
+     "reported_by": [
+      "The Associated Press"
+     ],
+     "brief": "What happened: The Bureau of Land Management finalized a rule changing how grazing permits are renewed on 155 million acres.\nKey facts: Permits will be renewed for ten years with monitoring conditions. Ranching groups and two states said they will sue.\nContext: The agency last revised the rule in 2006.\nSourcing: The final rule and the agency's response to comments."
+    },
+    {
+     "headline": "Hiring Software: a state sues Fairmile AI over screening that rejected older applicants",
+     "reported_by": [
+      "Ars Technica",
+      "NPR",
+      "Reuters"
+     ],
+     "brief": "What happened: Illinois' attorney general sued Fairmile AI, whose resume screening software is used by about 1,400 employers, alleging it scored applicants over 50 lower in a way the company's own audits showed and did not disclose.\nKey facts: The complaint cites internal audit documents from 2024 and 2025 showing a nine-point average gap for applicants over 50 with matched experience, and says the company kept selling the tool while telling employers it was bias-tested. The state seeks $10,000 per affected applicant, which it estimates at 240,000 people in Illinois. The company says its audits measured something else and that employers set the cutoffs. Two other states have opened investigations.\nContext: Illinois has required notice when software is used in hiring interviews since 2020, but not scoring audits.\nSourcing: The complaint and the exhibits filed with it, plus the company's response."
+    },
+    {
+     "headline": "[UPDATE: ai_chip_smuggling] Two more indictments in the chip smuggling case",
+     "reported_by": [
+      "Reuters",
+      "CNBC",
+      "Ars Technica",
+      "BBC",
+      "The Associated Press"
+     ],
+     "brief": "What happened: Federal prosecutors charged two more people with routing controlled AI chips to a buyer in a country under export restrictions.\nKey facts: The indictment covers 3,100 chips shipped through Malaysia and Singapore. Four people were charged in the same case in October.\nContext: The export rule covering these chips was tightened in 2025.\nSourcing: The indictment and the prosecutors' statement."
+    },
+    {
+     "headline": "Export Controls: Commerce adds fourteen firms to the restriction list",
+     "reported_by": [
+      "CNBC",
+      "Reuters",
+      "NPR"
+     ],
+     "brief": "What happened: The Commerce Department added fourteen firms in four countries to its export restriction list for diverting controlled equipment.\nKey facts: The listings take effect immediately and cover semiconductor tools. Two of the firms are subsidiaries of listed parents.\nContext: The list has grown by about 200 entries since 2024.\nSourcing: The Federal Register notice."
+    },
+    {
+     "headline": "Water: an Arizona data center wins a permit for 1.4 billion gallons a year",
+     "reported_by": [
+      "The Press-Enterprise",
+      "Ars Technica"
+     ],
+     "brief": "What happened: Arizona's water regulator granted Pellworth Compute a permit to pump 1.4 billion gallons a year for a data center campus near Casa Grande, over objections from two irrigation districts.\nKey facts: The permit requires the company to retire farm water rights covering 2,100 acres, which it has bought, and to report monthly. The regulator's analysis says the transfer lowers total groundwater use in the basin by about 18 percent because the farmland used more. Irrigation districts say the analysis ignores return flows that recharge the aquifer and will appeal. The campus is planned at 900 megawatts, and its power agreement is still before the utility commission.\nContext: The basin's water table has fallen about 100 feet since 1990.\nSourcing: The permit and the regulator's hydrology analysis, plus the districts' notice of appeal."
+    },
+    {
+     "headline": "[SIDE-COVERED: ai_teacher_tools] Classroom Tutors: test results from 1,200 districts come back mixed",
+     "reported_by": [
+      "NPR",
+      "The Guardian",
+      "KFF Health News",
+      "Ars Technica"
+     ],
+     "brief": "What happened: A research group published results from 1,200 districts that adopted AI tutoring software in reading and mathematics, covering about 2.1 million students over two school years.\nKey facts: Mathematics scores rose by the equivalent of five weeks of learning in districts that used the software at least three times a week, and did not move in districts using it less. Reading scores were flat everywhere. Districts with the largest gains had also added staff. The group says it could not separate the software from the staffing in 40 percent of districts. The two vendors paid for none of the study.\nContext: Districts spent about $2.3 billion on such tools in two years, much of it from expiring pandemic relief funds.\nSourcing: The published study, district purchasing records, and state test files."
+    },
+    {
+     "headline": "An antibiotic designed by software clears its first human safety trial",
+     "reported_by": [
+      "Quanta Magazine",
+      "STAT",
+      "Ars Technica"
+     ],
+     "brief": "What happened: Tolvara Biosciences reported that denavicel, an antibiotic whose structure was proposed by a machine learning model and synthesized in 2024, passed a 94-person safety trial with no serious adverse events.\nKey facts: The compound kills two of the three bacteria the CDC lists as urgent drug-resistant threats in laboratory and mouse studies, including one for which two drugs remain. The design step took eleven weeks against the two to four years the company says its chemists needed for prior programs. A safety trial shows tolerability, not effectiveness; the efficacy trial in patients with resistant bloodstream infections begins in the spring and reports in 2029. The company has federal funding for that trial under a program for antibiotics with small markets.\nContext: Two previous machine-designed antibiotics entered trials in 2024 and one was withdrawn for liver toxicity.\nSourcing: The published trial, the company's announcement, and the federal award record."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y15_senate_control_recount_vs_obesity_coverage",
+   "axis": "Cell c: both sides very large. A court-ordered count of 38,000 ballots will decide which party holds the Senate, while Medicare opens coverage of weight drugs to about 12 million people and India and Pakistan shell each other across the Line of Control.",
+   "probe": {
+    "senate_control_recount": 3,
+    "medicare_obesity_coverage": 2,
+    "india_pakistan_shelling": 4,
+    "strep_home_test": 5
+   },
+   "briefs": [
+    {
+     "headline": "Amtrak reports its highest annual ridership",
+     "reported_by": [
+      "CNBC",
+      "NPR"
+     ],
+     "brief": "What happened: Amtrak said it carried 36 million passengers in the fiscal year, its highest annual total.\nKey facts: Northeast Corridor trips rose 6 percent. The railroad's operating loss narrowed to $600 million.\nContext: Ridership fell to 16 million in 2020.\nSourcing: Amtrak's annual report."
+    },
+    {
+     "headline": "Medicare: the program will cover weight loss drugs for about 12 million people from July",
+     "reported_by": [
+      "STAT",
+      "KFF Health News",
+      "CNBC"
+     ],
+     "brief": "What happened: The Centers for Medicare and Medicaid Services issued a final rule covering weight loss drugs under Part D for people with obesity and one related condition, starting July 1. The agency reinterpreted the 2003 law's exclusion of weight loss drugs, saying it does not reach drugs approved to prevent heart attacks and strokes.\nKey facts: The agency estimates 12.4 million enrollees become eligible and 3 million will start treatment in the first year, at a program cost of $34 billion a year. Negotiated prices for two of the drugs, set at $149 and $179 a month, take effect the same day. Part B premiums rise $8.70 a month in 2028 under the agency's projection. Plans may require six months of documented lifestyle treatment first.\nContext: The agency proposed the coverage in 2024 and dropped it in 2025 on cost grounds.\nSourcing: The final rule, the agency's actuarial memorandum, and the negotiated price list."
+    },
+    {
+     "headline": "Senate Control: a court orders 38,000 ballots counted, and the majority turns on the result",
+     "reported_by": [
+      "The Associated Press",
+      "NPR",
+      "SCOTUSblog",
+      "The Guardian",
+      "BBC"
+     ],
+     "brief": "What happened: Nevada's supreme court ordered county officials to count 38,000 mail ballots that arrived without a legible postmark, reversing a lower court, and set a Friday deadline. The seat decides which party organizes the Senate, which is otherwise split 50 to 49.\nKey facts: The certified margin before the order is 1,140 votes. The court read the state's postmark rule to apply only when a postmark exists, and said ballots received by the deadline count. Two counties said they cannot finish by Friday. The losing campaign said it will ask the US Supreme Court, arguing the state court rewrote an election statute after the election. The Senate convenes January 3, and the chamber's own rules let it seat a member provisionally while a contest proceeds.\nContext: The Senate has decided three contested elections since 1975, the last in 2009 after a seven-month recount.\nSourcing: The state supreme court's opinion, county election officials, and campaign filings."
+    },
+    {
+     "headline": "India and Pakistan shell each other across the Line of Control for a third day",
+     "reported_by": [
+      "Al Jazeera",
+      "BBC",
+      "Reuters",
+      "The Guardian"
+     ],
+     "brief": "What happened: Indian and Pakistani forces exchanged artillery fire across the Line of Control in Kashmir for a third day, after a strike on an army convoy that India blames on a group based in Pakistan.\nKey facts: Officials on both sides report 31 soldiers and 18 civilians killed. About 24,000 people have left villages near the line. Both governments say their air forces have not flown combat sorties. The 2021 ceasefire understanding has held until now with occasional violations. Both countries hold nuclear weapons and have no direct military hotline in use since 2024. China called for restraint; the US State Department said it is in touch with both governments and announced no other step.\nContext: The two countries exchanged air strikes in 2019 and returned to the ceasefire understanding in 2021.\nSourcing: Both militaries' statements, local hospital counts, and the UN observer mission."
+    },
+    {
+     "headline": "Home Testing: the FDA clears a strep throat test",
+     "reported_by": [
+      "STAT",
+      "NPR",
+      "The Associated Press",
+      "KFF Health News"
+     ],
+     "brief": "What happened: The FDA cleared the first at-home rapid test for strep throat, to be sold without a prescription.\nKey facts: The test agreed with laboratory culture 94 percent of the time in a 1,400-person study. It will cost about $16 for two tests.\nContext: Strep causes about 5.2 million outpatient visits a year in the US.\nSourcing: The clearance letter and the manufacturer's study."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y16_unverified_vaccine_pull_vs_rich_briefs",
+   "axis": "Cell b: a mid-size power story against a very large lives story, with the largest story carrying the thinnest brief. One outlet reports that a vaccine given to millions will be pulled, while a state's takeover of its school board, a finding that the administration broke the spending law, and a cut to heating aid all come with full detail.",
+   "probe": {
+    "vaccine_withdrawal_unverified": 1,
+    "school_board_abolished": 2,
+    "appropriations_finding": 4,
+    "heating_aid_cut": 5
+   },
+   "briefs": [
+    {
+     "headline": "A report that the FDA will withdraw approval of an RSV vaccine",
+     "reported_by": [
+      "STAT"
+     ],
+     "brief": "UNVERIFIED: The FDA has not confirmed the report and did not answer questions. The manufacturer said only that it is in regular contact with the agency. No withdrawal notice has appeared in the agency's public docket.\nWhat happened: One outlet reported, citing two people it described as familiar with the decision, that the FDA will move to withdraw approval of Provexa, an RSV vaccine given to adults over 60, over a neurological side effect seen in post-marketing data.\nKey facts: About 19 million US adults have received the vaccine since 2023. The report says the agency's safety office counted cases of Guillain-Barre syndrome above the expected rate, and gives no number.\nContext: The agency added a warning about the same syndrome to the label in 2025.\nSourcing: One outlet's report based on two anonymous people; declined comment from the FDA and the manufacturer."
+    },
+    {
+     "headline": "State Board: a legislature abolishes the elected school board and gives the governor the appointments",
+     "reported_by": [
+      "The Associated Press",
+      "NPR",
+      "The Guardian"
+     ],
+     "brief": "What happened: Ohio's legislature passed a bill ending the elected state board of education and giving the governor authority to appoint all nineteen members, in a 58 to 39 House vote and a 22 to 11 Senate vote. The governor is expected to sign it.\nKey facts: The board sets academic standards, licenses teachers and hears discipline cases for about 1.6 million students. Eleven of the nineteen seats are currently elected by district. The bill takes effect in 90 days and ends the terms of sitting elected members, which two of them say they will challenge under the state constitution's education article. Six states elect some or all of their state board; this would leave five.\nContext: The legislature moved most of the board's staff under a cabinet department in 2023.\nSourcing: The enrolled bill, both roll calls, the state constitution's education article, and statements from two board members."
+    },
+    {
+     "headline": "Asteroid Mission: a NASA spacecraft enters orbit",
+     "reported_by": [
+      "Quanta Magazine",
+      "BBC"
+     ],
+     "brief": "What happened: A NASA spacecraft entered orbit around a metal-rich asteroid after a three-year cruise.\nKey facts: The mission will map the body for 21 months. It carries no sample return.\nContext: The asteroid is thought to be the exposed core of an early planet.\nSourcing: The agency's mission update."
+    },
+    {
+     "headline": "The accountability office finds the administration broke the spending law by cancelling a rail project",
+     "reported_by": [
+      "SCOTUSblog",
+      "NPR",
+      "Reuters",
+      "The Guardian",
+      "CNBC"
+     ],
+     "brief": "What happened: The Government Accountability Office concluded that the Transportation Department violated the Impoundment Control Act when it cancelled a $6.9 billion rail project and did not send Congress the required notice before withholding the money.\nKey facts: The opinion is the office's eleventh such finding against this administration, against four findings in the eight years before 2025. The law requires the president to ask Congress before cancelling appropriated funds; the office says no request was sent. The office may sue to compel release, which it has done once, in 1975. The department says the project failed its own cost-benefit test and that the money is merely unobligated. The relevant appropriation expires September 30, after which the money cannot be spent.\nContext: Congress appropriated the money in 2024 and the department signed a grant agreement in March before cancelling it in October.\nSourcing: The office's published opinion, the grant agreement, and the department's response letter."
+    },
+    {
+     "headline": "Heating Aid: the low-income heating program's allocation falls 24 percent as applications rise",
+     "reported_by": [
+      "KFF Health News",
+      "NPR",
+      "The Associated Press",
+      "CNBC"
+     ],
+     "brief": "What happened: The Department of Health and Human Services released this winter's heating assistance allocations to states, 24 percent below last winter's, while state agencies report applications up 18 percent.\nKey facts: The program helped about 6.1 million households last winter, averaging $580 each. Eleven states said they will stop taking applications in January rather than cut the average grant; nine will cut grants instead. Natural gas prices are 21 percent above last winter in the Midwest. Twenty-six states bar utilities from shutting off heat in winter, and eleven of those tie the protection to being enrolled in this program. The department says the lower allocation follows the appropriation Congress passed in September.\nContext: The program's funding has fallen in three of the last four years, and last year's total included $1 billion in one-time money that was not renewed.\nSourcing: The department's allocation table, a state administrators' association survey, and state shutoff rules."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y17_refund_seizures_vs_tariff_emergency_vote",
+   "axis": "Cell b: a mid-size power story against a very large lives story. The Treasury begins taking tax refunds from 5.3 million defaulted student borrowers as the House votes to end the emergency behind the tariffs and the uninsured rate rises.",
+   "probe": {
+    "refund_offsets_resume": 8,
+    "tariff_emergency_vote": 9,
+    "uninsured_rate_rise": 6,
+    "border_crossing_closure": 7
+   },
+   "coverage_notes": [
+    "- border_crossing_closure: last led 2026_12_04 (6 days ago), 2 roundup mentions since. Audience already knows: the two busiest commercial crossings in Texas have been closed since inspectors were moved to processing duty, and trucks have been waiting up to 30 hours at the crossings that remain open."
+   ],
+   "briefs": [
+    {
+     "headline": "Winter Storm: Interstate 80 closes across three states",
+     "reported_by": [
+      "The Associated Press",
+      "NPR"
+     ],
+     "brief": "What happened: A winter storm closed Interstate 80 across Wyoming, Nebraska and western Iowa for about eighteen hours.\nKey facts: State patrols counted 340 crashes and two deaths. Airlines cancelled 1,100 flights in Denver and Chicago.\nContext: The same stretch closed for two days in January.\nSourcing: State transportation departments and flight tracking data."
+    },
+    {
+     "headline": "The FCC fines a carrier over location data sales",
+     "reported_by": [
+      "Ars Technica",
+      "Reuters",
+      "CNBC",
+      "NPR"
+     ],
+     "brief": "What happened: The Federal Communications Commission fined a wireless carrier $57 million for selling subscriber location data to aggregators without consent.\nKey facts: The conduct ran from 2018 to 2020. The carrier said it will pay and has ended the practice.\nContext: Three other carriers were fined for the same conduct in 2024.\nSourcing: The commission's order."
+    },
+    {
+     "headline": "Testing finds PFAS above the federal limit in 12 percent of sampled water systems",
+     "reported_by": [
+      "The Guardian",
+      "Ars Technica",
+      "KFF Health News"
+     ],
+     "brief": "What happened: The EPA published its third round of nationwide testing, finding PFAS above the 2024 limits in 12 percent of the systems sampled.\nKey facts: The systems serve about 27 million people. Utilities must meet the limits by 2029 and 61 percent of those over the limit have no funded treatment plan.\nContext: The limits were set in 2024 and survived a court challenge in 2025.\nSourcing: The agency's testing database and utility compliance filings."
+    },
+    {
+     "headline": "[UPDATE: data_broker_rule] The data broker rule survives a court challenge",
+     "reported_by": [
+      "Ars Technica"
+     ],
+     "brief": "What happened: A federal judge upheld the rule barring the sale of Americans' location and financial data to buyers in four listed countries.\nKey facts: The rule took effect in July. The trade group said it will appeal.\nContext: The rule came from an executive order issued in 2024.\nSourcing: The court's opinion."
+    },
+    {
+     "headline": "Spain: parliament passes a law capping rents in tight markets",
+     "reported_by": [
+      "The Guardian",
+      "Al Jazeera",
+      "BBC"
+     ],
+     "brief": "What happened: Spain's parliament passed a law letting regions cap rent increases in designated markets.\nKey facts: The law covers about 1.5 million tenancies if all regions opt in. Two regions said they will not.\nContext: A narrower version passed in 2023.\nSourcing: The parliamentary record."
+    },
+    {
+     "headline": "Coverage: the uninsured rate rose to 12.4 percent",
+     "reported_by": [
+      "KFF Health News",
+      "STAT",
+      "NPR"
+     ],
+     "brief": "What happened: The Census Bureau's health insurance estimate put the uninsured rate at 12.4 percent, up from 9.6 percent, an increase of about 9.3 million people.\nKey facts: The bureau attributes the change to the end of enhanced marketplace subsidies in January and to state Medicaid eligibility checks, which removed about 4.4 million adults. Texas, Florida and Georgia account for 38 percent of the increase. The uninsured rate among children rose to 7.1 percent from 5.4 percent. The bureau's survey covers calendar year 2026 and does not capture people who dropped coverage after October.\nContext: The rate was 8 percent in 2022, the lowest in the series, which began in 1987.\nSourcing: The bureau's annual health insurance report and state Medicaid enrollment files."
+    },
+    {
+     "headline": "[DEVELOPMENT: border_crossing_closure] Two Texas crossings stay closed for a sixth day and produce prices rise",
+     "reported_by": [
+      "The Associated Press",
+      "CNBC",
+      "Al Jazeera"
+     ],
+     "brief": "What happened: The two commercial crossings at Laredo and Pharr stayed closed for a sixth day, and produce wholesalers reported price increases.\nKey facts: The two crossings carry about 40 percent of US-Mexico truck trade. Wholesale prices for tomatoes and avocados are up 22 and 31 percent this week. Waits at open crossings reached 30 hours. Customs says inspectors remain assigned to processing duty and gave no reopening date.\nContext: The crossings were closed for five days in 2023 under a similar reassignment.\nSourcing: Customs statements, port wait times, and Agriculture Department terminal market prices."
+    },
+    {
+     "headline": "Tax Refunds: Treasury resumes seizing refunds from 5.3 million defaulted student borrowers",
+     "reported_by": [
+      "NPR",
+      "CNBC"
+     ],
+     "brief": "What happened: The Treasury said it will resume withholding federal tax refunds from borrowers in default on student loans when filing season opens January 26, ending a pause that has run since 2020.\nKey facts: The Education Department puts defaulted borrowers at 5.3 million, of whom about 3.1 million normally receive a refund, averaging $2,900. The earned income credit is included in what can be taken. Borrowers get a 65-day notice and can stop the seizure by entering a repayment plan; the department's servicers answered 22 percent of calls within ten minutes in November, according to the department's own dashboard. Social Security payments become subject to offset in April, affecting about 450,000 older borrowers.\nContext: Offsets were paused in March 2020, restarted briefly in 2025, and paused again during a servicer transition.\nSourcing: The Treasury's notice, the Education Department's default file and call center dashboard, and the statute governing offsets."
+    },
+    {
+     "headline": "The House votes 219 to 213 to end the emergency behind the tariffs",
+     "reported_by": [
+      "Reuters",
+      "The Associated Press",
+      "NPR",
+      "CNBC",
+      "BBC"
+     ],
+     "brief": "What happened: The House passed a joint resolution ending the national emergency the president used to impose tariffs of 10 to 60 percent, with nine members of the president's party joining the minority. The Senate majority leader said the chamber will not take it up.\nKey facts: The National Emergencies Act lets either chamber force a vote but requires both to act, and the president can veto. The tariffs cover about $1.4 trillion of imports and have raised about $180 billion this year. The Supreme Court heard argument in November on whether the emergency law authorizes tariffs at all and has not ruled. The House had rejected the same resolution 208 to 224 in July; four members who switched cited farm export losses.\nContext: Congress has never completed a resolution ending a national emergency over a president's veto.\nSourcing: The roll call, the statute, and both leaders' statements."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y18_jurisdiction_stripping_vs_flu_surge",
+   "axis": "Cell c: both sides very large. A law taking immigration detention out of the federal courts is signed on a morning when hospitals in fourteen states begin turning away patients in the worst flu season since 2009, and a state pension fund cuts what retirees are paid.",
+   "probe": {
+    "jurisdiction_stripping_law": 10,
+    "flu_hospital_diversion": 1,
+    "pension_cola_cut": 4,
+    "naira_collapse_protests": 9
+   },
+   "coverage_notes": [
+    "- state_pension_shortfall: last led 2026_11_30 (10 days ago), 4 roundup mentions since. Audience already knows: an outside audit found the state's pension fund 48 percent funded after two years of investment losses, and the board hired advisers to consider benefit changes."
+   ],
+   "briefs": [
+    {
+     "headline": "Flu: hospitals in fourteen states begin turning away patients as admissions pass the 2009 peak",
+     "reported_by": [
+      "KFF Health News",
+      "STAT",
+      "NPR",
+      "The Associated Press"
+     ],
+     "brief": "What happened: Hospital associations in fourteen states said member hospitals are diverting ambulances and postponing surgery as influenza admissions passed the peak of the 2009 pandemic season. The CDC put weekly hospitalizations at 68,000, above the 2009 high of 61,000.\nKey facts: The dominant strain drifted from the vaccine's; the CDC's interim estimate puts effectiveness against hospitalization at 18 percent, against 42 percent last season. Pediatric deaths this season stand at 61. Four states activated crisis standards of care, which let hospitals ration beds. The CDC released 8 million antiviral courses from the stockpile, and three states report pharmacies out of the children's liquid form. Schools in 140 districts closed for at least three days.\nContext: The season began four weeks earlier than usual, and vaccination among adults over 65 is at 58 percent, the lowest in a decade.\nSourcing: CDC surveillance releases, fourteen state hospital associations, and state crisis standards declarations."
+    },
+    {
+     "headline": "[UPDATE: bank_capital_rule] Regulators finalize the bank capital rule at half the proposed increase",
+     "reported_by": [
+      "CNBC",
+      "Reuters",
+      "BBC"
+     ],
+     "brief": "What happened: Banking regulators finalized capital requirements for large banks at about half the increase they proposed in 2023.\nKey facts: The largest banks must hold about 4 percent more capital, phased in through 2030. Two of the three agencies' boards split 3 to 2.\nContext: The proposal was withdrawn and rewritten twice.\nSourcing: The final rule and agency statements."
+    },
+    {
+     "headline": "Trade Gap: the deficit narrowed 7 percent in October",
+     "reported_by": [
+      "CNBC",
+      "Reuters"
+     ],
+     "brief": "What happened: The Commerce Department reported the goods and services deficit at $61 billion in October, 7 percent below September.\nKey facts: Imports of consumer goods fell 4 percent. Exports of civilian aircraft rose.\nContext: The deficit has narrowed in four of the last six months.\nSourcing: The department's trade release."
+    },
+    {
+     "headline": "[DEVELOPMENT: state_pension_shortfall] The pension board votes to cut cost-of-living raises for 1.1 million retirees",
+     "reported_by": [
+      "The Associated Press",
+      "CNBC",
+      "NPR",
+      "The Guardian",
+      "KFF Health News"
+     ],
+     "brief": "What happened: Illinois' retirement system board voted 8 to 5 to suspend cost-of-living increases for three years for 1.1 million retirees and to raise employee contributions by 2 points, starting in July.\nKey facts: The average retiree pension is $41,000 a year and most of these retirees receive no Social Security for their public service. Suspending the 3 percent yearly increase costs a typical retiree $3,800. The state constitution says pension benefits shall not be diminished, and the state supreme court struck down a 2013 law on that ground; the board's lawyers argue the increase is not a benefit until it accrues. Two unions filed suit within the hour. Without the change the fund's projection has it unable to pay full benefits in 2033.\nContext: The fund is 48 percent funded after two years of investment losses, an outside audit found in November.\nSourcing: The board's resolution and actuarial memorandum, the 2015 state supreme court opinion, and the unions' complaint."
+    },
+    {
+     "headline": "School Meals: the Agriculture Department raises reimbursement rates",
+     "reported_by": [
+      "NPR",
+      "KFF Health News"
+     ],
+     "brief": "What happened: The Agriculture Department raised school meal reimbursement rates by 11 cents a lunch for the second half of the school year.\nKey facts: The increase covers about 30 million lunches a day and costs $340 million. Districts had reported food costs up 9 percent.\nContext: The department made a similar mid-year adjustment in 2022.\nSourcing: The department's notice."
+    },
+    {
+     "headline": "Antarctic sea ice reaches its lowest December extent on record",
+     "reported_by": [
+      "Quanta Magazine",
+      "BBC",
+      "The Guardian"
+     ],
+     "brief": "What happened: Satellite analysis put Antarctic sea ice extent at its lowest for the date in the 47-year record.\nKey facts: Extent is about 1.4 million square kilometers below the 1991 to 2020 average for the date. Four of the five lowest years have occurred since 2022.\nContext: Antarctic sea ice was stable or growing until 2016.\nSourcing: The national snow and ice data center's daily analysis."
+    },
+    {
+     "headline": "A judge approves a $1.4 billion settlement over contaminated water at a military base",
+     "reported_by": [
+      "NPR",
+      "The Guardian"
+     ],
+     "brief": "What happened: A federal judge approved a $1.4 billion settlement covering about 43,000 claims from people exposed to contaminated water at a military base.\nKey facts: Payments average $33,000 and begin in March. About 1,100 claimants opted out to sue separately.\nContext: Congress allowed these claims in a 2022 law.\nSourcing: The court's approval order."
+    },
+    {
+     "headline": "Egypt: the currency falls 18 percent under an IMF program",
+     "reported_by": [
+      "Al Jazeera",
+      "Reuters",
+      "BBC",
+      "The Guardian",
+      "CNBC"
+     ],
+     "brief": "What happened: Egypt's central bank let the pound fall 18 percent against the dollar, a condition of the next review of its IMF program.\nKey facts: The move releases $1.2 billion. Bread and fuel subsidies are to be narrowed in March.\nContext: The currency has lost about two thirds of its value since 2022.\nSourcing: The central bank and the IMF's statement."
+    },
+    {
+     "headline": "Nigeria's currency falls 30 percent and protests over fuel prices leave fourteen dead",
+     "reported_by": [
+      "Al Jazeera",
+      "BBC",
+      "Reuters"
+     ],
+     "brief": "What happened: Nigeria's naira fell 30 percent in three days after the central bank stopped supporting it, and protests over fuel and food prices in six cities left fourteen people dead, according to hospital counts.\nKey facts: Petrol prices rose 44 percent in a week and flour and rice are up about 25 percent. The government deployed police to Lagos, Kano and Abuja and shut mobile internet in two states for eleven hours. Nigeria is Africa's largest economy and its most populous country, at about 230 million people. The US State Department issued a travel advisory and has announced no other action; the IMF said talks on a program have not begun.\nContext: The currency was floated in 2023 and has lost about 70 percent of its value since.\nSourcing: Central bank data, hospital counts reported by two Nigerian outlets, and network monitoring groups."
+    },
+    {
+     "headline": "The president signs a law taking immigration detention cases out of the federal courts",
+     "reported_by": [
+      "SCOTUSblog",
+      "NPR"
+     ],
+     "brief": "What happened: The president signed a law stripping federal district courts of jurisdiction over challenges to immigration detention, including habeas petitions, and routing them to a new administrative review board inside the Justice Department whose decisions are reviewable only for legal error in one appeals court.\nKey facts: The law passed 51 to 49 and 217 to 215. It applies to about 64,000 people now detained and to 9,000 pending district cases, to be dismissed within 30 days. The Constitution allows suspension of habeas corpus only in cases of rebellion or invasion; the law's findings section declares an invasion at the southern border. Four suits were filed within hours. The board's fifteen members serve at the attorney general's pleasure.\nContext: Congress narrowed court review of immigration decisions in 1996 and 2005, and the Supreme Court held in 2008 that habeas review cannot be removed without an adequate substitute.\nSourcing: The enrolled law, both roll calls, and the 2008 opinion."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y19_unverified_trial_halt_vs_heating_bills",
+   "axis": "Cell d: both sides mid-size. A drug trial reportedly halted after three deaths, a French government brought down by a no-confidence vote, and a forecast that Midwest heating bills will rise 28 percent.",
+   "probe": {
+    "trial_halt_unverified": 5,
+    "france_no_confidence": 4,
+    "midwest_heating_bills": 1,
+    "short_term_rental_ruling": 3
+   },
+   "briefs": [
+    {
+     "headline": "Heating Bills: the Midwest is forecast to pay 28 percent more for natural gas this winter",
+     "reported_by": [
+      "CNBC",
+      "NPR",
+      "The Associated Press"
+     ],
+     "brief": "What happened: The Energy Information Administration raised its winter heating forecast, putting the average Midwest household's natural gas bill 28 percent above last winter, or about $190 more over the season.\nKey facts: The agency attributes the rise to colder forecasts, storage 9 percent below the five-year average, and record exports of liquefied gas. About 58 million US households heat with gas. Utility regulators in three states approved emergency payment plans; arrears in Michigan and Ohio are already 31 percent above last December. Electricity heating costs are forecast up 7 percent.\nContext: Gas bills fell 11 percent last winter after a warm December.\nSourcing: The agency's winter fuels outlook, state utility commission filings, and utility arrears reports."
+    },
+    {
+     "headline": "Freight Rates: shipping lines raise transpacific prices 30 percent",
+     "reported_by": [
+      "CNBC",
+      "Reuters",
+      "BBC",
+      "The Associated Press"
+     ],
+     "brief": "What happened: Container lines announced rate increases of about 30 percent on Asia to US West Coast routes from January 1.\nKey facts: Spot rates had fallen 40 percent since June. Retail importers said they will pull forward shipments.\nContext: Lines have announced and rolled back similar increases twice this year.\nSourcing: Carrier tariff filings and freight indexes."
+    },
+    {
+     "headline": "Short-Term Rentals: a court upholds a city's 90-day limit",
+     "reported_by": [
+      "The Press-Enterprise",
+      "NPR"
+     ],
+     "brief": "What happened: A California appeals court upheld a city ordinance limiting short-term rentals to 90 days a year.\nKey facts: The ordinance covers about 4,200 listings. A booking platform said it will comply while seeking review.\nContext: Nine California cities have passed similar limits since 2023.\nSourcing: The court's opinion."
+    },
+    {
+     "headline": "France's government falls in a no-confidence vote",
+     "reported_by": [
+      "BBC",
+      "The Guardian",
+      "Al Jazeera",
+      "Reuters",
+      "The Associated Press"
+     ],
+     "brief": "What happened: France's National Assembly passed a no-confidence motion 291 to 271 after the government used constitutional powers to pass the budget without a vote. The prime minister resigned Wednesday evening.\nKey facts: It is the third government to fall since 2024. The president must appoint a new prime minister and cannot dissolve the assembly again until July under the constitution's twelve-month rule. The budget lapses on January 1 unless a special law passes, which would freeze spending at last year's levels. French borrowing costs rose to 62 basis points above Germany's, the widest gap since 2012.\nContext: The assembly has had no majority since the 2024 snap election.\nSourcing: The assembly's vote record, the president's office, and bond market data."
+    },
+    {
+     "headline": "A report that a heart drug trial was halted after three deaths",
+     "reported_by": [
+      "STAT",
+      "Reuters"
+     ],
+     "brief": "UNVERIFIED: The company has not confirmed a halt and says only that enrollment is paused. The trial registry still lists the study as recruiting, and the safety monitoring board's recommendation has not been published.\nWhat happened: Two outlets reported, citing investigators at three trial sites, that Ansley Bio stopped enrollment in the 4,100-person trial of vexalimab, a heart failure drug, after three deaths that site investigators attributed to arrhythmia.\nKey facts: Two site investigators said they were told to stop dosing on Friday. The company's statement says enrollment is paused for a planned data review and does not mention deaths. Vexalimab was given breakthrough status in 2025 and analysts had expected a filing next year.\nContext: The company's earlier trial of the same drug reported no arrhythmia signal in 900 patients.\nSourcing: Three trial site investigators speaking to two outlets, the company's written statement, and the public trial registry."
+    },
+    {
+     "headline": "The World Bank cuts its global growth forecast",
+     "reported_by": [
+      "Al Jazeera",
+      "CNBC"
+     ],
+     "brief": "What happened: The World Bank lowered its global growth forecast for next year to 2.2 percent from 2.6 percent.\nKey facts: It cut forecasts for 38 of 54 large economies, citing tariffs and slower investment.\nContext: The bank has cut this forecast in each of its last three updates.\nSourcing: The bank's economic prospects report."
+    }
+   ]
+  },
+  {
+   "case_id": "hypo_y20_agency_judges_ruling_vs_overtime_threshold",
+   "axis": "Cell d: both sides mid-size. A ruling that agencies may not impose penalties through their own judges, an overtime threshold that reaches 4.4 million workers, dam orders in three states, and flood insurance rates that rise for 1.6 million policies.",
+   "probe": {
+    "agency_tribunal_ruling": 3,
+    "overtime_threshold": 1,
+    "dam_hazard_orders": 6,
+    "flood_insurance_rates": 4
+   },
+   "coverage_notes": [
+    "- dam_safety: 4 side-story mentions (2026_09_22 to 2026_11_26); never a full segment."
+   ],
+   "briefs": [
+    {
+     "headline": "Overtime: the salary threshold rises, covering 4.4 million more workers",
+     "reported_by": [
+      "CNBC",
+      "NPR",
+      "KFF Health News"
+     ],
+     "brief": "What happened: The Labor Department's overtime rule took effect Monday, raising the salary below which workers must be paid time and a half to $68,900 a year, from $43,888.\nKey facts: The department estimates 4.4 million workers become eligible, most of them in retail, restaurants, nonprofits and hospitals. Employers may raise salaries above the threshold instead of paying overtime, and surveys of payroll firms suggest about a third will. The threshold updates every three years with wage data. A Texas court refused to block the rule in November and the business groups' appeal is pending; a similar rule was vacated by the same court in 2017 after it took effect, which left employers uncertain for months.\nContext: The threshold was last raised in 2024 to $43,888, from $35,568.\nSourcing: The final rule, the department's impact analysis, the November order, and two payroll processors' employer surveys."
+    },
+    {
+     "headline": "Graduation Rates: the four-year rate edges up to 87.4 percent",
+     "reported_by": [
+      "NPR",
+      "The Associated Press"
+     ],
+     "brief": "What happened: The Education Department reported the four-year high school graduation rate at 87.4 percent, up two tenths of a point.\nKey facts: Rates rose in 28 states. The gap between students from low-income families and others narrowed by half a point.\nContext: The rate was 79 percent when the department began this measure in 2011.\nSourcing: The department's release."
+    },
+    {
+     "headline": "The Supreme Court rules agencies may not impose penalties through their own judges",
+     "reported_by": [
+      "SCOTUSblog",
+      "NPR",
+      "Reuters"
+     ],
+     "brief": "What happened: The Supreme Court ruled 6 to 3 that an agency seeking civil penalties for conduct resembling a common law claim must sue in federal court before a jury, extending a 2024 decision from securities enforcement to all agencies.\nKey facts: The ruling reaches about 1,900 pending in-house cases at eleven agencies, including workplace safety, mine safety, labor and environmental enforcement. Agencies may still order compliance or revoke licenses through their own judges; only money penalties are affected. The Justice Department estimates its civil division would need about 600 more lawyers to bring these cases in court. The dissent says agencies cannot enforce statutes Congress built around in-house adjudication. The Court did not say what happens to penalties already imposed.\nContext: The Court held in 2024 that the securities regulator's in-house penalties violated the Seventh Amendment and left other agencies open.\nSourcing: The opinion and dissent, the agencies' pending case counts, and the Justice Department's staffing estimate."
+    },
+    {
+     "headline": "Flood Insurance: new federal rates raise premiums for 1.6 million policies",
+     "reported_by": [
+      "The Press-Enterprise",
+      "KFF Health News",
+      "The Associated Press"
+     ],
+     "brief": "What happened: The National Flood Insurance Program moved to a new rating method at renewal, raising premiums for 1.6 million of its 4.7 million policies and lowering them for 1.1 million.\nKey facts: Increases are capped at 18 percent a year, so policies whose full risk rate is far above what they pay will keep rising for several years; the program says 280,000 policies face increases for more than a decade. The average increase at this renewal is $290. Coverage is required for federally backed mortgages in mapped flood zones. Policy counts have fallen 9 percent since the method was announced, and Louisiana, Florida and Texas account for 61 percent of the drop.\nContext: The program owes the Treasury $22.5 billion and has not been reauthorized for more than a year at a time since 2017.\nSourcing: The program's rate tables and policy counts, and the agency's report to Congress."
+    },
+    {
+     "headline": "[UPDATE: airline_seat_rule] The airline seat size rule is finalized",
+     "reported_by": [
+      "Reuters",
+      "CNBC"
+     ],
+     "brief": "What happened: The FAA finalized minimum seat dimensions for evacuation purposes, setting 28 inches of pitch and 17 inches of width.\nKey facts: The standard matches what most carriers already fly. Two consumer groups called it too small and will comment in the reconsideration docket.\nContext: Congress ordered the rule in 2018.\nSourcing: The final rule."
+    },
+    {
+     "headline": "[SIDE-COVERED: dam_safety] The Army Corps orders drawdowns at 41 dams it rates high hazard",
+     "reported_by": [
+      "The Associated Press",
+      "The Guardian",
+      "Ars Technica"
+     ],
+     "brief": "What happened: The Army Corps of Engineers ordered reservoir levels lowered at 41 dams in twelve states after an inspection program found spillways or embankments unable to pass a design flood.\nKey facts: About 2.4 million people live in the mapped inundation areas below the 41 dams. Drawdowns of 8 to 22 feet begin this month and cut hydropower output and municipal water storage for four cities, including one that draws 40 percent of its supply from an affected reservoir. Repairs are estimated at $7.8 billion against $900 million appropriated. The Corps says none of the dams is in danger of failing at current levels.\nContext: The inspection program began in 2024 after a spillway failure in Missouri, and has covered 340 of the Corps' 700 dams.\nSourcing: The Corps' orders and inspection summaries, and the affected water utilities."
+    },
+    {
+     "headline": "Productivity: output per hour rose 2.3 percent in the third quarter",
+     "reported_by": [
+      "CNBC"
+     ],
+     "brief": "What happened: The Labor Department reported nonfarm productivity up 2.3 percent at an annual rate.\nKey facts: Unit labor costs rose 1.1 percent. The department revised the second quarter up two tenths.\nContext: Productivity growth has run above 2 percent for six quarters.\nSourcing: The department's release."
+    },
+    {
+     "headline": "Peru's congress removes the interior minister",
+     "reported_by": [
+      "Al Jazeera",
+      "BBC",
+      "Reuters",
+      "The Guardian"
+     ],
+     "brief": "What happened: Peru's congress voted to censure and remove the interior minister after a prison escape.\nKey facts: The vote was 74 to 41. It is the fifth interior minister removed in two years.\nContext: The president has named eleven cabinets since taking office.\nSourcing: The congressional record."
+    }
+   ]
+  }
+ ]
+}

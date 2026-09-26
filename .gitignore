@@ -38,3 +38,9 @@ screenshots/
 
 # Off the Wire intro: pre-rendered GarageBand Steinway samples (Apple sample content, never redistributed)
 theme_song/off_the_wire/*.npz
+
+# Benchmark run outputs and harvested data stay local (large; contain production inputs)
+benchmarks/editorial_decisions/outputs/
+benchmarks/tier_swap/outputs/
+benchmarks/tier_swap/data/
+benchmarks/tier_swap/*.log
