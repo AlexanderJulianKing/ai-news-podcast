@@ -279,9 +279,12 @@ def make_roundup(formatted_date2, voice_dir='segment_audio', assets_path=None, o
     i = int(round(p['voice_at'] * SR))
     j = min(total, i + len(voice))
     out[:, max(i, 0):j] += voice[max(0, -i):j - i]
+    # the voice arrives already levelled (-23 LUFS, peaks about -1 dBFS) and the bed under it peaks near -20 dBFS,
+    # so the sum should never clip; turn everything down only if it truly would, so the voice keeps its level
     peak = float(np.abs(out).max())
-    if peak > 10 ** (-1 / 20):
-        out *= np.float32(10 ** (-1 / 20) / peak)
+    if peak > 0.999:
+        out *= np.float32(0.999 / peak)
+        print_and_write(f"Elsewhere roundup bed: output would clip (peak {20 * np.log10(peak):+.2f} dBFS); turned down to fit")
 
     _write(out_path, out)
     if music_path:
