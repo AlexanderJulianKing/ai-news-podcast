@@ -44,3 +44,5 @@ benchmarks/editorial_decisions/outputs/
 benchmarks/tier_swap/outputs/
 benchmarks/tier_swap/data/
 benchmarks/tier_swap/*.log
+theme_song/elsewhere/*.npz
+theme_song/elsewhere/render_part

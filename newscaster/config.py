@@ -111,6 +111,11 @@ RAG_RESEARCH_MEMORY_ENABLED = True
 # never committed). If it is missing or anything fails, the classic theme is used.
 OFF_THE_WIRE_INTRO_ENABLED = True
 OFF_THE_WIRE_BANK_PATH = "theme_song/off_the_wire/steinway_bank_48k.npz"
+# The roundup's music bed, "Elsewhere" (newscaster/audio/roundup_bed.py). Its assets are built on a Mac by
+# theme_song/elsewhere/build_elsewhere.py and copied to the Pi (never committed). If anything fails, the plain
+# roundup is used.
+ROUNDUP_BED_ENABLED = True
+ROUNDUP_BED_ASSETS = "theme_song/elsewhere/elsewhere_assets.npz"
 
 # --- Fact-finder auto-edit (agentic editor: fix confirmed factual errors before TTS) ---
 FACT_FINDER_AUTOEDIT_ENABLED = True

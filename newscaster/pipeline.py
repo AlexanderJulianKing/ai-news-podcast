@@ -761,13 +761,30 @@ def make_intro(formatted_date2):
     fun_intromaker(formatted_date2)
 
 
+def make_roundup(formatted_date2):
+    """Score the roundup with 'Elsewhere' when enabled; on any failure the plain roundup is used."""
+    scored = 'segment_audio/{}_overview_scored.wav'.format(formatted_date2)
+    if os.path.exists(scored):
+        os.remove(scored)                       # never let assembly pick up a stale one
+    if not getattr(_config, 'ROUNDUP_BED_ENABLED', False):
+        return
+    try:
+        from newscaster.audio import roundup_bed
+        roundup_bed.make_roundup(formatted_date2)
+    except Exception as e:
+        print_and_write(f"Elsewhere roundup bed failed ({e!r}); using the plain roundup")
+        if os.path.exists(scored):
+            os.remove(scored)
+
+
 def generate_audio(formatted_date2, voices_list):
-    """Stage 3: Synthesize speech, add intro music, and assemble final podcast."""
+    """Stage 3: Synthesize speech, add intro and roundup music, and assemble final podcast."""
     from newscaster.audio.tts import text2speech
     from newscaster.audio.assembly import assemble_podcast
 
     text2speech(formatted_date2, voices_list)
     make_intro(formatted_date2)
+    make_roundup(formatted_date2)
     assemble_podcast(formatted_date2)
 
 

@@ -9,7 +9,7 @@ from newscaster.logging import print_and_write
 def assemble_podcast(formatted_date2):
     """Stitch the final podcast from whichever segment audios exist on disk.
 
-    Order: intro → all available segments in slot order → overview → outro.
+    Order: intro → all available segments in slot order → overview (scored with 'Elsewhere' when present) → outro.
     Slots whose scripts failed during gather/segments stages are simply absent
     from segment_audio/ and silently skipped — no podcast-wide failure for
     one missing story.
@@ -38,9 +38,13 @@ def assemble_podcast(formatted_date2):
         except Exception as e:
             print_and_write(f'AUDIO ASSEMBLY: failed to load slot {slot}: {e}; continuing without it')
 
+    scored = '{}_overview_scored.wav'.format(OUTPUT_PATH)
     try:
-        podcast += AudioSegment.from_mp3('{}_overview.wav'.format(OUTPUT_PATH))
-        podcast += AudioSegment.silent(duration=2 * _SECOND)
+        if os.path.exists(scored):
+            podcast += AudioSegment.from_file(scored)          # 'Elsewhere' under it; ends with its own quiet
+        else:
+            podcast += AudioSegment.from_mp3('{}_overview.wav'.format(OUTPUT_PATH))
+            podcast += AudioSegment.silent(duration=2 * _SECOND)
     except Exception as e:
         print_and_write(f'AUDIO ASSEMBLY: missing overview audio: {e}')
 
