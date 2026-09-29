@@ -222,7 +222,11 @@ entities and topic; and Luna answers from the accepted excerpts.
   left out. The writer sees each story's headline, and a FOLLOW-UP note for any
   story the show covered before (when, whether it led or was in the roundup, and
   what listeners already know). A follow-up opens with a short tie-back such as
-  "Following up on yesterday's story about…" instead of sounding like a new story.
+  "Following up on yesterday's story about…" instead of sounding like a new story. The note names the headline that actually aired, so the writer can't claim the
+  show covered a development it didn't. The writer also gets today's date and leaves
+  out any story whose research shows the main event is more than two days old with
+  nothing newer (2026-09-29: a five-day-old Senate vote from Democracy Now's Monday
+  front page aired as news).
 - **Audience memory.** After the scripts, Flash-Lite records what the audience
   now knows about each arc, for tomorrow's framing. A side story left out of the roundup
   (UNVERIFIED) is recorded nowhere: not as coverage, and not as something the

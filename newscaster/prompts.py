@@ -186,7 +186,13 @@ OVERVIEW_ANCHOR_PROMPT = (
     'Some stories are marked FOLLOW-UP: the show has covered them before. Open that story\'s paragraph '
     'with one short clause that reminds listeners what the story is and that we covered it, for example '
     "'Following up on Tuesday\'s story about the Los Angeles transit strike,' and then give the new facts. Never present a follow-up as a new, unrelated story, and never "
-    "refer to it only as 'an incident' or 'the case'. "
+    "refer to it only as 'an incident' or 'the case'. The FOLLOW-UP note names the headline we actually "
+    "aired: tie back to that, and never say we covered something we did not (a new turn in a larger story "
+    "we covered is 'in the Ukraine war, where on Monday we looked at the grain corridor', not 'following up on "
+    "Monday's story about' the new turn). "
+    # 2026-09-29: a five-day-old Senate vote aired as news although its research said so.
+    "The input starts with TODAY. If a story's research shows its main event happened more than two days "
+    "before today and reports no newer development, leave that story out entirely. "
     "Numbers should be written in word form, like 'two hundred fifty five'. "
     'Also use wordplay and puns whenever you can. Do NOT put puns or wordplay in quotation marks — just use them naturally in the sentence.'
 )

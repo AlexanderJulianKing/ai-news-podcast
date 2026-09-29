@@ -297,7 +297,13 @@ def _followup_note(arc_info, ledger, today=None):
     known = (arc.get("audience_state") or "").strip()
     if len(known) > 300:
         known = known[:300].rsplit(" ", 1)[0] + "..."
-    note = f"FOLLOW-UP: this show covered this story {when}, {how}."
+    note = f"FOLLOW-UP: this show covered this story {when}, {how}"
+    # Name what actually aired: on 2026-09-29 a note that only said "yesterday, as its lead
+    # story" let the writer claim yesterday's lead was the Senate war-powers vote, when it
+    # was Iran's Hormuz plan (same arc, different development).
+    if last.get("headline"):
+        note += f", under the headline: \"{strip_arc_tags(last['headline']).strip()}\""
+    note += "."
     if known:
         note += f" Listeners already know: {known}"
     return note
@@ -1053,7 +1059,9 @@ def topic_finder(formatted_date):
     )
     print_and_write('\noverview2:', overview_raw)
 
-    overview_text = get_llm_response(overview_raw, system_prompt=OVERVIEW_ANCHOR_PROMPT, mode='standard')
+    # The writer needs today's date to leave out stale stories (see the prompt).
+    overview_text = get_llm_response(f"TODAY: {formatted_date}\n{overview_raw}",
+                                     system_prompt=OVERVIEW_ANCHOR_PROMPT, mode='standard')
 
     overview_text = overview_text.replace("*", "")
     print_and_write('\noverview3:', overview_text)
