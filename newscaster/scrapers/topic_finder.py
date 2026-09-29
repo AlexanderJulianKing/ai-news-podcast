@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -749,18 +750,30 @@ def _tag_pool_rewrite(all_headlines, system_prompt, label):
 def _front_page(key, url, label, fallback, event_prompt, timestamp_rules):
     """Read one front page through the browser when enabled, else (or on failure) `fallback()`."""
     if getattr(_config, 'BROWSER_SCRAPE_ENABLED', False) and key in getattr(_config, 'BROWSER_SCRAPE_SOURCES', ()):
-        try:
-            items = scrape_rendered(
-                url, key, event_prompt, timestamp_rules,
-                ask=lambda prompt: get_llm_response(prompt, mode='standard'),
-                screenshot_dir=getattr(_config, 'BROWSER_SCREENSHOT_DIR', None),
-            )
-            print_and_write(f'{label}: read from the rendered page ({len([l for l in items.splitlines() if l.strip()])} lines)')
-            return items
-        except (RenderError, LLMError, RuntimeError) as e:
-            print_and_write(f'{label}: browser read failed ({e}); falling back to the Gemini scrape')
-        except Exception as e:  # never let the browser path stop the run
-            print_and_write(f'{label}: browser read error ({type(e).__name__}: {e}); falling back to the Gemini scrape')
+        # A render failure is often a one-off (NPR on 2026-09-27: connection refused; 09-28: a
+        # blank page), so a fresh browser gets one more try. Model errors are not retried here.
+        attempts = max(1, int(getattr(_config, 'BROWSER_ATTEMPTS', 2)))
+        for attempt in range(1, attempts + 1):
+            try:
+                items = scrape_rendered(
+                    url, key, event_prompt, timestamp_rules,
+                    ask=lambda prompt: get_llm_response(prompt, mode='standard'),
+                    screenshot_dir=getattr(_config, 'BROWSER_SCREENSHOT_DIR', None),
+                )
+                print_and_write(f'{label}: read from the rendered page ({len([l for l in items.splitlines() if l.strip()])} lines)'
+                                + (f' on attempt {attempt}' if attempt > 1 else ''))
+                return items
+            except RenderError as e:
+                if attempt < attempts:
+                    print_and_write(f'{label}: browser read failed ({e}); trying a fresh browser')
+                    time.sleep(getattr(_config, 'BROWSER_RETRY_PAUSE', 5))
+                    continue
+                print_and_write(f'{label}: browser read failed ({e}); falling back to the Gemini scrape')
+            except (LLMError, RuntimeError) as e:
+                print_and_write(f'{label}: browser read failed ({e}); falling back to the Gemini scrape')
+            except Exception as e:  # never let the browser path stop the run
+                print_and_write(f'{label}: browser read error ({type(e).__name__}: {e}); falling back to the Gemini scrape')
+            break
     return fallback()
 
 

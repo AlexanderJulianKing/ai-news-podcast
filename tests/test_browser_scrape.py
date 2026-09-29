@@ -69,3 +69,46 @@ def test_reap_orphans_kills_only_our_browsers(monkeypatch, tmp_path):
 def test_order_note_treats_the_live_page_as_current():
     assert "treat every story on it as current news" in browser.ORDER_NOTE
     assert "with or without a timestamp" in browser.ORDER_NOTE
+
+
+def test_front_page_retries_a_failed_render_once(monkeypatch):
+    from newscaster.scrapers import topic_finder as tf
+    monkeypatch.setattr(tf._config, "BROWSER_SCRAPE_ENABLED", True, raising=False)
+    monkeypatch.setattr(tf._config, "BROWSER_RETRY_PAUSE", 0, raising=False)
+    calls = []
+
+    def flaky(*a, **k):
+        calls.append(1)
+        if len(calls) == 1:
+            raise browser.RenderError("page too thin (0 words)")
+        return "Story one happened.\nStory two happened."
+    monkeypatch.setattr(tf, "scrape_rendered", flaky)
+    out = tf._front_page("npr", "https://www.npr.org", "scrape-npr", lambda: "GEMINI", "prompt", "rules")
+    assert out.startswith("Story one") and len(calls) == 2
+
+
+def test_front_page_falls_back_after_two_render_failures(monkeypatch):
+    from newscaster.scrapers import topic_finder as tf
+    monkeypatch.setattr(tf._config, "BROWSER_SCRAPE_ENABLED", True, raising=False)
+    monkeypatch.setattr(tf._config, "BROWSER_RETRY_PAUSE", 0, raising=False)
+    calls = []
+
+    def broken(*a, **k):
+        calls.append(1)
+        raise browser.RenderError("could not reach the browser: connection refused")
+    monkeypatch.setattr(tf, "scrape_rendered", broken)
+    assert tf._front_page("npr", "https://www.npr.org", "scrape-npr", lambda: "GEMINI", "p", "r") == "GEMINI"
+    assert len(calls) == 2
+
+
+def test_front_page_does_not_retry_the_browser_on_a_model_error(monkeypatch):
+    from newscaster.scrapers import topic_finder as tf
+    monkeypatch.setattr(tf._config, "BROWSER_SCRAPE_ENABLED", True, raising=False)
+    calls = []
+
+    def model_fails(*a, **k):
+        calls.append(1)
+        raise RuntimeError("empty list from the model")
+    monkeypatch.setattr(tf, "scrape_rendered", model_fails)
+    assert tf._front_page("npr", "https://www.npr.org", "scrape-npr", lambda: "GEMINI", "p", "r") == "GEMINI"
+    assert len(calls) == 1
