@@ -9,6 +9,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from benchmarks.agentic_search.luna_research import check_quotes, research
+import newscaster.config as _config
+import os as _os
+
+# SEARCH_PROVIDER=tinyfish (etc.) swaps the search engine for a comparison run; the empty
+# fallback makes a failed search show up as a tool error instead of silently using another engine.
+if _os.environ.get("SEARCH_PROVIDER"):
+    _config.SEARCH_PROVIDER = _os.environ["SEARCH_PROVIDER"]
+    _config.SEARCH_FALLBACK_PROVIDER = ""
 
 MODEL, EFFORT = "openai/gpt-6-luna", "medium"
 

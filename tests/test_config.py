@@ -20,8 +20,8 @@ def test_import_without_init():
     assert cfg.ADVERSARY_MODEL == "openai/gpt-6-sol"
     assert cfg.FALLBACK_MODEL == "openai/gpt-6-sol"
     assert cfg.ADVERSARY_REASONING_EFFORT == "high"
-    assert cfg.SEARCH_PROVIDER == "google_cse"
-    assert cfg.SEARCH_FALLBACK_PROVIDER == "openrouter_web"
+    assert cfg.SEARCH_PROVIDER == "tinyfish"
+    assert cfg.SEARCH_FALLBACK_PROVIDER == "google_cse"
 
 
 def test_init_with_missing_file(tmp_path, monkeypatch):
@@ -74,8 +74,8 @@ def test_rag_constants_present():
     assert cfg.ADVERSARY_MODEL == "openai/gpt-6-sol"
     assert cfg.FALLBACK_MODEL == "openai/gpt-6-sol"
     assert cfg.ADVERSARY_REASONING_EFFORT == "high"
-    assert cfg.SEARCH_PROVIDER == "google_cse"
-    assert cfg.SEARCH_FALLBACK_PROVIDER == "openrouter_web"
+    assert cfg.SEARCH_PROVIDER == "tinyfish"
+    assert cfg.SEARCH_FALLBACK_PROVIDER == "google_cse"
     assert cfg.SEARCH_FALLBACK_ON_EMPTY is True
     assert cfg.SEARCH_OPENROUTER_MODEL == cfg.ADVERSARY_MODEL
     assert cfg.SEARCH_OPENROUTER_ENGINE == "parallel"

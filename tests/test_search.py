@@ -186,3 +186,29 @@ def test_google_official_search_honors_days_prior(monkeypatch):
         gs.google_official_search("federal minimum wage", num_results=5, days_prior=7)
 
     assert captured["dateRestrict"] == "d7"
+
+
+def test_tinyfish_search_normalizes_results_and_filters_blocked(monkeypatch):
+    from unittest.mock import MagicMock, patch
+    import newscaster.config as cfg
+    from newscaster import search
+    monkeypatch.setattr(cfg, "TINYFISH_API_KEY", "test-key", raising=False)
+    resp = MagicMock(status_code=200)
+    resp.json.return_value = {"results": [
+        {"title": "Newsom signs AB 282", "url": "https://www.gov.ca.gov/x", "snippet": "felony"},
+        {"title": "a post", "url": "https://www.facebook.com/p/1", "snippet": "s"},
+    ]}
+    with patch.object(search.requests, "get", return_value=resp) as get:
+        out = search.tinyfish_search("Newsom ballot bill", num_results=8, days_prior=30)
+    assert out == [{"headline": "Newsom signs AB 282", "url": "https://www.gov.ca.gov/x", "snippet": "felony"}]
+    assert get.call_args.kwargs["params"]["recency_minutes"] == 30 * 1440
+    assert get.call_args.kwargs["headers"]["X-API-Key"] == "test-key"
+
+
+def test_tinyfish_without_a_key_raises_so_search_web_falls_back(monkeypatch):
+    import pytest
+    import newscaster.config as cfg
+    from newscaster import search
+    monkeypatch.setattr(cfg, "TINYFISH_API_KEY", None, raising=False)
+    with pytest.raises(RuntimeError):
+        search.tinyfish_search("q")

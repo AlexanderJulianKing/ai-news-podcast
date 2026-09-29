@@ -40,6 +40,7 @@ def require_key(keys: Dict[str, str], name: str) -> str:
 
 
 KEYS = None
+TINYFISH_API_KEY = None
 GOOGLE_GENAI_API_KEY = None
 ANTHROPIC_API_KEY = None
 OPENROUTER_API_KEY = None
@@ -73,8 +74,12 @@ TOOL_LIGHT_STANDARD_MODEL = "gemini-3-flash-preview"
 TOOL_PLUS_HEAVY_MODEL = "gemini-3.1-pro-preview"
 
 # --- Search provider routing ---
-SEARCH_PROVIDER = "google_cse"
-SEARCH_FALLBACK_PROVIDER = "openrouter_web"
+# TinyFish from 2026-09-29: free within its rate limits, and in a blind comparison on the 32 real
+# lookups of Sept 24-25 its results gave better research answers than Google's, 25-7
+# (benchmarks/agentic_search/). Google's Custom Search JSON API costs $5 per 1,000 searches past
+# 100 a day (the tool loop makes 300+) and shuts down on 2027-01-01; until then it is the backup.
+SEARCH_PROVIDER = "tinyfish"
+SEARCH_FALLBACK_PROVIDER = "google_cse"
 SEARCH_FALLBACK_ON_EMPTY = True
 SEARCH_OPENROUTER_MODEL = ADVERSARY_MODEL
 # Web-search briefs (Tier 2 memos, background fact checks) moved to GPT-6 Luna on 2026-09-23 after a
@@ -280,7 +285,7 @@ BEAT_FEEDS = [
 def init():
     """Load API keys from keys.txt. Must be called before using any key constants."""
     global KEYS, GOOGLE_GENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY
-    global GOOGLE_SEARCH_API_KEY, OPENWEATHERMAP_API_KEY, GOOGLE_CSE_ID
+    global GOOGLE_SEARCH_API_KEY, OPENWEATHERMAP_API_KEY, GOOGLE_CSE_ID, TINYFISH_API_KEY
     KEYS = load_keys()
     GOOGLE_GENAI_API_KEY = require_key(KEYS, "google_genai_api")
     ANTHROPIC_API_KEY = require_key(KEYS, "anthropic_api")
@@ -288,3 +293,4 @@ def init():
     GOOGLE_SEARCH_API_KEY = require_key(KEYS, "google_search_api")
     OPENWEATHERMAP_API_KEY = require_key(KEYS, "openweathermap_api")
     GOOGLE_CSE_ID = require_key(KEYS, "google_cse_id")
+    TINYFISH_API_KEY = KEYS.get("tinyfish_api") or None   # optional; needed only when SEARCH_PROVIDER is "tinyfish"

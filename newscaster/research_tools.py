@@ -61,7 +61,8 @@ what you learn. Keep going until the question is answered or it is clear the ans
 For a broad question ("tell me about this story"), gather facts from at least three different outlets or primary
 sources rather than reading one page in depth.
 You have at most {steps} tool calls.
-Report only what you read in a page you opened. Copy each quote exactly as it appears, without adding "..." or
+Report only what you read in a page you opened. A fact seen only in a search result snippet is thrown away, so
+open the page and confirm it before you cite it. Copy each quote exactly as it appears, without adding "..." or
 changing punctuation. When you are done, reply with JSON only:
 {{"answer": "a short direct answer",
   "facts": [{{"fact": "...", "quote": "exact words copied from the page", "url": "..."}}],
@@ -73,12 +74,61 @@ def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
 
 
+# PDFs put page numbers, running headers and legal line numbers inside sentences
+# ("a pause in the 14 Bonta v. Bianco Opinion of the Court by Guerrero, C. J. investigation"),
+# so a real quote from a court opinion failed a strict match. A quote of 6+ words may skip
+# a few stray words; shorter pieces must match exactly. (2026-09-29: 10 of 18 dropped facts.)
+MAX_STRAY_WORDS = 14        # in total, across the whole quote piece
+MAX_STRAY_RUN = 12          # in any one gap (a running header is about 10 words)
+# Skipping one of these could flip a quote's meaning ("did not order" -> "order").
+_NEVER_SKIP = {"not", "no", "never", "nor", "neither", "without", "except", "cannot", "didn", "doesn",
+               "don", "isn", "wasn", "weren", "won", "wouldn", "shouldn", "couldn", "hasn", "haven", "hadn"}
+
+
+def _in_order_with_gaps(words: list[str], hay: list[str]) -> bool:
+    """True when ``words`` appear in ``hay`` in order, with only a few stray words between them."""
+    n = len(words)
+    for start, token in enumerate(hay):
+        if token != words[0]:
+            continue
+        i, j, stray = 1, start + 1, 0
+        while i < n and j < len(hay):
+            if hay[j] == words[i]:
+                i += 1
+                j += 1
+                continue
+            gap, negated = 0, False
+            while j < len(hay) and hay[j] != words[i] and gap <= MAX_STRAY_RUN:
+                negated = negated or hay[j] in _NEVER_SKIP
+                j += 1
+                gap += 1
+            stray += gap
+            if negated or gap > MAX_STRAY_RUN or stray > MAX_STRAY_WORDS:
+                break
+        if i == n:
+            return True
+    return False
+
+
 def quote_on_page(quote: str, page_text: str) -> bool:
-    """True when the quote (or every 15+ character piece of it split at '...') appears in the page."""
+    """True when the quote (or each 15+ character piece of it, split at '...') is on the page.
+
+    Letters and digits only, so curly quotes and dashes never cause a miss. Pieces of 6 or
+    more words may skip a few stray words (page numbers, headers); shorter ones must be exact.
+    """
     hay = _norm(page_text)
-    pieces = [_norm(p) for p in re.split(r"\.\.\.|…", quote or "")]
+    hay_words = hay.split()
+    pieces = [_norm(p) for p in re.split(r"\.\.\.|\u2026", quote or "")]
     pieces = [p for p in pieces if len(p) >= 15] or [_norm(quote)]
-    return all(p and p in hay for p in pieces)
+    for piece in pieces:
+        if not piece:
+            return False
+        if piece in hay:
+            continue
+        words = piece.split()
+        if len(words) < 6 or not _in_order_with_gaps(words, hay_words):
+            return False
+    return True
 
 
 def _excerpt_around(page_text: str, quotes: list[str], width: int = 700, limit: int = 4000) -> str:

@@ -86,7 +86,7 @@ The comments in `newscaster/config.py` record why each model was chosen.
 
 ## Tech stack
 
-Python 3 · Anthropic, OpenRouter and Google Gemini APIs · Chromium + Xvfb (DevTools protocol) · LangGraph · Google Cloud TTS · YouTube Data API v3 · Google Custom Search · OpenWeatherMap · NumPy + SQLite · BeautifulSoup · PyDub · MoviePy · pytest
+Python 3 · Anthropic, OpenRouter and Google Gemini APIs · Chromium + Xvfb (DevTools protocol) · LangGraph · Google Cloud TTS · YouTube Data API v3 · TinyFish search (Google Custom Search as backup) · OpenWeatherMap · NumPy + SQLite · BeautifulSoup · PyDub · MoviePy · pytest
 
 ## Setup
 
@@ -143,7 +143,7 @@ newscaster/              core package
   dedup.py               story-arc ledger and coverage depth
   research_agent.py      LangGraph research loop
   source_hunter.py       contract, fetch, validate, answer
-  search.py              Google search and web briefs
+  search.py              web search (TinyFish, Google backup) and web briefs
   rag/                   embeddings, vector store, retrieval
   script/                titles, intro, segments
   review.py              pre-TTS fact check

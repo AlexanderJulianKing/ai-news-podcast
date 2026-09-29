@@ -45,11 +45,11 @@ each mode to a model, and the models are set in `newscaster/config.py`.
 - **Web briefs.** These are GPT-6 Luna with OpenRouter's web search
   (`newscaster/search.py`, `openrouter_web_brief`). They bypass the router, so they
   get no retries and no fallback.
-- **Plain search.** Google Custom Search runs first. An empty result is
-  rephrased by Flash-Lite and retried, up to 5 tries in total. If that still
-  fails, OpenRouter web search takes over, run by GPT-6 Sol at low reasoning.
-  Web briefs and this fallback are logged to `search_audit.jsonl`, not the LLM
-  audit log.
+- **Plain search.** TinyFish's search API runs first (free within about 30 searches
+  a minute). If it fails or is rate limited, Google Custom Search takes over until
+  that API shuts down on 2027-01-01. In a blind comparison on 32 real lookups,
+  research answers built on TinyFish results beat Google-based ones 25 to 7.
+  Web briefs are logged to `search_audit.jsonl`, not the LLM audit log.
 
 ## 1. Gather headlines
 
@@ -173,7 +173,7 @@ queries from the question; pages are fetched and checked in code for date,
 entities and topic; and Luna answers from the accepted excerpts.
 
 **The two main stories** (`newscaster/pipeline.py`, `_gather_one_topic`):
-1. **Articles.** Google search finds articles. Up to 3 are kept after relevance
+1. **Articles.** A web search finds articles. Up to 3 are kept after relevance
    checks and summarized.
    - A first source-hunter pass, the "seed", answers a starting question. Its
      answer is fed into the loop.

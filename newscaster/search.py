@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from typing import Any
 
 import requests
@@ -211,6 +212,39 @@ def openrouter_web_brief(question: str, *, model: str | None = None,
     return content
 
 
+TINYFISH_SEARCH_URL = "https://api.search.tinyfish.ai"
+
+
+def tinyfish_search(query: str, num_results: int = 8, days_prior: int = 1) -> list[dict[str, str]]:
+    """TinyFish web search: free within its rate limits (about 30 a minute, 500 an hour as of
+    2026-09). Google's Custom Search JSON API shuts down on 2027-01-01 and cost ~$5 per 1,000
+    searches past 100 a day; the research tool loop makes 300+ searches a day."""
+    from newscaster.scrapers.google_search import _is_blocked_url
+
+    key = getattr(_config, "TINYFISH_API_KEY", None)
+    if not key:
+        raise RuntimeError("no tinyfish_api entry in keys.txt")
+    params: dict[str, Any] = {"query": query}
+    if days_prior:
+        params["recency_minutes"] = max(1, int(days_prior)) * 1440
+    response = None
+    for attempt in range(3):
+        response = requests.get(TINYFISH_SEARCH_URL, params=params, headers={"X-API-Key": key}, timeout=30)
+        if response.status_code != 429:
+            break
+        time.sleep(10 * (attempt + 1))      # rate limited: wait out the per-minute window
+    if response is None or response.status_code == 429:
+        raise RuntimeError("TinyFish search rate limited")
+    response.raise_for_status()
+    results = []
+    for item in (response.json() or {}).get("results") or []:
+        url = item.get("url") or ""
+        if not url or _is_blocked_url(url):
+            continue
+        results.append({"headline": item.get("title") or "", "url": url, "snippet": item.get("snippet") or ""})
+    return results[:num_results]
+
+
 def search_web(query: str, num_results: int = 8, days_prior: int = 1,
                provider: str | None = None) -> list[dict[str, str]]:
     """Search the web with provider fallback and normalized result shape."""
@@ -222,6 +256,8 @@ def search_web(query: str, num_results: int = 8, days_prior: int = 1,
             return google_official_search(query, num_results=num_results, days_prior=days_prior)
         if selected == "openrouter_web":
             return openrouter_web_search(query, num_results=num_results, days_prior=days_prior)
+        if selected == "tinyfish":
+            return tinyfish_search(query, num_results=num_results, days_prior=days_prior)
         raise ValueError(f"Unknown search provider: {selected}")
 
     try:

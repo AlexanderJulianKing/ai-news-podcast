@@ -72,3 +72,27 @@ def test_tool_loop_failure_falls_back_to_the_fixed_pipeline(monkeypatch):
          patch("newscaster.source_hunter._generate_evidence_contract", return_value={}):
         result = sh.answer_with_source_hunter("Q?", topic="T")
     assert search.called and result.status == "no_evidence"
+
+
+def test_quote_survives_pdf_page_headers_and_line_numbers():
+    opinion = ("In any event, the Attorney General has not issued any such order here, having directed only a pause in the "
+               "14 BONTA v. BIANCO Opinion of the Court by Guerrero, C. J. investigation into the ballot count.")
+    declaration = "At the end of the day the Riverside County Sheriff's Office opened and 21 counted 22 boxes from the pallet."
+    assert rt.quote_on_page("In any event, the Attorney General has not issued any such order here, having directed "
+                            "only a pause in the investigation into the ballot count.", opinion)
+    assert rt.quote_on_page("At the end of the day the Riverside County Sheriff's Office opened and counted 22 boxes "
+                            "from the pallet.", declaration)
+
+
+def test_gap_tolerance_does_not_accept_a_changed_or_invented_quote():
+    page = "The court ordered the sheriff to return the ballots to county election officials within ten days."
+    assert not rt.quote_on_page("The court ordered the sheriff to destroy the ballots within ten days.", page)
+    assert not rt.quote_on_page("The court fined the sheriff for seizing the ballots.", page)
+    assert not rt.quote_on_page("ordered the sheriff", "the court refused and ordered nothing of the sheriff")   # short: exact only
+
+
+def test_gap_tolerance_never_skips_a_negation():
+    page = "The court did not order the sheriff to return the ballots to county election officials."
+    assert not rt.quote_on_page("The court did order the sheriff to return the ballots to county election officials.", page)
+    assert not rt.quote_on_page("The court order the sheriff to return the ballots to county election officials.", page)
+    assert rt.quote_on_page("The court did not order the sheriff to return the ballots to county election officials.", page)

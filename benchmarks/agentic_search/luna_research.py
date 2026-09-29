@@ -67,8 +67,9 @@ what you learn. Keep going until the question is answered or it is clear the ans
 For a broad question ("tell me about this story"), gather facts from at least three different outlets or primary
 sources rather than reading one page in depth.
 You have at most {steps} tool calls.
-Report only what you read in a page. Copy each quote exactly as it appears, without adding "..." or changing
-punctuation. When you are done, reply with JSON only:
+Report only what you read in a page you opened. A fact seen only in a search result snippet is thrown away, so
+open the page and confirm it before you cite it. Copy each quote exactly as it appears, without adding "..." or
+changing punctuation. When you are done, reply with JSON only:
 {{"answer": "a short direct answer",
   "facts": [{{"fact": "...", "quote": "exact words copied from the page", "url": "..."}}],
   "gaps": ["anything you could not find"]}}"""
@@ -81,12 +82,7 @@ def _norm(text):
     return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
 
 
-def quote_on_page(quote, page_text):
-    """True when the quote (or every 15+ character piece of it split at '...') appears in the page."""
-    hay = _norm(page_text)
-    pieces = [_norm(p) for p in re.split(r"\.\.\.|\u2026", quote or "")]
-    pieces = [p for p in pieces if len(p) >= 15] or [_norm(quote)]
-    return all(p and p in hay for p in pieces)
+from newscaster.research_tools import quote_on_page  # noqa: E402  (one check for benchmark and production)
 
 
 def _get_page(url, pages=None):
