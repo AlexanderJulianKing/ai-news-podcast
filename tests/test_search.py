@@ -212,3 +212,27 @@ def test_tinyfish_without_a_key_raises_so_search_web_falls_back(monkeypatch):
     monkeypatch.setattr(cfg, "TINYFISH_API_KEY", None, raising=False)
     with pytest.raises(RuntimeError):
         search.tinyfish_search("q")
+
+
+def test_tinyfish_params_convert_site_and_quotes():
+    from newscaster.search import _tinyfish_params
+    p = _tinyfish_params('site:leginfo.legislature.ca.gov/faces/x "SB 947" floor analysis -site:facebook.com')
+    assert p["query"] == "SB 947 floor analysis"
+    assert p["include_domains"] == "leginfo.legislature.ca.gov"
+    assert p["exclude_domains"] == "facebook.com"
+    assert _tinyfish_params("plain words")["query"] == "plain words" and "include_domains" not in _tinyfish_params("plain words")
+
+
+def test_tinyfish_retries_without_the_date_filter_when_empty(monkeypatch):
+    from unittest.mock import MagicMock, patch
+    import newscaster.config as cfg
+    from newscaster import search
+    monkeypatch.setattr(cfg, "TINYFISH_API_KEY", "k", raising=False)
+    empty, full = MagicMock(status_code=200), MagicMock(status_code=200)
+    empty.json.return_value = {"results": []}
+    full.json.return_value = {"results": [{"title": "Veto message", "url": "https://www.gov.ca.gov/v", "snippet": "s"}]}
+    with patch.object(search.requests, "get", side_effect=[empty, full]) as get:
+        out = search.tinyfish_search("Newsom SB 7 veto message 2025", days_prior=30)
+    assert out[0]["url"] == "https://www.gov.ca.gov/v"
+    assert "recency_minutes" in get.call_args_list[0].kwargs["params"]
+    assert "recency_minutes" not in get.call_args_list[1].kwargs["params"]

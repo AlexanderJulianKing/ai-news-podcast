@@ -45,8 +45,10 @@ each mode to a model, and the models are set in `newscaster/config.py`.
 - **Web briefs.** These are GPT-6 Luna with OpenRouter's web search
   (`newscaster/search.py`, `openrouter_web_brief`). They bypass the router, so they
   get no retries and no fallback.
-- **Plain search.** TinyFish's search API runs first (free within about 30 searches
-  a minute). If it fails or is rate limited, Google Custom Search takes over until
+- **Plain search.** TinyFish's search API runs first (free within 30 searches a
+  minute). `site:` becomes its `include_domains` setting and quotes are dropped;
+  an empty result with a date filter is retried once without it (older documents
+  such as bill analyses fell outside the 30-day window). If it fails or is rate limited, Google Custom Search takes over until
   that API shuts down on 2027-01-01. In a blind comparison on 32 real lookups,
   research answers built on TinyFish results beat Google-based ones 25 to 7.
   Web briefs are logged to `search_audit.jsonl`, not the LLM audit log.
@@ -58,7 +60,7 @@ each mode to a model, and the models are set in `newscaster/config.py`.
 
 | Source | How it is read |
 |---|---|
-| NPR, AP, Democracy Now | A normal, visible Chromium loads the page on a virtual screen (Xvfb). GPT-6 Luna lists the stories in page order. A screenshot is kept for 14 days. If the browser fails, the older Gemini readers run instead. (`newscaster/scrapers/browser.py`) |
+| NPR, AP, Democracy Now | The browser is warmed up once on a blank page first (NPR's first attempt failed on 6 of 8 mornings from a cold start). A normal, visible Chromium loads the page on a virtual screen (Xvfb). GPT-6 Luna lists the stories in page order. A screenshot is kept for 14 days. If the browser fails, the older Gemini readers run instead. (`newscaster/scrapers/browser.py`) |
 | ProPublica | RSS feed, last 48 hours. The front page has no dates. (`scrapers/dropsite.py`, `rss_scraper`) |
 | Drop Site News | RSS feed, last 48 hours |
 | CalMatters | Direct fetch of 7 section pages, today's and yesterday's stories (`scrapers/calmatters.py`) |
@@ -120,9 +122,11 @@ national stories that local outlets also run.
 All in `topic_finder.topic_finder`.
 
 1. **Triage.** Opus scores every headline from 1 to 10 for newsworthiness and
-   keeps the top 10.
+   keeps the top 10 distinct stories. Other wordings of a story already kept are
+   skipped, because a big story now arrives from many outlets (since 2026-09-23
+   the top 10 lines were often 4 or 5 stories, which left the roundup with 2 or 3).
 2. **California recall.** A second Opus pass scores relevance to an average
-   Californian and keeps the top 5. The two lists merge to at most 16, with
+   Californian and adds the top 5 distinct stories the national list lacks. The two lists merge to at most 16, with
    duplicates removed.
 3. **Research briefs.** Each shortlisted headline gets one web brief from GPT-6
    Luna. A brief the web cannot confirm is marked UNVERIFIED.

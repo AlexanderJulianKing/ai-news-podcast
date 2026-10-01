@@ -60,6 +60,7 @@ from newscaster.scrapers.riverside import riverside_scraper
 from newscaster.scrapers.watchlist import beat_scraper, watchlist_scraper
 from newscaster.scrapers.web import scrape_text
 from newscaster.scrapers.browser import RenderError, prune_screenshots, scrape_rendered
+from newscaster.scrapers.browser import warm_up as browser_warm_up
 from newscaster.tagger import tag_pool
 
 
@@ -546,6 +547,18 @@ def _is_same_story(headline: str, kept: list[tuple]) -> bool:
     return False
 
 
+def _distinct_top(headlines: list[str], n: int) -> list[str]:
+    """The first ``n`` distinct stories from a best-first list, skipping other wordings of one story.
+
+    Since the front pages and topic feeds were added (2026-09-23), a big story arrives
+    from many outlets, so the top 10 lines were often a few stories told several ways;
+    after merging, Tier 2 researched 7-10 stories instead of 11-13, and on 2026-09-30
+    the roundup had only 2 side stories to air. Walking down the list until there are
+    ``n`` different stories keeps the shortlist as deep as it used to be.
+    """
+    return _merge_shortlists(headlines, [], limit=n)
+
+
 def _merge_shortlists(primary: list[str], secondary: list[str], limit: int = _MERGED_SHORTLIST_LIMIT) -> list[str]:
     """Preserve the national shortlist, then add California-specific recalls up to a small cap.
 
@@ -797,6 +810,8 @@ def _gather_headline_sections(formatted_date):
 
     if getattr(_config, 'BROWSER_SCREENSHOT_DIR', None):
         prune_screenshots(_config.BROWSER_SCREENSHOT_DIR, getattr(_config, 'BROWSER_SCREENSHOT_KEEP_DAYS', 14))
+    if getattr(_config, 'BROWSER_SCRAPE_ENABLED', False) and getattr(_config, 'BROWSER_SCRAPE_SOURCES', ()):
+        print_and_write(f'browser warm-up took {browser_warm_up():.0f}s')
 
     print_and_write('scraping NPR')
     npr_headlines = _front_page('npr', 'https://www.npr.org', 'scrape-npr', lambda: call_with_default(
@@ -944,7 +959,7 @@ def topic_finder(formatted_date):
         california_shortlist = []
         shortlisted_headlines = national_shortlist
     else:
-        national_shortlist = [s['headline'] for s in scored[:_NATIONAL_SHORTLIST_LIMIT]]
+        national_shortlist = _distinct_top([s['headline'] for s in scored], _NATIONAL_SHORTLIST_LIMIT)
 
         # Separate California recall pass. The national triage optimizes for broad importance; a
         # California-relevant story can be below the national top 10 and would otherwise never be
@@ -974,7 +989,11 @@ def topic_finder(formatted_date):
             print_and_write('Tier 1 California parsing returned < 3 results; using national shortlist only')
             california_shortlist = []
         else:
-            california_shortlist = [s['headline'] for s in california_scored[:_CALIFORNIA_SHORTLIST_LIMIT]]
+            # Distinct stories that the national list doesn't already cover.
+            california_shortlist = _merge_shortlists(
+                national_shortlist, [s['headline'] for s in california_scored],
+                limit=len(national_shortlist) + _CALIFORNIA_SHORTLIST_LIMIT,
+            )[len(national_shortlist):]
 
         shortlisted_headlines = _merge_shortlists(
             national_shortlist,

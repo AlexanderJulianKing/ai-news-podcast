@@ -163,6 +163,24 @@ def render_page(url, *, wait_seconds=None, screenshot_path=None):
     return {"title": title, "text": text}
 
 
+def warm_up():
+    """Start the browser once on a blank page, so the first real page doesn't pay the cold start.
+
+    NPR is the first page each morning, and its first attempt failed on 6 of 8 mornings
+    (2026-09-25 to 10-01: no DevTools connection after 50 s, a read timeout, or a blank page)
+    while AP and Democracy Now, read seconds later, never failed. A blank page always ends
+    in "page too thin"; that is expected here. Returns the seconds it took.
+    """
+    started = time.time()
+    try:
+        render_page("about:blank", wait_seconds=5)
+    except RenderError:
+        pass
+    except Exception as exc:   # a warm-up must never stop the run
+        print(f"browser warm-up error: {exc}")
+    return time.time() - started
+
+
 def prune_screenshots(folder, keep_days=14):
     """Delete screenshots older than `keep_days` so they cannot fill the SD card."""
     if not os.path.isdir(folder):

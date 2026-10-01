@@ -215,18 +215,27 @@ def openrouter_web_brief(question: str, *, model: str | None = None,
 TINYFISH_SEARCH_URL = "https://api.search.tinyfish.ai"
 
 
-def tinyfish_search(query: str, num_results: int = 8, days_prior: int = 1) -> list[dict[str, str]]:
-    """TinyFish web search: free within its rate limits (about 30 a minute, 500 an hour as of
-    2026-09). Google's Custom Search JSON API shuts down on 2027-01-01 and cost ~$5 per 1,000
-    searches past 100 a day; the research tool loop makes 300+ searches a day."""
-    from newscaster.scrapers.google_search import _is_blocked_url
+def _tinyfish_params(query: str) -> dict[str, Any]:
+    """Turn search-engine syntax into TinyFish parameters.
 
-    key = getattr(_config, "TINYFISH_API_KEY", None)
-    if not key:
-        raise RuntimeError("no tinyfish_api entry in keys.txt")
-    params: dict[str, Any] = {"query": query}
-    if days_prior:
-        params["recency_minutes"] = max(1, int(days_prior)) * 1440
+    TinyFish documents include_domains/exclude_domains (site: in the query is deprecated)
+    and no exact-phrase quotes. On 30 searches that came back empty on 2026-09-30/10-01,
+    converting site: and dropping quotes recovered 11 with the date filter on.
+    """
+    include = re.findall(r"(?<![-\w])site:(\S+)", query)
+    exclude = re.findall(r"-site:(\S+)", query)
+    text = re.sub(r"-?site:\S+", " ", query)
+    text = re.sub(r"\bOR\b", " ", text).replace('"', " ")
+    params: dict[str, Any] = {"query": " ".join(text.split()) or query}
+    domains = lambda items: ",".join(dict.fromkeys(i.split("/")[0].lower() for i in items if i))
+    if include:
+        params["include_domains"] = domains(include)
+    if exclude:
+        params["exclude_domains"] = domains(exclude)
+    return params
+
+
+def _tinyfish_get(params: dict[str, Any], key: str) -> list[dict[str, Any]]:
     response = None
     for attempt in range(3):
         response = requests.get(TINYFISH_SEARCH_URL, params=params, headers={"X-API-Key": key}, timeout=30)
@@ -236,8 +245,31 @@ def tinyfish_search(query: str, num_results: int = 8, days_prior: int = 1) -> li
     if response is None or response.status_code == 429:
         raise RuntimeError("TinyFish search rate limited")
     response.raise_for_status()
+    return (response.json() or {}).get("results") or []
+
+
+def tinyfish_search(query: str, num_results: int = 8, days_prior: int = 1) -> list[dict[str, str]]:
+    """TinyFish web search: free within its rate limits (30 a minute, per its API reference).
+    Google's Custom Search JSON API shuts down on 2027-01-01 and cost ~$5 per 1,000 searches
+    past 100 a day; the research tool loop makes 300+ searches a day.
+
+    An empty result with a date filter is retried once without it: research often looks
+    for older documents (a June bill analysis, a 2025 veto letter), and on 30 searches that
+    came back empty, 18 returned results without the filter (21 with the syntax changes too).
+    """
+    from newscaster.scrapers.google_search import _is_blocked_url
+
+    key = getattr(_config, "TINYFISH_API_KEY", None)
+    if not key:
+        raise RuntimeError("no tinyfish_api entry in keys.txt")
+    params = _tinyfish_params(query)
+    items = []
+    if days_prior:
+        items = _tinyfish_get(dict(params, recency_minutes=max(1, int(days_prior)) * 1440), key)
+    if not items:
+        items = _tinyfish_get(params, key)
     results = []
-    for item in (response.json() or {}).get("results") or []:
+    for item in items:
         url = item.get("url") or ""
         if not url or _is_blocked_url(url):
             continue

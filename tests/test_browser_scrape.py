@@ -112,3 +112,29 @@ def test_front_page_does_not_retry_the_browser_on_a_model_error(monkeypatch):
     monkeypatch.setattr(tf, "scrape_rendered", model_fails)
     assert tf._front_page("npr", "https://www.npr.org", "scrape-npr", lambda: "GEMINI", "p", "r") == "GEMINI"
     assert len(calls) == 1
+
+
+def test_warm_up_swallows_the_expected_blank_page_error(monkeypatch):
+    calls = []
+
+    def fake_render(url, **kw):
+        calls.append((url, kw))
+        raise browser.RenderError("page too thin (0 words)")
+    monkeypatch.setattr(browser, "render_page", fake_render)
+    assert browser.warm_up() >= 0
+    assert calls == [("about:blank", {"wait_seconds": 5})]
+
+
+def test_gather_warms_the_browser_up_before_the_front_pages(monkeypatch):
+    from newscaster.scrapers import topic_finder as tf
+    order = []
+    monkeypatch.setattr(tf._config, "BROWSER_SCRAPE_ENABLED", True, raising=False)
+    monkeypatch.setattr(tf, "browser_warm_up", lambda: order.append("warm") or 0.0)
+    monkeypatch.setattr(tf, "_front_page", lambda key, *a, **k: order.append(key) or "x")
+    monkeypatch.setattr(tf, "call_with_default", lambda *a, **k: "x")
+    for name in ("rss_scraper", "calmatters_scraper", "dropsite_scraper", "riverside_scraper"):
+        monkeypatch.setattr(tf, name, lambda *a, **k: "x")
+    monkeypatch.setattr(tf._config, "WATCHLIST_ENABLED", False, raising=False)
+    monkeypatch.setattr(tf._config, "BEATS_ENABLED", False, raising=False)
+    tf._gather_headline_sections("October 1, 2026")
+    assert order[:2] == ["warm", "npr"]
