@@ -399,4 +399,5 @@ def watchlist_scraper(feeds=None, now=None, lookback_hours=None, max_per_feed=No
         label="watchlist-event-test", now=now,
         lookback_hours=lookback_hours or getattr(_config, "WATCHLIST_LOOKBACK_HOURS", 72),
         max_per_feed=max_per_feed or getattr(_config, "WATCHLIST_MAX_ITEMS_PER_FEED", 8),
+        mode="routine",
     )

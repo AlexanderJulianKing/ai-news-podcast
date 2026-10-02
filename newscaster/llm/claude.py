@@ -119,7 +119,7 @@ def _user_content(user_prompt):
 
 
 def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='You are an intelligent assistant.',
-           include_usage=False):
+           include_usage=False, effort="high"):
     """One logical attempt against the Anthropic API.
 
     Raises a typed LLMError on failure; the router decides whether to retry or fall back.
@@ -155,7 +155,7 @@ def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='
                     }
                 ],
                 thinking={"type": "adaptive"},
-                extra_body={"output_config": {"effort": "high"}},
+                extra_body={"output_config": {"effort": effort}},
             )
     except anthropic.APIStatusError as e:
         status_code = getattr(e, 'status_code', None)

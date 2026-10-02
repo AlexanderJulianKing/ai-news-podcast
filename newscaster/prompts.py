@@ -294,7 +294,7 @@ TIER1_TRIAGE_PROMPT = """Rate each headline below on a scale of 1-10 for newswor
 For each headline, output exactly one line in this format:
 SCORE: X | HEADLINE: Y | REASON: Z
 
-Where X is the numeric score (1-10), Y is the headline repeated verbatim, and Z is a one-sentence justification. Sort from highest to lowest score."""
+Where X is the numeric score (1-10), Y is the headline repeated verbatim, and Z is a single dash (-). Do not write a justification. Sort from highest to lowest score."""
 
 
 TIER1_CALIFORNIA_TRIAGE_PROMPT = """Rate each headline below on a scale of 1-10 for relevance to an average person in California.
@@ -311,7 +311,7 @@ Do NOT rank a foreign-only story highly unless the headline states a concrete Ca
 For each headline, output exactly one line in this format:
 SCORE: X | HEADLINE: Y | REASON: Z
 
-Where X is the numeric score (1-10), Y is the headline repeated verbatim, and Z is a one-sentence justification focused on the California/everyday-life angle. Sort from highest to lowest score."""
+Where X is the numeric score (1-10), Y is the headline repeated verbatim, and Z is a single dash (-). Do not write a justification. Sort from highest to lowest score."""
 
 
 TIER2_RESEARCH_PROMPT = """You are a newsroom researcher preparing a background brief on {date}.
@@ -543,7 +543,7 @@ HEADLINE_MAKER_PROMPT = 'Please make a headline for the given story.'
 
 OUTRO_TEMPLATE = (
     "That's all we have for now. Today's episode was made by Alexander King with Claude Opus five point five, "
-    "GPT six Luna, GPT six Sol, Gemini, and Google Cloud Text-to-Speech. "
+    "GPT six Luna, GPT six point one Sol, Gemini, and Google Cloud Text-to-Speech. "
     "I hope you have a great day. I'll see you tomorrow, Alex."
 )
 

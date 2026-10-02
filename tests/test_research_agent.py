@@ -111,7 +111,7 @@ def test_adaptive_loop_min_iterations_forces_one_grounded_search(monkeypatch):
     assert result.followups[0]["question_type"] == "freshness_check"
     assert result.followups[0]["action"] == "source_hunter"
     assert "controlled answer" in result.summary_prompt
-    assert controller_modes == ["heavy", "heavy"]
+    assert controller_modes == ["routine", "routine"]
 
 
 def test_adversary_runs_after_controller_says_done_then_returns_to_controller(monkeypatch):
@@ -131,7 +131,7 @@ def test_adversary_runs_after_controller_says_done_then_returns_to_controller(mo
                 "question_type": "counterevidence_check",
                 "reason": "test the premise",
             })
-        assert mode == "heavy"
+        assert mode == "routine"
         if len(call_order) == 1:
             assert "adversarial answer" not in prompt
         else:
@@ -152,9 +152,9 @@ def test_adversary_runs_after_controller_says_done_then_returns_to_controller(mo
         )
 
     mock_source_hunter.assert_called_once()
-    assert call_order == ["heavy", "adversary", "heavy"]
+    assert call_order == ["routine", "adversary", "routine"]
     assert len(result.followups) == 1
-    assert result.followups[0]["asker"] == "GPT-6 Sol Adversary"
+    assert result.followups[0]["asker"] == "GPT-6.1 Sol Adversary"
     assert result.followups[0]["adversary_guided"] is True
     assert result.followups[0]["question_type"] == "counterevidence_check"
     assert "adversarial answer" in result.summary_prompt

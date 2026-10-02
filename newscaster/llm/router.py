@@ -78,6 +78,9 @@ def _select_primary(mode, grounding, url_context):
     if mode == 'heavy' and not needs_tools:
         return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL}
 
+    if mode == 'routine' and not needs_tools:
+        return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL, 'effort': _config.ROUTINE_EFFORT}
+
     if mode == 'standard' and not needs_tools:
         return {
             'provider': 'openrouter',
@@ -98,7 +101,7 @@ def _select_primary(mode, grounding, url_context):
         return {
             'provider': 'openrouter',
             'model': _config.TAGGER_MODEL,
-            'name': 'GPT-6 Sol Tagger',
+            'name': 'GPT-6.1 Sol Tagger',
             'reasoning': _config.TAGGER_REASONING_EFFORT,
         }
 
@@ -114,7 +117,7 @@ def _select_primary(mode, grounding, url_context):
         return {
             'provider': 'openrouter',
             'model': _config.ADVERSARY_MODEL,
-            'name': 'GPT-6 Sol Adversary',
+            'name': 'GPT-6.1 Sol Adversary',
             'reasoning': _config.ADVERSARY_REASONING_EFFORT,
         }
 
@@ -153,7 +156,7 @@ def _dispatch(spec, user_prompt, system_prompt):
         )
 
     if provider == 'anthropic':
-        return claude(user_prompt, model, system_prompt, include_usage=True)
+        return claude(user_prompt, model, system_prompt, include_usage=True, effort=spec.get('effort', 'high'))
 
     if provider == 'openrouter':
         return get_openrouter_response(
@@ -271,7 +274,7 @@ def _call_fallback(user_prompt, system_prompt, grounding, url_context, *, call_i
     fallback = {
         'provider': 'openrouter',
         'model': _config.FALLBACK_MODEL,
-        'name': 'GPT-6 Sol (backup)',
+        'name': 'GPT-6.1 Sol (backup)',
         'reasoning': _config.FALLBACK_REASONING_EFFORT,
         'tools': tools if tools else None,
     }

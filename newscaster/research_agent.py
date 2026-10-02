@@ -294,7 +294,7 @@ def _normalize_adversary_decision(raw_response: str) -> dict[str, Any]:
         "question": question,
         "question_type": question_type,
         "reason": str(raw.get("reason") or "second-perspective adversarial check").strip(),
-        "asker": "GPT-6 Sol Adversary",
+        "asker": "GPT-6.1 Sol Adversary",
         "adversary_guided": True,
     }
 
@@ -363,7 +363,7 @@ def _controller_node(state: ResearchState) -> ResearchState:
         raw = get_llm_response(
             _controller_payload(state),
             system_prompt=RESEARCH_CONTROLLER_PROMPT,
-            mode="heavy",
+            mode="routine",
         )
         decision = parse_controller_decision(raw, allow_repair=True)
         next_iteration = iterations + 1

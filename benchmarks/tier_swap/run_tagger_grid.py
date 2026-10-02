@@ -25,7 +25,7 @@ GRADER = (
     "{\"serious\": [{\"headline\": \"...\", \"did\": \"...\", \"should\": \"...\"}], \"debatable\": [\"...\"]}"
 )
 SETTINGS = {"b40_low": (40, "low"), "b10_low": (10, "low"), "b10_medium": (10, "medium"), "b10_high": (10, "high"),
-            "b10_sol": (10, "medium", "openai/gpt-6-sol"),
+            "b10_sol": (10, "medium", "openai/gpt-6-sol"), "b10_sol61": (10, "medium", "openai/gpt-6.1-sol"),
             "b1_low": (1, "low"), "b3_low": (3, "low"), "b3_medium": (3, "medium")}
 
 

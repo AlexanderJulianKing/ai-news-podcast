@@ -52,8 +52,8 @@ MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 5
 _SECOND = 1000
 
-# Backup when a tier fails its retries. GPT-6 Sol from 2026-09-23.
-FALLBACK_MODEL = "openai/gpt-6-sol"
+# Backup when a tier fails its retries. GPT-6 Sol from 2026-09-23, GPT-6.1 Sol from 2026-10-02.
+FALLBACK_MODEL = "openai/gpt-6.1-sol"
 FALLBACK_REASONING_EFFORT = "low"
 
 # --- LLM mode routing ---
@@ -66,9 +66,13 @@ STANDARD_REASONING_EFFORT = "low"
 ADVANCED_MODEL = "openai/gpt-6-luna"
 ADVANCED_REASONING_EFFORT = "medium"
 HEAVY_MODEL = "claude-opus-5-5"
+# Opus effort for routine judgment calls (router mode "routine"): the research
+# controller, the AI-watch filter and the fact-check editor's proposals. Triage,
+# Tier 3 picks and segment scripts stay on "heavy" (effort high). 2026-10-02.
+ROUTINE_EFFORT = "medium"
 # The adversary vets Opus's script edits and challenges the research loop; it also sets the
-# search fallback model below. GPT-6 Sol from 2026-09-23 (GPT-5.5 before).
-ADVERSARY_MODEL = "openai/gpt-6-sol"
+# search fallback model below. GPT-6.1 Sol from 2026-10-02 (GPT-6 Sol from 09-23, GPT-5.5 before).
+ADVERSARY_MODEL = "openai/gpt-6.1-sol"
 ADVERSARY_REASONING_EFFORT = "high"
 TOOL_LIGHT_STANDARD_MODEL = "gemini-3-flash-preview"
 TOOL_PLUS_HEAVY_MODEL = "gemini-3.1-pro-preview"
@@ -177,7 +181,7 @@ TAGGER_STRUCTURED = True
 # 2026-09-23 test on six real mornings, each output audited alone by Opus 5.5 (serious errors):
 # Luna batch 40 low 8, batch 10 low 4, medium 3, high 3; Sol batch 10 medium 1 (~$0.13/day).
 TAGGER_BATCH_SIZE = 10
-TAGGER_MODEL = "openai/gpt-6-sol"
+TAGGER_MODEL = "openai/gpt-6.1-sol"
 TAGGER_REASONING_EFFORT = "medium"
 
 # --- Headline ingestion ---

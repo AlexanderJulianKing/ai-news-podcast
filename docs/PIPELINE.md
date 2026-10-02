@@ -26,11 +26,12 @@ each mode to a model, and the models are set in `newscaster/config.py`.
 | light | Gemini 3.1 Flash-Lite | Small chores: yes/no checks, pulling a headline out of text, tags |
 | standard | GPT-6 Luna, low reasoning | Reading pages, summaries, the roundup script, evidence contracts |
 | advanced | GPT-6 Luna, medium reasoning | Harder synthesis, the faithfulness fact check |
-| heavy | Claude Opus 5.5 | Story selection, the research controller, segment scripts, script fixes |
-| adversary | GPT-6 Sol, high reasoning | Challenges the research loop and approves script fixes |
-| tagger | GPT-6 Sol, medium reasoning | Marks headlines as new, update or repeat |
+| heavy | Claude Opus 5.5, high effort | Triage, story selection, segment scripts |
+| routine | Claude Opus 5.5, medium effort | The research controller, the AI watch test, proposed script fixes |
+| adversary | GPT-6.1 Sol, high reasoning | Challenges the research loop and approves script fixes |
+| tagger | GPT-6.1 Sol, medium reasoning | Marks headlines as new, update or repeat |
 | plus | Gemini 3.1 Pro | 2 of the 8 backup follow-up questions (only if the research loop crashes) |
-| fallback | GPT-6 Sol, low reasoning | Any routed call that fails all its retries |
+| fallback | GPT-6.1 Sol, low reasoning | Any routed call that fails all its retries |
 
 - **Retries.** Each routed call gets up to 5 attempts with backoff before it falls
   back to Sol.
@@ -105,7 +106,7 @@ national stories that local outlets also run.
 - **Story memory.** The story ledger (`stories_chosen/story_ledger.json`) remembers
   every story arc the show has covered. Arcs expire after 45 days. The tagger
   compares against arcs covered in the last 14 days.
-- **The tagger.** GPT-6 Sol reads the numbered headlines 10 at a time. It returns a
+- **The tagger.** GPT-6.1 Sol reads the numbered headlines 10 at a time. It returns a
   verdict per line: new, update to a known arc, major escalation, or same as
   something already covered.
 - **Applying the verdicts.** Code applies them, so a headline is only dropped on
@@ -122,7 +123,8 @@ national stories that local outlets also run.
 All in `topic_finder.topic_finder`.
 
 1. **Triage.** Opus scores every headline from 1 to 10 for newsworthiness and
-   keeps the top 10 distinct stories. Other wordings of a story already kept are
+   keeps the top 10 distinct stories. It writes only the scores, with a dash
+   where a reason used to go, since nothing downstream read the reasons. Other wordings of a story already kept are
    skipped, because a big story now arrives from many outlets (since 2026-09-23
    the top 10 lines were often 4 or 5 stories, which left the roundup with 2 or 3).
 2. **California recall.** A second Opus pass scores relevance to an average

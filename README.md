@@ -43,16 +43,16 @@ Each morning, one run:
 
 ## Models
 
-Most LLM calls name a tier, and one router maps tiers to models. As of 2026-09-23:
+Most LLM calls name a tier, and one router maps tiers to models. As of 2026-10-02:
 
 | Tier | Model | Main jobs |
 |---|---|---|
-| heavy | Claude Opus 5.5 | Story selection, research controller, segment scripts, script fixes |
+| heavy / routine | Claude Opus 5.5 | Story selection and segment scripts (high effort); research controller, AI watch and script fixes (medium effort) |
 | standard / advanced | GPT-6 Luna | Reading front pages, summaries, research answers, web briefs, faithfulness check |
-| tagger / adversary / fallback | GPT-6 Sol | Marking repeats, challenging research, approving fixes, backup for any failed call |
+| tagger / adversary / fallback | GPT-6.1 Sol | Marking repeats, challenging research, approving fixes, backup for any failed call |
 | light | Gemini 3.1 Flash-Lite | Small yes/no checks, the spoken intro, YouTube tags |
 
-Web briefs (GPT-6 Luna) and the search fallback (GPT-6 Sol) skip the router.
+Web briefs (GPT-6 Luna) and the search fallback (GPT-6.1 Sol) skip the router.
 Gemini 3 Flash is the backup front-page reader, Gemini 3.1 Pro answers two backup
 research questions, and `gemini-embedding-2` makes the embeddings.
 
