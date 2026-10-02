@@ -16,7 +16,7 @@ _ANTHROPIC_PRICING_PER_MTOK = {
         "output": 20.00,
         "cache_write_5m": 5.00,
         "cache_write_1h": 8.00,
-        "cache_read": 0.40,
+        "cache_read": 0.20,   # 0.05x input on Opus 5.5 (Anthropic's prompt-caching docs, checked 2026-10-02)
     },
     "claude-opus-4-8": {
         "input": 5.00,
@@ -104,6 +104,20 @@ def _create_message(client, **kwargs):
         return stream.get_final_message()
 
 
+# Put this between the part of a prompt that repeats across calls and the part that
+# changes. Claude caches everything before it for an hour (cache reads cost 5% of the
+# input price on Opus 5.5); other providers get the marker replaced by a newline.
+CACHE_BREAK = "\n<<<CACHE_BREAK>>>\n"
+
+
+def _user_content(user_prompt):
+    if CACHE_BREAK not in (user_prompt or ""):
+        return [{"type": "text", "text": user_prompt}]
+    stable, changing = user_prompt.split(CACHE_BREAK, 1)
+    return [{"type": "text", "text": stable, "cache_control": {"type": "ephemeral", "ttl": "1h"}},
+            {"type": "text", "text": changing}]
+
+
 def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='You are an intelligent assistant.',
            include_usage=False):
     """One logical attempt against the Anthropic API.
@@ -124,12 +138,7 @@ def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='
                 messages=[
                     {
                         "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": user_prompt
-                            }
-                        ]
+                        "content": _user_content(user_prompt)
                     }
                 ]
             )
@@ -142,12 +151,7 @@ def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='
                 messages=[
                     {
                         "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": user_prompt
-                            }
-                        ]
+                        "content": _user_content(user_prompt)
                     }
                 ],
                 thinking={"type": "adaptive"},

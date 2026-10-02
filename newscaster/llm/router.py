@@ -11,6 +11,8 @@ import random
 import time
 import uuid
 
+from newscaster.llm.claude import CACHE_BREAK
+
 import newscaster.config as _config
 from newscaster.logging import print_and_write, write_jsonl_log
 from newscaster.llm.gemini import gemini
@@ -130,6 +132,8 @@ def _dispatch(spec, user_prompt, system_prompt):
     """Single-shot call to one provider. Raises typed LLMError on failure."""
     provider = spec['provider']
     model = spec['model']
+    if provider != 'anthropic':
+        user_prompt = (user_prompt or "").replace(CACHE_BREAK, "\n")
 
     if provider == 'google':
         return gemini(

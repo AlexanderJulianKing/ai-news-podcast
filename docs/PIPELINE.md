@@ -182,7 +182,10 @@ entities and topic; and Luna answers from the accepted excerpts.
    - A first source-hunter pass, the "seed", answers a starting question. Its
      answer is fed into the loop.
 2. **Agent loop** (`newscaster/research_agent.py`, built with LangGraph):
-   - **Controller.** Opus decides what to look up next, for 2 to 8 rounds. Each
+   - **Controller.** Opus decides what to look up next, for 2 to 8 rounds. Its request
+     starts with the parts that never change during a story (topic, date, memory note,
+     starting evidence); Claude caches those for an hour, so later rounds re-read them
+     at 5% of the input price. Round counters, Q&A and new evidence come after. Each
      round runs a research lookup or fetches another article. It sees every earlier
      answer's open GAPS and is told to chase an answerable gap with a narrower
      question aimed at the primary source (a bill page, a court opinion, an agency

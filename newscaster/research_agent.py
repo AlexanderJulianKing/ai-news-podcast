@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, TypedDict
 
 import newscaster.config as _config
+from newscaster.llm.claude import CACHE_BREAK
 from newscaster.llm import get_llm_response
 from newscaster.logging import print_and_write
 from newscaster.prompts import (
@@ -44,6 +45,7 @@ class ResearchState(TypedDict, total=False):
     formatted_date: str
     formatted_date2: str
     summary_prompt: str
+    base_evidence: str
     successful_summary_counter: int
     articles: list[dict[str, Any]]
     followups: list[dict[str, Any]]
@@ -232,20 +234,38 @@ def _recent_followups(followups: list[dict[str, Any]]) -> str:
 
 
 def _controller_payload(state: ResearchState) -> str:
+    """What the controller sees each round, split for prompt caching (2026-10-02).
+
+    Everything before CACHE_BREAK stays byte-identical across a story's rounds (topic,
+    date, memory note, the evidence the loop started with), so Claude caches it; the
+    round counters, Q&A and evidence added since then come after. Before this, the
+    controller saw only the last 18,000 characters of all evidence, so the request
+    changed from its first line every round and the starting articles slid out of view.
+    """
     remaining = max(0, state["max_iterations"] - state.get("iterations", 0))
-    return (
+    current = state.get("summary_prompt", "") or ""
+    base = state.get("base_evidence")
+    if base is None or not current.startswith(base):
+        base, added = "", current          # no frozen start (older callers): old behavior
+    else:
+        added = current[len(base):]
+    stable = (
         f"TOPIC: {state['topic']}\n"
-        f"DATE: {state['formatted_date']}\n"
+        f"DATE: {state['formatted_date']}\n\n"
+        f"RAG MEMORY NOTE:\n{state.get('memory_note') or '(none)'}\n\n"
+        f"STARTING EVIDENCE (articles and first research, fixed for this story):\n{base[:24000]}"
+    )
+    changing = (
         f"ITERATIONS_COMPLETED: {state.get('iterations', 0)}\n"
         f"REMAINING_BUDGET: {remaining}\n"
         f"ARTICLE_COUNT: {len(state.get('articles', []))}\n"
         f"MIN_ITERATIONS: {state.get('min_iterations', 0)}\n\n"
-        f"RAG MEMORY NOTE:\n{state.get('memory_note') or '(none)'}\n\n"
         f"SECOND-PERSPECTIVE ADVERSARIAL QUESTION:\n"
         f"{json.dumps(state.get('adversary_decision') or {}, ensure_ascii=False, indent=2)}\n\n"
         f"RECENT COMPLETED Q&A:\n{_recent_followups(state.get('followups', []))}\n\n"
-        f"CURRENT EVIDENCE:\n{_clip(state.get('summary_prompt', ''), 18000)}"
+        f"EVIDENCE ADDED SINCE THE START:\n{_clip(added, 14000) or '(none yet)'}"
     )
+    return stable + CACHE_BREAK + changing
 
 
 def _adversary_payload(state: ResearchState) -> str:
@@ -554,6 +574,7 @@ def run_adaptive_research(topic: str, topic_index: int, formatted_date: str, for
         "formatted_date": formatted_date,
         "formatted_date2": formatted_date2,
         "summary_prompt": summary_prompt,
+        "base_evidence": summary_prompt,   # frozen for prompt caching; see _controller_payload
         "successful_summary_counter": successful_summary_counter,
         "articles": initial_articles,
         "followups": initial_followups,
