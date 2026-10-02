@@ -78,3 +78,19 @@ def test_group_note_is_added_to_the_selection_prompt():
          patch("newscaster.scrapers.watchlist.select_with_llm", side_effect=fake_select):
         beat_scraper("San Diego", [("KPBS", "u")], max_items=8, note="Choose only local events {here}.")
     assert "Choose only local events {here}.\n\nITEMS" in seen["prompt"]
+
+
+def test_topic_groups_pick_with_luna_high_while_the_ai_watch_stays_on_opus():
+    # Topic-group picks moved to GPT-6 Luna at high effort (2026-10-02): Opus triage
+    # re-checks everything they pass on. The AI watch filter stays on Opus.
+    from newscaster.llm.router import _select_primary
+    import newscaster.scrapers.watchlist as wl
+    spec = _select_primary("beat", False, False)
+    assert spec["model"] == "openai/gpt-6-luna" and spec["reasoning"] == "high"
+    modes = []
+    with patch.object(wl, "collect_watch_items", return_value=([("CNBC", {"title": "t"})], [])), \
+         patch.object(wl, "call_with_default", side_effect=lambda d, p, mode=None, _log_label=None: modes.append(mode) or "An event happened (via CNBC)"), \
+         patch.object(wl, "format_items_for_test", return_value="items"):
+        wl.beat_scraper("Business and markets", [("CNBC", "u")])
+        wl.watchlist_scraper(feeds=[("OpenAI", "u")])
+    assert modes == ["beat", "heavy"]

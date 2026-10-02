@@ -323,12 +323,12 @@ def format_items_for_test(items):
     return "\n".join(lines)
 
 
-def select_with_llm(items, prompt_template, today_str, label, **extra):
+def select_with_llm(items, prompt_template, today_str, label, mode="heavy", **extra):
     """One heavy-model call over formatted items. Returns chosen lines, [] for NONE, None if degraded."""
     if not items:
         return []
     prompt = prompt_template.format(date=today_str, items=format_items_for_test(items), **extra)
-    response = call_with_default(None, prompt, mode="heavy", _log_label=label)
+    response = call_with_default(None, prompt, mode=mode, _log_label=label)
     if response is None:
         return None
     lines = [line.strip().lstrip("-*• ").strip() for line in response.split("\n")]
@@ -344,7 +344,7 @@ def apply_event_test(items, today_str):
 
 
 def feed_group_section(group_name, feeds, prompt_template, *, intro, label, now=None,
-                       lookback_hours=72, max_per_feed=8, max_items=None):
+                       lookback_hours=72, max_per_feed=8, max_items=None, mode="heavy"):
     """Pool section text for one group of feeds: fetch, window, select, and always say what happened."""
     now = now or datetime.now(timezone.utc)
     today = now.astimezone().strftime("%B %e, %Y").replace("  ", " ")
@@ -353,7 +353,7 @@ def feed_group_section(group_name, feeds, prompt_template, *, intro, label, now=
         f"{group_name}: {len(items)} items from {len(feeds) - len(failed)}/{len(feeds)} feeds "
         f"in the last {lookback_hours}h" + (f"; failed: {', '.join(failed)}" if failed else "")
     )
-    chosen = select_with_llm(items, prompt_template, today, label, group=group_name, max_items=max_items)
+    chosen = select_with_llm(items, prompt_template, today, label, mode=mode, group=group_name, max_items=max_items)
     lines = [intro.format(today=today)]
     if chosen is None:
         lines.append("The selection could not be run today (LLM call degraded); no items are nominated.")
@@ -382,6 +382,7 @@ def beat_scraper(group_name, feeds, now=None, lookback_hours=None, max_items=Non
         lookback_hours=lookback_hours or getattr(_config, "BEAT_LOOKBACK_HOURS", 24),
         max_per_feed=max_per_feed or getattr(_config, "BEAT_MAX_ITEMS_PER_FEED", 30),
         max_items=max_items or getattr(_config, "BEAT_MAX_ITEMS", 8),
+        mode="beat",   # GPT-6 Luna at high effort since 2026-10-02; Opus triage re-checks these picks
     )
 
 

@@ -102,6 +102,14 @@ def _select_primary(mode, grounding, url_context):
             'reasoning': _config.TAGGER_REASONING_EFFORT,
         }
 
+    if mode == 'beat' and not needs_tools:
+        return {
+            'provider': 'openrouter',
+            'model': _config.BEAT_MODEL,
+            'name': 'GPT-6 Luna (topic groups)',
+            'reasoning': _config.BEAT_REASONING_EFFORT,
+        }
+
     if mode == 'adversary' and not needs_tools:
         return {
             'provider': 'openrouter',

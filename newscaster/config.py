@@ -232,6 +232,12 @@ WATCHLIST_FEEDS = [
 BEATS_ENABLED = True
 BEAT_LOOKBACK_HOURS = 24
 BEAT_MAX_ITEMS = 8
+# Topic-group picks moved from Opus to GPT-6 Luna at high effort (2026-10-02, about $0.25/day saved).
+# On the groups whose 04:00 input could be rebuilt, Luna kept 22/24 of Opus's picks and Opus
+# rerun kept 23/24; Opus triage re-scores everything these picks pass on. Luna at medium effort
+# produced runaway 1,000+ line replies in the triage test, so stay at high.
+BEAT_MODEL = "openai/gpt-6-luna"
+BEAT_REASONING_EFFORT = "high"
 BEAT_MAX_ITEMS_PER_FEED = 30
 BEAT_FEEDS = [
     ('Business and markets', [

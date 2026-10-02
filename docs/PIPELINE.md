@@ -66,7 +66,7 @@ each mode to a model, and the models are set in `newscaster/config.py`.
 | CalMatters | Direct fetch of 7 section pages, today's and yesterday's stories (`scrapers/calmatters.py`) |
 | City of Riverside | Direct parse of the dated press-release cards, today and yesterday (`scrapers/riverside.py`) |
 | AI watch | OpenAI, Anthropic, Google DeepMind, METR, AI Incident Database and Import AI, last 72 hours. Opus keeps items that pass an event test (`scrapers/watchlist.py`) |
-| 8 beat groups | RSS feeds, last 24 hours. Opus picks up to 8 events per group (`scrapers/watchlist.py`, `beat_scraper`) |
+| 8 beat groups | RSS feeds, last 24 hours. GPT-6 Luna (high effort) picks up to 8 events per group; Opus triage re-scores them (`scrapers/watchlist.py`, `beat_scraper`) |
 
 **How each line is written.** Every front-page line must be one sentence stating
 who did what. Teasers with no event are left out, and so are lines that comment
