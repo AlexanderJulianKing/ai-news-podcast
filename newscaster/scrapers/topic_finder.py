@@ -939,7 +939,7 @@ def topic_finder(formatted_date):
     # before it is ever researched, and nothing downstream recovers it. It is one call over the
     # whole headline list, so the upgrade costs ~one Opus call per day.
     print_and_write('TIER 1: Triaging headlines')
-    tier1_response = get_llm_response(all_headlines, system_prompt=TIER1_TRIAGE_PROMPT, mode='heavy')
+    tier1_response = get_llm_response(all_headlines, system_prompt=TIER1_TRIAGE_PROMPT, mode='editorial')
     print_and_write('Tier 1 raw response:', tier1_response)
 
     scored = _parse_tier1_scores(tier1_response)
@@ -968,7 +968,7 @@ def topic_finder(formatted_date):
         tier1_california_response = get_llm_response(
             all_headlines,
             system_prompt=TIER1_CALIFORNIA_TRIAGE_PROMPT,
-            mode='heavy',
+            mode='editorial',
         )
         print_and_write('Tier 1 California raw response:', tier1_california_response)
         california_scored = _parse_tier1_scores(tier1_california_response)
@@ -1046,7 +1046,7 @@ def topic_finder(formatted_date):
     print_and_write('TIER 3: Selecting stories')
 
     # Important story (heavy tier)
-    important_response = get_llm_response(research_document, system_prompt=TIER3_IMPORTANT_STORY_PROMPT, mode='heavy')
+    important_response = get_llm_response(research_document, system_prompt=TIER3_IMPORTANT_STORY_PROMPT, mode='editorial')
     important_response = important_response.replace('*', '')
     print_and_write()
     print_and_write(important_response)
@@ -1056,7 +1056,7 @@ def topic_finder(formatted_date):
 
     # Everyman story (heavy tier)
     everyman_prompt = TIER3_EVERYMAN_STORY_PROMPT.format(excluded_headline=important_headline)
-    everyman_topic_response = get_llm_response(research_document, system_prompt=everyman_prompt, mode='heavy')
+    everyman_topic_response = get_llm_response(research_document, system_prompt=everyman_prompt, mode='editorial')
     print_and_write('\nimportant topic for average person and why:', everyman_topic_response)
     everyman_headline = headline_extractor(everyman_topic_response)
 

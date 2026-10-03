@@ -323,7 +323,7 @@ def format_items_for_test(items):
     return "\n".join(lines)
 
 
-def select_with_llm(items, prompt_template, today_str, label, mode="heavy", **extra):
+def select_with_llm(items, prompt_template, today_str, label, mode="editorial", **extra):
     """One heavy-model call over formatted items. Returns chosen lines, [] for NONE, None if degraded."""
     if not items:
         return []
@@ -344,7 +344,7 @@ def apply_event_test(items, today_str):
 
 
 def feed_group_section(group_name, feeds, prompt_template, *, intro, label, now=None,
-                       lookback_hours=72, max_per_feed=8, max_items=None, mode="heavy"):
+                       lookback_hours=72, max_per_feed=8, max_items=None, mode="editorial"):
     """Pool section text for one group of feeds: fetch, window, select, and always say what happened."""
     now = now or datetime.now(timezone.utc)
     today = now.astimezone().strftime("%B %e, %Y").replace("  ", " ")
@@ -399,5 +399,5 @@ def watchlist_scraper(feeds=None, now=None, lookback_hours=None, max_per_feed=No
         label="watchlist-event-test", now=now,
         lookback_hours=lookback_hours or getattr(_config, "WATCHLIST_LOOKBACK_HOURS", 72),
         max_per_feed=max_per_feed or getattr(_config, "WATCHLIST_MAX_ITEMS_PER_FEED", 8),
-        mode="routine",
+        mode="editorial",
     )

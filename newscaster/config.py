@@ -66,10 +66,13 @@ STANDARD_REASONING_EFFORT = "low"
 ADVANCED_MODEL = "openai/gpt-6-luna"
 ADVANCED_REASONING_EFFORT = "medium"
 HEAVY_MODEL = "claude-opus-5-5"
-# Opus effort for routine judgment calls (router mode "routine"): the research
-# controller, the AI-watch filter and the fact-check editor's proposals. Triage,
-# Tier 3 picks and segment scripts stay on "heavy" (effort high). 2026-10-02.
-ROUTINE_EFFORT = "medium"
+# Router mode "editorial": every job Opus used to do except the segment scripts
+# (triage, Tier 3 picks, research controller, AI watch, the editor's proposed fixes).
+# 2026-10-02: replaying a day of Opus calls cost $0.91 on Sol high vs $2.61 on Opus;
+# Alex set the bar for the switch as triage at least as close to Opus as Luna high.
+# Opus is this mode's backup (router), and segment scripts stay on "heavy".
+EDITORIAL_MODEL = "openai/gpt-6.1-sol"
+EDITORIAL_REASONING_EFFORT = "high"
 # The adversary vets Opus's script edits and challenges the research loop; it also sets the
 # search fallback model below. GPT-6.1 Sol from 2026-10-02 (GPT-6 Sol from 09-23, GPT-5.5 before).
 ADVERSARY_MODEL = "openai/gpt-6.1-sol"

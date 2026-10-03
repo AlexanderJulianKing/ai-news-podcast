@@ -26,8 +26,8 @@ each mode to a model, and the models are set in `newscaster/config.py`.
 | light | Gemini 3.1 Flash-Lite | Small chores: yes/no checks, pulling a headline out of text, tags |
 | standard | GPT-6 Luna, low reasoning | Reading pages, summaries, the roundup script, evidence contracts |
 | advanced | GPT-6 Luna, medium reasoning | Harder synthesis, the faithfulness fact check |
-| heavy | Claude Opus 5.5, high effort | Triage, story selection, segment scripts |
-| routine | Claude Opus 5.5, medium effort | The research controller, the AI watch test, proposed script fixes |
+| heavy | Claude Opus 5.5, high effort | Segment scripts |
+| editorial | GPT-6.1 Sol, high reasoning (Opus as backup) | Triage, story selection, the research controller, the AI watch test, proposed script fixes |
 | adversary | GPT-6.1 Sol, high reasoning | Challenges the research loop and approves script fixes |
 | tagger | GPT-6.1 Sol, medium reasoning | Marks headlines as new, update or repeat |
 | plus | Gemini 3.1 Pro | 2 of the 8 backup follow-up questions (only if the research loop crashes) |
@@ -66,8 +66,8 @@ each mode to a model, and the models are set in `newscaster/config.py`.
 | Drop Site News | RSS feed, last 48 hours |
 | CalMatters | Direct fetch of 7 section pages, today's and yesterday's stories (`scrapers/calmatters.py`) |
 | City of Riverside | Direct parse of the dated press-release cards, today and yesterday (`scrapers/riverside.py`) |
-| AI watch | OpenAI, Anthropic, Google DeepMind, METR, AI Incident Database and Import AI, last 72 hours. Opus keeps items that pass an event test (`scrapers/watchlist.py`) |
-| 8 beat groups | RSS feeds, last 24 hours. GPT-6 Luna (high effort) picks up to 8 events per group; Opus triage re-scores them (`scrapers/watchlist.py`, `beat_scraper`) |
+| AI watch | OpenAI, Anthropic, Google DeepMind, METR, AI Incident Database and Import AI, last 72 hours. Sol keeps items that pass an event test (`scrapers/watchlist.py`) |
+| 8 beat groups | RSS feeds, last 24 hours. GPT-6 Luna (high effort) picks up to 8 events per group; triage re-scores them (`scrapers/watchlist.py`, `beat_scraper`) |
 
 **How each line is written.** Every front-page line must be one sentence stating
 who did what. Teasers with no event are left out, and so are lines that comment
@@ -122,12 +122,12 @@ national stories that local outlets also run.
 
 All in `topic_finder.topic_finder`.
 
-1. **Triage.** Opus scores every headline from 1 to 10 for newsworthiness and
+1. **Triage.** GPT-6.1 Sol scores every headline from 1 to 10 for newsworthiness and
    keeps the top 10 distinct stories. It writes only the scores, with a dash
    where a reason used to go, since nothing downstream read the reasons. Other wordings of a story already kept are
    skipped, because a big story now arrives from many outlets (since 2026-09-23
    the top 10 lines were often 4 or 5 stories, which left the roundup with 2 or 3).
-2. **California recall.** A second Opus pass scores relevance to an average
+2. **California recall.** A second Sol pass scores relevance to an average
    Californian and adds the top 5 distinct stories the national list lacks. The two lists merge to at most 16, with
    duplicates removed.
 3. **Research briefs.** Each shortlisted headline gets one web brief from GPT-6
@@ -137,8 +137,8 @@ All in `topic_finder.topic_finder`.
    - If at least 4 briefs exist and 75% or more are UNVERIFIED, the final pickers
      are told the web search degraded, so they don't penalize those stories.
 4. **Final picks.**
-   - Opus picks the most important story.
-   - Opus then picks the story that matters most to an average Californian (or,
+   - Sol picks the most important story.
+   - Sol then picks the story that matters most to an average Californian (or,
      if nothing affects California, an everyday American), excluding the first.
    - GPT-6 Luna picks 5 side stories for the roundup.
 5. **Ledger update.** Right after the picks, the ledger creates or updates an arc
@@ -184,10 +184,10 @@ entities and topic; and Luna answers from the accepted excerpts.
    - A first source-hunter pass, the "seed", answers a starting question. Its
      answer is fed into the loop.
 2. **Agent loop** (`newscaster/research_agent.py`, built with LangGraph):
-   - **Controller.** Opus decides what to look up next, for 2 to 8 rounds. Its request
-     starts with the parts that never change during a story (topic, date, memory note,
-     starting evidence); Claude caches those for an hour, so later rounds re-read them
-     at 5% of the input price. Round counters, Q&A and new evidence come after. Each
+   - **Controller.** GPT-6.1 Sol decides what to look up next, for 2 to 8 rounds. Its
+     request starts with the parts that never change during a story (topic, date,
+     memory note, starting evidence), so a provider can cache them; when Opus answers
+     as the backup, Claude caches them for an hour. Round counters, Q&A and new evidence come after. Each
      round runs a research lookup or fetches another article. It sees every earlier
      answer's open GAPS and is told to chase an answerable gap with a narrower
      question aimed at the primary source (a bill page, a court opinion, an agency
@@ -254,7 +254,7 @@ the show.
 - **General knowledge.** GPT-6 Luna flags suspect facts, and a web brief checks
   each one. These flags are only logged and never change the script.
 - **Auto-fix** (`newscaster/editor_agent.py`). For quote and faithfulness
-  problems, Opus proposes find-and-replace fixes and Sol approves or rejects each
+  problems, Sol (editorial mode) proposes find-and-replace fixes and Sol (adversary mode) approves or rejects each
   one, for up to 3 rounds. Applied changes are logged to
   `logs/fact_finder_edits.jsonl`. Switch: `FACT_FINDER_AUTOEDIT_ENABLED`.
 - **Flags with nothing to fix.** A flag that only says a claim is missing from the

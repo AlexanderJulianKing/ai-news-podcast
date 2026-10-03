@@ -93,4 +93,4 @@ def test_topic_groups_pick_with_luna_high_while_the_ai_watch_stays_on_opus():
          patch.object(wl, "format_items_for_test", return_value="items"):
         wl.beat_scraper("Business and markets", [("CNBC", "u")])
         wl.watchlist_scraper(feeds=[("OpenAI", "u")])
-    assert modes == ["beat", "routine"]
+    assert modes == ["beat", "editorial"]

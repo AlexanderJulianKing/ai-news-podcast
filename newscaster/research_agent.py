@@ -363,7 +363,7 @@ def _controller_node(state: ResearchState) -> ResearchState:
         raw = get_llm_response(
             _controller_payload(state),
             system_prompt=RESEARCH_CONTROLLER_PROMPT,
-            mode="routine",
+            mode="editorial",
         )
         decision = parse_controller_decision(raw, allow_repair=True)
         next_iteration = iterations + 1

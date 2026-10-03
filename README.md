@@ -29,7 +29,7 @@ Each morning, one run:
 3. **Picks** a main story, an everyday story, and five side stories. This takes
    two scoring passes, a web-searched brief per shortlisted headline, and final
    editorial calls.
-4. **Researches** the main stories with an agent loop. Opus decides what to look
+4. **Researches** the main stories with an agent loop. GPT-6.1 Sol decides what to look
    up next and chases open gaps, a tool-using researcher does each lookup, and a
    second model challenges the result before it stops. Stories are researched in
    parallel.
@@ -47,7 +47,8 @@ Most LLM calls name a tier, and one router maps tiers to models. As of 2026-10-0
 
 | Tier | Model | Main jobs |
 |---|---|---|
-| heavy / routine | Claude Opus 5.5 | Story selection and segment scripts (high effort); research controller, AI watch and script fixes (medium effort) |
+| heavy | Claude Opus 5.5 | Segment scripts; backup for the editorial tier |
+| editorial | GPT-6.1 Sol (high) | Triage, story selection, research controller, AI watch, proposed script fixes |
 | standard / advanced | GPT-6 Luna | Reading front pages, summaries, research answers, web briefs, faithfulness check |
 | tagger / adversary / fallback | GPT-6.1 Sol | Marking repeats, challenging research, approving fixes, backup for any failed call |
 | light | Gemini 3.1 Flash-Lite | Small yes/no checks, the spoken intro, YouTube tags |
@@ -71,8 +72,8 @@ The comments in `newscaster/config.py` record why each model was chosen.
   them and follows links until a question is answered. Every fact must carry a
   quote that code finds on a page it fetched; otherwise the answer is "no
   evidence". A fixed fetch-and-validate pipeline is the fallback.
-- **Agentic research loop.** Built with LangGraph. Opus is the controller, GPT-6
-  Sol is the adversary, and memory from past episodes comes from embeddings.
+- **Agentic research loop.** Built with LangGraph. GPT-6.1 Sol is the controller and,
+  with a separate prompt, the adversary; and memory from past episodes comes from embeddings.
 - **Structured repeat tagging.** The model returns a verdict per numbered
   headline, and code applies it. A headline is never silently dropped.
 - **Self-correcting fact check.** One model proposes each fix, a second model must
