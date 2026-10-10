@@ -9,7 +9,6 @@ google-auth-httplib2
 httplib2
 httpx
 pydub
-moviepy
 wikipedia-api
 numpy
 langgraph

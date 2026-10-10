@@ -1,13 +1,18 @@
 # How a daily episode is made
 
-This walks through one production run, front to back, as the code stands on
-2026-09-23. File references point at the code that does each step. Line numbers
+This walks through one production run, front to back. It was written on
+2026-09-23 and updated since. File references point at the code that does each step. Line numbers
 drift, so search for the function name if a reference is off.
 
 ## Schedule
 
 - The Raspberry Pi runs `main2.bash` in a tmux session called `newscaster`.
-- The script checks the clock every minute. Once a day, in the 4 a.m. hour, it runs:
+- Every minute it asks `newscaster/schedule.py` whether a show is due. There are two:
+  - **Morning edition:** every day, in the 4 a.m. hour.
+  - **Evening edition:** weekdays, starting between 3:45 and 5 p.m., for the drive
+    home (added 2026-10-09). A run takes about an hour.
+
+  Each show runs once a day, even if it fails (`logs/<key>_STARTED.flag`). It runs:
   1. `main.py`: everything from gathering headlines to the finished MP3.
   2. `moviemaker.py`: the video.
   3. `uploader2.py`: the public YouTube upload.
@@ -15,6 +20,29 @@ drift, so search for the function name if a reference is off.
   segment audio and runs `main.py` again, up to two more times. A known gap is
   listed at the end.
 - A full run publishes to YouTube. Never run `main2.bash` to test something.
+
+### The two editions
+
+`main2.bash` sets `NEWSCASTER_EDITION` (`morning` or `evening`) for all three
+scripts. Everything a run writes is named by its **episode key**
+(`newscaster/edition.py`):
+
+- **Morning:** `2026_10_09`, the same as before 2026-10-09, so all history still reads.
+- **Evening:** `2026_10_09_pm`.
+
+This covers output files, completion flags, the log file, screenshots, the YouTube
+title and the story ledger. Keys sort in air order, so the evening show counts the
+morning's stories as earlier coverage:
+
+- A story that led in the morning can't lead in the evening unless it escalates.
+  This is the existing two-day rule.
+- A morning story can return in the evening roundup as a follow-up ("this
+  morning..."), and the next morning refers back to "yesterday evening".
+
+The evening show greets with "Good evening". Its weather covers only Temecula's
+evening and overnight, plus rain from now on. Its title reads "October 9, 2026
+Evening - ...". Gathering is the same as the morning's: the 24-hour feed windows
+include the morning's items, and repeat tagging marks them.
 
 ## Models
 
@@ -281,7 +309,8 @@ the show.
 ## 8. Video and upload
 
 - **Video.** `moviemaker.py` puts the HQ audio over a still image
-  (`image copy.png`).
+  (`image copy.png`), encoded by ffmpeg at 1 frame per second (`newscaster/video.py`).
+  It takes about 4 minutes on the Pi. MoviePy at 24 frames per second took about 49.
 - **Upload.** `uploader2.py` uploads to YouTube as public:
   - **Title:** the date plus the first episode title. A title over 100 characters
     is shortened by Flash-Lite, then cut at a word as a last resort.
@@ -309,7 +338,7 @@ the show.
 
 | File | What it records |
 |---|---|
-| `logs/log_<yy_mm_dd>.txt` | Everything printed during the run (`print_and_write`) |
+| `logs/log_<yy_mm_dd>.txt`, `logs/log_<yy_mm_dd>_pm.txt` | Everything printed during the morning or evening run (`print_and_write`) |
 | `logs/llm_audit.jsonl` | One row per routed attempt (success, error, or retries used up), with provider, model, phase, and a `call_id` that groups one call's rows |
 | `logs/search_audit.jsonl` | Web briefs and search calls, which skip the router |
 | `logs/source_hunter_audit.jsonl`, `logs/source_hunter_fetch_failures.jsonl` | Source hunter questions, accepted pages and failed fetches |

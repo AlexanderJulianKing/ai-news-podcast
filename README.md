@@ -1,7 +1,7 @@
 # Newscaster
 
-**A fully automated daily news podcast.** Every morning, Newscaster reads the day's
-news and picks the stories. It researches and scripts them with a multi-model LLM
+**A fully automated daily news podcast.** Every morning, and again on weekday
+evenings, Newscaster reads the day's news and picks the stories. It researches and scripts them with a multi-model LLM
 pipeline, voices them with several speakers, renders a video, and publishes to
 YouTube, all with no one at the keyboard.
 
@@ -95,7 +95,7 @@ Python 3 · Anthropic, OpenRouter and Google Gemini APIs · Chromium + Xvfb (Dev
 pip install -r requirements.txt
 
 # 2. System dependencies
-#    ffmpeg            audio and video encoding (PyDub, MoviePy)
+#    ffmpeg            audio and video encoding (PyDub, and the video render)
 #    poppler           provides pdftotext, used by the source hunter to read PDFs
 #    chromium, xvfb    the browser reader for NPR, AP and Democracy Now
 #                      (without them those three fall back to Gemini readers)
@@ -121,7 +121,8 @@ python3 main.py          # gather, pick, research, script, fact-check, audio
 python3 moviemaker.py    # render the video
 python3 uploader2.py --file=output_video.mp4 --category=25 --privacyStatus=public
 
-./main2.bash             # the daily loop on the Pi: waits for 4 a.m., runs all three, retries
+./main2.bash             # the loop on the Pi: morning show at 4 a.m. daily, evening show at
+                         # 3:45 p.m. on weekdays (NEWSCASTER_EDITION=evening); runs all three, retries
                          # (Linux only: it uses ./venv and GNU date)
 
 pip install pytest && python3 -m pytest   # tests never launch a browser or write to logs/
@@ -151,11 +152,13 @@ newscaster/              core package
   weather.py             commute weather for the intro
   audio/                 TTS, loudness, music, assembly
   video.py  upload.py    video render, YouTube upload
+  edition.py             morning or evening show, and each show's file key
+  schedule.py            when main2.bash starts each show
 benchmarks/              evaluation harnesses (web search, RAG recall, editor brain)
 docs/PIPELINE.md         one run, front to back
 docs/archive/            earlier design notes (June and July 2026)
 main.py · moviemaker.py · uploader2.py   entry points
-main2.bash               daily scheduler
+main2.bash               scheduler for the morning and evening shows
 ```
 
 ## Notes
