@@ -24,8 +24,19 @@ RESEARCH_RUBRIC = (
 # judges (P015: the quote that supported Haiku sat at character 34,836). Round 2: 100,000.
 MAX_INPUT = 100000
 
+# Round 4: answers are only code-verified quotes with links, plus searches that found nothing.
+QUOTES_ONLY_RUBRIC = (
+    "Each answer lists only VERIFIED QUOTES (exact words that code found on the linked page) and the SEARCHES "
+    "THAT FOUND NOTHING; there is no summary. Which set of evidence better answers the question: more of what "
+    "was asked is directly established by the quotes (names, numbers, bill or case numbers, dates), from more "
+    "authoritative sources (primary documents over secondhand reports), with fewer questions left open? Quotes "
+    "that are off-topic or only restate background count for little. A 'no evidence' answer loses to any "
+    "answer with relevant quotes. A search listed as finding nothing is wrong only if the answer's own quotes "
+    "show the thing was found."
+)
 
-def _pairs(replay_path, research_path):
+
+def _pairs(replay_path, research_path, research_rubric=RESEARCH_RUBRIC):
     rubric = {t: r for t, _m, _n, r in TASKS}
     for row in map(json.loads, open(replay_path, encoding="utf-8")):
         if row["luna"]["error"] or row["haiku"]["error"]:
@@ -34,15 +45,16 @@ def _pairs(replay_path, research_path):
         yield {"kind": row["task"], "rubric": rubric[row["task"]], "instructions": row["system"], "input": user,
                "luna": row["luna"]["text"], "haiku": row["haiku"]["text"]}
     for row in map(json.loads, open(research_path, encoding="utf-8")):
-        yield {"kind": "research", "rubric": RESEARCH_RUBRIC, "instructions": "", "input": row["question"],
+        yield {"kind": "research", "rubric": research_rubric, "instructions": "", "input": row["question"],
                "luna": row["luna"]["text"], "haiku": row["haiku"]["text"]}
 
 
-def main(replay_path, research_path, outdir, per_packet_chars=120000, id_prefix="P", key_name="key_do_not_open.json"):
+def main(replay_path, research_path, outdir, per_packet_chars=120000, id_prefix="P", key_name="key_do_not_open.json",
+         research_rubric=RESEARCH_RUBRIC):
     os.makedirs(outdir, exist_ok=True)
     rng = random.Random(2026_10_10)
     items, key = [], {}
-    for n, p in enumerate(_pairs(replay_path, research_path), 1):
+    for n, p in enumerate(_pairs(replay_path, research_path, research_rubric), 1):
         pid = f"{id_prefix}{n:03d}"
         haiku_is_a = rng.random() < 0.5
         key[pid] = {"kind": p["kind"], "A": "haiku" if haiku_is_a else "luna"}

@@ -23,9 +23,12 @@ import re
 import time
 from typing import Any
 
+import anthropic
+import httpx
 import requests
 
 import newscaster.config as _config
+from newscaster.llm.claude import _create_message, _usage_to_dict
 from newscaster.logging import print_and_write, write_jsonl_log
 from newscaster.search import search_web
 from newscaster.source_hunter_primitives import canonical_url, fetch_source_text
@@ -67,6 +70,11 @@ changing punctuation. When you are done, reply with JSON only:
 {{"answer": "a short direct answer",
   "facts": [{{"fact": "...", "quote": "exact words copied from the page", "url": "..."}}],
   "gaps": ["anything you could not find"]}}"""
+
+
+GAPS_RULE = """
+In "gaps", write each one as a search that found nothing, in the form "Searched for <what>; not found."
+Never state that something does not exist or did not happen; only say what you looked for and could not find."""
 
 
 def _norm(text: str) -> str:
@@ -209,13 +217,12 @@ def _chat(payload: dict[str, Any]) -> dict[str, Any]:
     raise RuntimeError(f"research tool loop: model call failed: {last}")
 
 
-def _audit(model: str, data: dict[str, Any]) -> None:
+def _audit(provider: str, model: str, usage: dict[str, Any]) -> None:
     if not getattr(_config, "LLM_AUDIT_LOG_ENABLED", False):
         return
-    usage = data.get("usage") or {}
     write_jsonl_log("llm_audit", {
-        "event": "success", "phase": "research_tools", "provider": "openrouter", "model": model,
-        "name": "Research tool loop", "usage": {k: usage.get(k) for k in ("prompt_tokens", "completion_tokens", "cost")},
+        "event": "success", "phase": "research_tools", "provider": provider, "model": model,
+        "name": "Research tool loop", "usage": usage,
     })
 
 
@@ -230,18 +237,25 @@ def _parse_final(text: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def research_with_tools(question: str, formatted_date: str | None) -> dict[str, Any]:
-    """Research one question with tools. Raises on model failure so the caller can fall back."""
-    model = getattr(_config, "RESEARCH_TOOL_MODEL", "openai/gpt-6-luna")
-    effort = getattr(_config, "RESEARCH_TOOL_EFFORT", "medium")
-    max_steps = getattr(_config, "RESEARCH_TOOL_MAX_STEPS", 30)
-    max_seconds = getattr(_config, "RESEARCH_TOOL_MAX_SECONDS", 300)
-    pages = _Pages()
-    messages = [{"role": "system", "content": SYSTEM.format(date=formatted_date or "unknown", steps=max_steps)},
+def _system(formatted_date: str | None, max_steps: int) -> str:
+    return SYSTEM.format(date=formatted_date or "unknown", steps=max_steps) + GAPS_RULE
+
+
+def _nudge(steps: list[str], started: float, max_steps: int, max_seconds: int, warned: bool):
+    """(message, warned) to add after a round of tool calls: the step-limit warning or the stop order."""
+    if len(steps) >= max_steps or time.time() - started > max_seconds:
+        return "Research limit reached. Write your final JSON answer now from what you have read.", warned
+    if not warned and len(steps) >= max_steps - 4:
+        return f"Only {max_steps - len(steps)} tool calls left. Finish the most important lookups, then answer.", True
+    return None, warned
+
+
+def _openrouter_loop(question, formatted_date, model, effort, pages, max_steps, max_seconds):
+    """GPT-6 Luna through OpenRouter's tool calls. Returns (final_text, steps, cost)."""
+    messages = [{"role": "system", "content": _system(formatted_date, max_steps)},
                 {"role": "user", "content": question}]
     steps: list[str] = []
     cost, started, warned = 0.0, time.time(), False
-    final_text = ""
     for _ in range(max_steps + 4):
         out_of_budget = len(steps) >= max_steps or time.time() - started > max_seconds
         payload = {"model": model, "messages": messages, "tools": TOOLS, "usage": {"include": True},
@@ -253,13 +267,13 @@ def research_with_tools(question: str, formatted_date: str | None) -> dict[str, 
             warned = True
             messages.append({"role": "user", "content": f"Only {max_steps - len(steps)} tool calls left. Finish the most important lookups, then answer."})
         data = _chat(payload)
-        _audit(model, data)
-        cost += float((data.get("usage") or {}).get("cost") or 0)
+        usage = data.get("usage") or {}
+        _audit("openrouter", model, {k: usage.get(k) for k in ("prompt_tokens", "completion_tokens", "cost")})
+        cost += float(usage.get("cost") or 0)
         msg = data["choices"][0]["message"]
         calls = msg.get("tool_calls") or []
         if not calls or out_of_budget:
-            final_text = msg.get("content") or ""
-            break
+            return msg.get("content") or "", steps, cost
         messages.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
         for call in calls:
             name = call.get("function", {}).get("name", "")
@@ -270,6 +284,96 @@ def research_with_tools(question: str, formatted_date: str | None) -> dict[str, 
             result = _run_tool(name, args, pages)
             steps.append(f"{name} {json.dumps(args, ensure_ascii=False)[:160]}")
             messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": json.dumps(result, ensure_ascii=False)[:20000]})
+    return "", steps, cost
+
+
+ANTHROPIC_TOOLS = [{"name": t["function"]["name"], "description": t["function"]["description"],
+                    "input_schema": t["function"]["parameters"]} for t in TOOLS]
+
+
+def _cache_newest_block(messages: list[dict[str, Any]]) -> None:
+    """Prompt caching: mark only the newest block, so each turn reads the conversation so far from cache."""
+    for m in messages:
+        if isinstance(m["content"], list):
+            for block in m["content"]:
+                if isinstance(block, dict):
+                    block.pop("cache_control", None)
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        last["content"] = [{"type": "text", "text": last["content"]}]
+    last["content"][-1]["cache_control"] = {"type": "ephemeral"}
+
+
+def _anthropic_loop(question, formatted_date, model, effort, pages, max_steps, max_seconds):
+    """Claude (Haiku 5.5) through Anthropic tool use, same tools and limits. Returns (final_text, steps, cost)."""
+    client = anthropic.Anthropic(api_key=_config.ANTHROPIC_API_KEY, timeout=httpx.Timeout(300.0, connect=10.0))
+    system = _system(formatted_date, max_steps)
+    messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
+    steps: list[str] = []
+    cost, started, warned = 0.0, time.time(), False
+    for _ in range(max_steps + 4):
+        out_of_budget = len(steps) >= max_steps or time.time() - started > max_seconds
+        kwargs = dict(model=model, max_tokens=16000, system=system, messages=messages, tools=ANTHROPIC_TOOLS,
+                      thinking={"type": "adaptive"}, extra_body={"output_config": {"effort": effort}})
+        if out_of_budget:
+            kwargs["tool_choice"] = {"type": "none"}
+        _cache_newest_block(messages)
+        msg, last = None, None
+        for attempt in range(4):
+            try:
+                msg = _create_message(client, **kwargs)
+                break
+            except (anthropic.RateLimitError, anthropic.InternalServerError, anthropic.APIConnectionError) as exc:
+                last = exc
+                time.sleep(5 * (attempt + 1))
+        if msg is None:
+            raise RuntimeError(f"research tool loop: model call failed: {last}")
+        usage = _usage_to_dict(getattr(msg, "usage", None), model) or {}
+        _audit("anthropic", model, {k: usage.get(k) for k in ("input_tokens", "output_tokens",
+                                                             "cache_read_input_tokens", "estimated_cost_usd")})
+        cost += usage.get("estimated_cost_usd") or 0
+        calls = [b for b in msg.content if b.type == "tool_use"]
+        if not calls or out_of_budget:
+            return "".join(b.text for b in msg.content if b.type == "text"), steps, cost
+        messages.append({"role": "assistant", "content": msg.content})
+        results: list[dict[str, Any]] = []
+        for call in calls:
+            args = dict(call.input or {})
+            result = _run_tool(call.name, args, pages)
+            steps.append(f"{call.name} {json.dumps(args, ensure_ascii=False)[:160]}")
+            results.append({"type": "tool_result", "tool_use_id": call.id,
+                            "content": json.dumps(result, ensure_ascii=False)[:20000]})
+        note, warned = _nudge(steps, started, max_steps, max_seconds, warned)
+        if note:      # Anthropic needs alternating turns, so the nudge rides with the tool results
+            results.append({"type": "text", "text": note})
+        messages.append({"role": "user", "content": results})
+    return "", steps, cost
+
+
+def research_with_tools(question: str, formatted_date: str | None) -> dict[str, Any]:
+    """Research one question with tools. Raises on model failure so the caller can fall back.
+
+    Claude Haiku 5.5 researches (2026-10-10); GPT-6 Luna takes over if Haiku's calls fail.
+    """
+    provider = getattr(_config, "RESEARCH_TOOL_PROVIDER", "openrouter")
+    model = getattr(_config, "RESEARCH_TOOL_MODEL", "openai/gpt-6-luna")
+    effort = getattr(_config, "RESEARCH_TOOL_EFFORT", "medium")
+    max_steps = getattr(_config, "RESEARCH_TOOL_MAX_STEPS", 30)
+    max_seconds = getattr(_config, "RESEARCH_TOOL_MAX_SECONDS", 300)
+    pages = _Pages()
+    started = time.time()
+    if provider == "anthropic":
+        try:
+            final_text, steps, cost = _anthropic_loop(question, formatted_date, model, effort, pages, max_steps, max_seconds)
+        except Exception as exc:
+            model = getattr(_config, "RESEARCH_TOOL_FALLBACK_MODEL", "openai/gpt-6-luna")
+            print_and_write(f"Research tool loop: Claude failed ({exc!r:.200}); retrying with {model}")
+            pages = _Pages()
+            final_text, steps, cost = _openrouter_loop(question, formatted_date, model, effort, pages, max_steps, max_seconds)
+    else:
+        if provider != "openrouter":
+            raise ValueError(f"unknown RESEARCH_TOOL_PROVIDER {provider!r}")
+        final_text, steps, cost = _openrouter_loop(question, formatted_date, model, effort, pages, max_steps, max_seconds)
 
     parsed = _parse_final(final_text) or {}
     verified: dict[str, list[str]] = {}
@@ -287,7 +391,7 @@ def research_with_tools(question: str, formatted_date: str | None) -> dict[str, 
     gaps = [str(g) for g in parsed.get("gaps") or [] if str(g).strip()]
     metadata = {"engine": "tools", "model": model, "steps": steps, "cost": round(cost, 4),
                 "seconds": round(time.time() - started), "facts_kept": len(kept), "facts_dropped": dropped}
-    print_and_write(f"Research tool loop: {len(steps)} tool calls, {len(kept)} verified facts "
+    print_and_write(f"Research tool loop ({model}): {len(steps)} tool calls, {len(kept)} verified facts "
                     f"({dropped} dropped), {metadata['seconds']}s, ${cost:.4f}")
     if not kept:
         return {"status": "no_evidence", "sources": [], "metadata": metadata,
@@ -303,10 +407,10 @@ def research_with_tools(question: str, formatted_date: str | None) -> dict[str, 
             "validation_score": None, "validation_reasons": ["quote verified on page"],
             "excerpt": _excerpt_around(page.get("text") or "", quotes),
         })
-    lines = ["FINDINGS:"]
-    lines += [f"- {f.get('fact')} (\"{f.get('quote')}\") [{f.get('url')}]" for f in kept]
-    if parsed.get("answer"):
-        lines += ["", f"ANSWER: {parsed['answer']}"]
+    # Only what code verified goes on: the exact quotes and their pages. The model's own fact
+    # sentences and summary line are dropped (2026-10-10): in blind tests every flagged
+    # research error was in that unchecked wording, never in a quote (benchmarks/haiku_vs_luna/).
+    lines = ["FINDINGS:"] + [f"- \"{f.get('quote')}\" [{f.get('url')}]" for f in kept]
     lines += ["", "GAPS:"] + ([f"- {g}" for g in gaps] or ["None"])
     lines += ["", "Sources:"] + [f"- {s['title']} — {s['url']}" for s in sources]
     return {"status": "success", "answer": "\n".join(lines), "sources": sources, "metadata": metadata}

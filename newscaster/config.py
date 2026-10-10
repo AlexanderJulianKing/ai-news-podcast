@@ -144,7 +144,12 @@ SOURCE_HUNTER_ENABLED = True
 # patched source hunter, 32-0 over what aired (benchmarks/agentic_search/). Facts must carry a
 # quote that code finds on a fetched page. The fixed pipeline remains the fallback on errors.
 RESEARCH_TOOL_LOOP_ENABLED = True
-RESEARCH_TOOL_MODEL = "openai/gpt-6-luna"
+# 2026-10-10: Claude Haiku 5.5 researches; GPT-6 Luna takes over if Haiku's calls fail.
+# Blind tests on 39 fresh lookups, judged by Opus and by Codex (GPT-6 Astra), with the
+# quotes-only output: both judges agreed Haiku 21 times, Luna 3 (benchmarks/haiku_vs_luna/).
+RESEARCH_TOOL_PROVIDER = "anthropic"
+RESEARCH_TOOL_MODEL = "claude-haiku-5-5"
+RESEARCH_TOOL_FALLBACK_MODEL = "openai/gpt-6-luna"
 RESEARCH_TOOL_EFFORT = "medium"
 RESEARCH_TOOL_MAX_STEPS = 30
 RESEARCH_TOOL_MAX_SECONDS = 300       # per lookup; then it must answer from what it has read

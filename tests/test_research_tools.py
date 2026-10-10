@@ -24,7 +24,9 @@ def _script(final_facts):
 
 
 def _run(facts):
-    with patch.object(rt, "_chat", side_effect=_script(facts)), \
+    """The OpenRouter (Luna) loop, which is now the backup."""
+    with patch.object(cfg, "RESEARCH_TOOL_PROVIDER", "openrouter"), \
+         patch.object(rt, "_chat", side_effect=_script(facts)), \
          patch.object(rt, "search_web", return_value=[{"headline": "h", "url": PAGE["url"], "snippet": "s"}]), \
          patch.object(rt, "fetch_source_text", return_value=PAGE):
         return rt.research_with_tools("Which ballot bills did Newsom sign?", "September 25, 2026")
@@ -39,6 +41,9 @@ def test_keeps_only_facts_whose_quote_is_on_the_page():
     assert out["status"] == "success"
     assert out["metadata"]["facts_kept"] == 1 and out["metadata"]["facts_dropped"] == 2
     assert "Gail Pellerin" in out["answer"] and "January 1, 2027" not in out["answer"]
+    # 2026-10-10: only the verified quote reaches the controller, never the model's own wording
+    assert "AB 282 is by Gail Pellerin" not in out["answer"] and "ANSWER:" not in out["answer"]
+    assert '"AB 282 by Assemblymember Gail Pellerin"' in out["answer"]
     assert "GAPS:" in out["answer"] and "effective date" in out["answer"]
     assert "AB 282" in out["sources"][0]["excerpt"]      # the fact-checker reads real page text
 
@@ -96,3 +101,64 @@ def test_gap_tolerance_never_skips_a_negation():
     assert not rt.quote_on_page("The court did order the sheriff to return the ballots to county election officials.", page)
     assert not rt.quote_on_page("The court order the sheriff to return the ballots to county election officials.", page)
     assert rt.quote_on_page("The court did not order the sheriff to return the ballots to county election officials.", page)
+
+
+# --- Claude Haiku 5.5 as the researcher (2026-10-10, benchmarks/haiku_vs_luna/) ---------
+
+class _Block:
+    def __init__(self, type, **kw):
+        self.type = type
+        self.__dict__.update(kw)
+
+
+class _Msg:
+    def __init__(self, *blocks):
+        self.content = list(blocks)
+        self.usage = None
+
+
+def _haiku_script(final_facts):
+    replies = iter([
+        _Msg(_Block("tool_use", id="t1", name="web_search", input={"query": "Newsom ballot bill"})),
+        _Msg(_Block("tool_use", id="t2", name="open_page", input={"url": PAGE["url"]})),
+        _Msg(_Block("text", text=json.dumps({"answer": "AB 282.", "facts": final_facts,
+                                              "gaps": ["Searched for the effective date; not found."]}))),
+    ])
+    sent = []
+
+    def create(client, **kwargs):
+        sent.append(kwargs)
+        return next(replies)
+    return create, sent
+
+
+def test_haiku_researches_with_tools_and_only_verified_quotes_come_back(monkeypatch):
+    create, sent = _haiku_script([
+        {"fact": "AB 282 is by Gail Pellerin", "quote": "AB 282 by Assemblymember Gail Pellerin", "url": PAGE["url"]},
+        {"fact": "Invented", "quote": "takes effect January 1, 2027", "url": PAGE["url"]},
+    ])
+    monkeypatch.setattr(cfg, "RESEARCH_TOOL_PROVIDER", "anthropic")
+    with patch.object(rt, "_create_message", side_effect=create), \
+         patch.object(rt, "search_web", return_value=[{"headline": "h", "url": PAGE["url"], "snippet": "s"}]), \
+         patch.object(rt, "fetch_source_text", return_value=PAGE):
+        out = rt.research_with_tools("Which ballot bills did Newsom sign?", "September 25, 2026")
+    assert sent[0]["model"] == "claude-haiku-5-5"
+    assert "Searched for" in sent[0]["system"]                       # gaps are searches, not claims
+    assert any(b.get("type") == "tool_result" for b in sent[2]["messages"][-1]["content"])
+    assert out["status"] == "success" and out["metadata"]["model"] == "claude-haiku-5-5"
+    assert '"AB 282 by Assemblymember Gail Pellerin"' in out["answer"] and "January 1, 2027" not in out["answer"]
+    assert "AB 282 is by Gail Pellerin" not in out["answer"] and "ANSWER:" not in out["answer"]
+    assert "Searched for the effective date; not found." in out["answer"].split("GAPS:")[1]
+
+
+def test_a_haiku_failure_falls_back_to_luna(monkeypatch):
+    monkeypatch.setattr(cfg, "RESEARCH_TOOL_PROVIDER", "anthropic")
+    with patch.object(rt, "_create_message", side_effect=RuntimeError("anthropic down")), \
+         patch.object(rt, "_chat", side_effect=_script([
+             {"fact": "f", "quote": "AB 282 by Assemblymember Gail Pellerin", "url": PAGE["url"]}])), \
+         patch.object(rt, "time") as fake_time, \
+         patch.object(rt, "search_web", return_value=[{"headline": "h", "url": PAGE["url"], "snippet": "s"}]), \
+         patch.object(rt, "fetch_source_text", return_value=PAGE):
+        fake_time.time.return_value = 0.0
+        out = rt.research_with_tools("Which ballot bills did Newsom sign?", "September 25, 2026")
+    assert out["status"] == "success" and out["metadata"]["model"] == cfg.RESEARCH_TOOL_FALLBACK_MODEL
