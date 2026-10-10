@@ -18,6 +18,15 @@ _ANTHROPIC_PRICING_PER_MTOK = {
         "cache_write_1h": 8.00,
         "cache_read": 0.20,   # 0.05x input on Opus 5.5 (Anthropic's prompt-caching docs, checked 2026-10-02)
     },
+    # Haiku 5.5, prompts up to 100k tokens (platform.claude.com pricing page, checked 2026-10-10);
+    # longer prompts cost 5x, which this table does not model.
+    "claude-haiku-5-5": {
+        "input": 0.10,
+        "output": 0.50,
+        "cache_write_5m": 0.125,
+        "cache_write_1h": 0.20,
+        "cache_read": 0.01,
+    },
     "claude-opus-4-8": {
         "input": 5.00,
         "output": 25.00,

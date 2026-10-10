@@ -78,6 +78,13 @@ def _select_primary(mode, grounding, url_context):
     if mode == 'heavy' and not needs_tools:
         return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL}
 
+    if mode == 'haiku' and not needs_tools:
+        return {
+            'provider': 'anthropic', 'model': _config.HAIKU_MODEL, 'effort': _config.HAIKU_EFFORT,
+            'fallback': {'provider': 'openrouter', 'model': _config.STANDARD_MODEL, 'name': 'GPT-6 Luna (standard)',
+                         'reasoning': _config.STANDARD_REASONING_EFFORT},
+        }
+
     if mode == 'routine' and not needs_tools:
         return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL, 'effort': _config.ROUTINE_EFFORT}
 
@@ -289,6 +296,13 @@ def get_llm_response(user_prompt, system_prompt='You are an intelligent assistan
     try:
         return _call_with_retry(primary, user_prompt, system_prompt, call_id=call_id, phase="primary")
     except (LLMRetriesExhaustedError, LLMAuthError) as e:
+        backup = primary.get('fallback')
+        if backup:   # a mode with its own backup (haiku -> Luna) tries it before the general one
+            print_and_write(f"LLM-FALLBACK [{primary['provider']}/{primary['model']} → {backup['provider']}/{backup['model']}]: {e}")
+            try:
+                return _call_with_retry(backup, user_prompt, system_prompt, call_id=call_id, phase="fallback")
+            except (LLMRetriesExhaustedError, LLMAuthError) as backup_exc:
+                e = backup_exc
         print_and_write(
             f"LLM-FALLBACK [{primary['provider']}/{primary['model']} → openrouter/{_config.FALLBACK_MODEL}]: {e}"
         )

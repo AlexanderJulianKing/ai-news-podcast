@@ -70,6 +70,13 @@ HEAVY_MODEL = "claude-opus-5-5"
 # controller, the AI-watch filter and the fact-check editor's proposals. Triage,
 # Tier 3 picks and segment scripts stay on "heavy" (effort high). 2026-10-02.
 ROUTINE_EFFORT = "medium"
+# Router mode "haiku": article summaries and the background-fact check (2026-10-10).
+# Blind tests on real calls, judged by Opus subagents and by Codex (GPT-6 Astra):
+# summaries Haiku 11-0 / 12-3, fact check 3-0 / 3-0 (rest ties). The judges split along
+# lab lines on Luna's other jobs, so those stay on Luna. Same per-token price as Luna;
+# Haiku is paid from the Anthropic API credit. Luna answers if Haiku fails.
+HAIKU_MODEL = "claude-haiku-5-5"
+HAIKU_EFFORT = "low"
 # The adversary vets Opus's script edits and challenges the research loop; it also sets the
 # search fallback model below. GPT-6.1 Sol from 2026-10-02 (GPT-6 Sol from 09-23, GPT-5.5 before).
 ADVERSARY_MODEL = "openai/gpt-6.1-sol"

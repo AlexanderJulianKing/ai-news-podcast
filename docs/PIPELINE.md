@@ -52,7 +52,8 @@ each mode to a model, and the models are set in `newscaster/config.py`.
 | Mode | Model | Used for |
 |---|---|---|
 | light | Gemini 3.1 Flash-Lite | Small chores: yes/no checks, pulling a headline out of text, tags |
-| standard | GPT-6 Luna, low reasoning | Reading pages, summaries, the roundup script, evidence contracts |
+| standard | GPT-6 Luna, low reasoning | Reading pages, the roundup script, headlines, story synthesis, evidence contracts |
+| haiku | Claude Haiku 5.5, low effort (Luna as backup) | Article summaries, the background-fact check (since 2026-10-10; `benchmarks/haiku_vs_luna/`) |
 | advanced | GPT-6 Luna, medium reasoning | Harder synthesis, the faithfulness fact check |
 | heavy | Claude Opus 5.5, high effort | Triage, story selection, segment scripts |
 | routine | Claude Opus 5.5, medium effort | The research controller, the AI watch test, proposed script fixes |

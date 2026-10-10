@@ -43,12 +43,13 @@ Each morning, one run:
 
 ## Models
 
-Most LLM calls name a tier, and one router maps tiers to models. As of 2026-10-02:
+Most LLM calls name a tier, and one router maps tiers to models. As of 2026-10-10:
 
 | Tier | Model | Main jobs |
 |---|---|---|
 | heavy / routine | Claude Opus 5.5 | Story selection and segment scripts (high effort); research controller, AI watch and script fixes (medium effort) |
-| standard / advanced | GPT-6 Luna | Reading front pages, summaries, research answers, web briefs, faithfulness check |
+| standard / advanced | GPT-6 Luna | Reading front pages, research answers, web briefs, faithfulness check, roundup script |
+| haiku | Claude Haiku 5.5 | Article summaries, background-fact check |
 | tagger / adversary / fallback | GPT-6.1 Sol | Marking repeats, challenging research, approving fixes, backup for any failed call |
 | light | Gemini 3.1 Flash-Lite | Small yes/no checks, the spoken intro, YouTube tags |
 

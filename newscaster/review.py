@@ -491,7 +491,7 @@ _STABLE_FACT_SYSTEM = (
 )
 
 
-def stable_fact_flags(script_text: str, mode: str = "standard") -> list[str]:
+def stable_fact_flags(script_text: str, mode: str = "haiku") -> list[str]:
     """World-knowledge pass: flag stable-fact errors (names/titles/roles/affiliations).
 
     Catches the source-error class the source-grounded passes cannot — e.g. a source's

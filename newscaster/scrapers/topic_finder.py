@@ -123,7 +123,7 @@ def summarize_text(text, article):
         'too.\n\n'
     )
 
-    completion = get_llm_response(prompt + text, mode='standard')
+    completion = get_llm_response(prompt + text, mode='haiku')
     return completion
 
 
