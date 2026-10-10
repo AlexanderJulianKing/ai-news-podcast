@@ -186,21 +186,31 @@ in order, because each question depends on the last answer.
 **Research lookups** (`newscaster/research_tools.py`, called through
 `newscaster/source_hunter.py`). Every research question, from a side story, the
 seed pass or the agent loop, goes to a tool-using researcher:
-1. **GPT-6 Luna (medium) researches with tools,** the way Claude Code does: web
+1. **Claude Haiku 5.5 (medium effort) researches with tools,** the way Claude Code does: web
    search, open a page (full text, in parts, with its links), and search inside a
    page. It chooses what to open, follows links to primary sources, and rewrites
-   its searches from what it reads. It has up to 30 tool calls and 5 minutes.
+   its searches from what it reads. It has up to 30 tool calls and 5 minutes. If
+   Haiku's calls fail, GPT-6 Luna runs the same lookup.
 2. **Every fact needs an exact quote.** Code keeps a fact only when its quote
    appears in the text of a page the researcher actually fetched. A lookup with no
    verified fact returns "no evidence", and is not re-run.
-3. **The answer** lists the verified facts with their quotes and pages, the open
-   gaps, and the sources. Each source keeps the page text around its quotes, which
-   the fact check uses later.
+3. **The answer** lists only what code verified: each finding is the exact quote and
+   its page, with no model-written fact sentence and no summary line. Gaps are
+   written as searches that found nothing ("Searched for X; not found"). Each source
+   keeps the page text around its quotes, which the fact check uses later.
 
 Why: on the 32 real lookups of Sept 24 and 25, a blind Opus comparison preferred
 this researcher's answers 31 to 1 over the fixed pipeline below and 32 to 0 over
-what aired (`benchmarks/agentic_search/`). Each lookup costs about half a cent and
-takes about 2 minutes. Switch: `RESEARCH_TOOL_LOOP_ENABLED`.
+what aired (`benchmarks/agentic_search/`). Switch: `RESEARCH_TOOL_LOOP_ENABLED`.
+
+Haiku and the quotes-only answer (2026-10-10, `benchmarks/haiku_vs_luna/`): blind
+tests judged by Opus and by Codex (GPT-6 Astra), because each judge leaned toward
+its own lab's model. Every flagged research error was in the model's own wording
+(fact sentences that did not match their quote, "not found" written as "does not
+exist", overreaching summaries), never in a quote. With quotes-only answers on 39
+fresh lookups, both judges agreed on Haiku 21 times and Luna 3 times. Haiku found
+381 verified quotes to Luna's 176, at 93 against 146 seconds per lookup and about
+$0.013 against $0.0075.
 
 **Fallback: the fixed source hunter.** If the tool loop itself fails (the model
 call errors out), the older pipeline runs instead: Luna writes up to 3 search

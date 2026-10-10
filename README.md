@@ -49,7 +49,7 @@ Most LLM calls name a tier, and one router maps tiers to models. As of 2026-10-1
 |---|---|---|
 | heavy / routine | Claude Opus 5.5 | Story selection and segment scripts (high effort); research controller, AI watch and script fixes (medium effort) |
 | standard / advanced | GPT-6 Luna | Reading front pages, research answers, web briefs, faithfulness check, roundup script |
-| haiku | Claude Haiku 5.5 | Article summaries, background-fact check |
+| haiku | Claude Haiku 5.5 | Article summaries, background-fact check, research lookups (with tools) |
 | tagger / adversary / fallback | GPT-6.1 Sol | Marking repeats, challenging research, approving fixes, backup for any failed call |
 | light | Gemini 3.1 Flash-Lite | Small yes/no checks, the spoken intro, YouTube tags |
 
@@ -68,10 +68,11 @@ The comments in `newscaster/config.py` record why each model was chosen.
 - **Honest front-page reading.** A normal, visible Chromium runs on a virtual
   screen, and the rendered page is read over the DevTools protocol. Nothing is
   disguised. A screenshot of each page is kept for checking.
-- **Tool-using researcher.** GPT-6 Luna searches, opens pages, searches inside
-  them and follows links until a question is answered. Every fact must carry a
-  quote that code finds on a page it fetched; otherwise the answer is "no
-  evidence". A fixed fetch-and-validate pipeline is the fallback.
+- **Tool-using researcher.** Claude Haiku 5.5 searches, opens pages, searches inside
+  them and follows links until a question is answered. Only quotes that code finds
+  on a page it fetched are passed on, never the model's own wording; otherwise the
+  answer is "no evidence". GPT-6 Luna, then a fixed fetch-and-validate pipeline, are
+  the fallbacks.
 - **Agentic research loop.** Built with LangGraph. Opus is the controller, GPT-6
   Sol is the adversary, and memory from past episodes comes from embeddings.
 - **Structured repeat tagging.** The model returns a verdict per numbered
