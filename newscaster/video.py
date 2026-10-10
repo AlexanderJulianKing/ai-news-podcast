@@ -1,14 +1,35 @@
+import subprocess
 from datetime import date
 
-from moviepy import AudioFileClip, ImageClip
+
+def _audio_seconds(audio_path):
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", audio_path],
+        check=True, capture_output=True, text=True,
+    )
+    return float(out.stdout.strip())
 
 
 def create_video_from_audio_and_image(audio_path, image_path, output_path):
-    audio = AudioFileClip(audio_path)
-    image = ImageClip(image_path)
-    image = image.with_duration(audio.duration)
-    video = image.with_audio(audio)
-    video.write_videofile(output_path, fps=24)
+    """Still image plus audio, encoded by ffmpeg at 1 frame per second.
+
+    MoviePy re-encoded the same 2000x2000 image 24 times a second, which took about
+    49 minutes on the Pi for a 26-minute episode; this takes about 4 (2026-10-09).
+    `-t` pins the length to the audio, because `-shortest` overshoots with a looped image.
+    """
+    seconds = _audio_seconds(audio_path)
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y",
+         "-loop", "1", "-framerate", "1", "-i", image_path,
+         "-i", audio_path,
+         "-t", f"{seconds:.3f}",
+         "-c:v", "libx264", "-preset", "veryfast", "-tune", "stillimage", "-pix_fmt", "yuv420p",
+         "-vf", "scale=1920:1920", "-r", "1",
+         "-c:a", "aac", "-b:a", "192k",
+         "-movflags", "+faststart",
+         output_path],
+        check=True,
+    )
 
 
 def create_and_export_video():
