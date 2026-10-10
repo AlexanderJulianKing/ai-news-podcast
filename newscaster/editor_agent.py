@@ -116,7 +116,7 @@ def _propose_edits(script: str, report: str, corpus: str, already: list[Edit]) -
         f"SCRIPT:\n{script}{already_note}\n\n---\n\n"
         "Return the JSON of factual-discrepancy edits, or {\"edits\": []}."
     )
-    raw = get_llm_response(prompt, system_prompt=_PROPOSE_SYSTEM, mode="editorial")
+    raw = get_llm_response(prompt, system_prompt=_PROPOSE_SYSTEM, mode="routine")
     data = extract_json(raw, want=dict)
     edits: list[Edit] = []
     for item in data.get("edits") or []:

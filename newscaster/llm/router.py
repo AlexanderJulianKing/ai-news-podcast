@@ -78,16 +78,8 @@ def _select_primary(mode, grounding, url_context):
     if mode == 'heavy' and not needs_tools:
         return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL}
 
-    if mode == 'editorial' and not needs_tools:
-        # Everything Opus used to do except the segment scripts. If Sol fails, Opus
-        # answers, so one provider's outage can't stop the show.
-        return {
-            'provider': 'openrouter',
-            'model': _config.EDITORIAL_MODEL,
-            'name': 'GPT-6.1 Sol (editorial)',
-            'reasoning': _config.EDITORIAL_REASONING_EFFORT,
-            'fallback': {'provider': 'anthropic', 'model': _config.HEAVY_MODEL},
-        }
+    if mode == 'routine' and not needs_tools:
+        return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL, 'effort': _config.ROUTINE_EFFORT}
 
     if mode == 'standard' and not needs_tools:
         return {
@@ -297,10 +289,6 @@ def get_llm_response(user_prompt, system_prompt='You are an intelligent assistan
     try:
         return _call_with_retry(primary, user_prompt, system_prompt, call_id=call_id, phase="primary")
     except (LLMRetriesExhaustedError, LLMAuthError) as e:
-        backup = primary.get('fallback')
-        if backup:
-            print_and_write(f"LLM-FALLBACK [{primary['provider']}/{primary['model']} → {backup['provider']}/{backup['model']}]: {e}")
-            return _call_with_retry(backup, user_prompt, system_prompt, call_id=call_id, phase="fallback")
         print_and_write(
             f"LLM-FALLBACK [{primary['provider']}/{primary['model']} → openrouter/{_config.FALLBACK_MODEL}]: {e}"
         )
