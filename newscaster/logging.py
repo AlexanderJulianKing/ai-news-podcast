@@ -26,7 +26,8 @@ def print_and_write(*args):
 def _print_and_write(*args):
     current_date = datetime.now()
     os.makedirs(_log_dir(), exist_ok=True)
-    file_name = os.path.join(_log_dir(), current_date.strftime("log_%y_%m_%d.txt"))
+    suffix = "_pm" if os.environ.get("NEWSCASTER_EDITION", "").strip().lower() == "evening" else ""
+    file_name = os.path.join(_log_dir(), current_date.strftime("log_%y_%m_%d") + suffix + ".txt")
     current_time = current_date.strftime("%H:%M:%S")
 
     with open(file_name, 'a', encoding='utf-8') as file:

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 import newscaster.config as _config
+from newscaster import edition
 from newscaster.logging import print_and_write
 from newscaster.text_utils import _grounded_response_needs_retry
 from newscaster.prompts import (
@@ -272,7 +273,7 @@ def _audience_state_for_arc(arc_info, ledger):
     return arc.get("audience_state") or None
 
 
-def _followup_note(arc_info, ledger, today=None):
+def _followup_note(arc_info, ledger, today=None, current_key=None):
     """A FOLLOW-UP line for the roundup writer when the show covered this arc before today.
 
     The side-story research reports only what is new, so without this the roundup told
@@ -285,15 +286,15 @@ def _followup_note(arc_info, ledger, today=None):
     if not arc:
         return None
     today = today or date.today()
-    earlier = [e for e in arc.get("episodes", []) if e.get("date", "") < today.strftime("%Y_%m_%d")]
+    current_key = current_key or edition.episode_key(today)
+    # Keys sort in air order, so tonight's show counts this morning's as earlier.
+    earlier = [e for e in arc.get("episodes", []) if e.get("date", "") < current_key]
     if not earlier:
         return None
     last = max(earlier, key=lambda e: e["date"])
-    try:
-        days = (today - datetime.strptime(last["date"], "%Y_%m_%d").date()).days
-    except ValueError:
+    when = edition.when_spoken(last["date"], current_key)
+    if when is None:
         return None
-    when = "yesterday" if days == 1 else f"{days} days ago"
     how = "as its lead story" if last.get("coverage") == "main" else "in the roundup"
     known = (arc.get("audience_state") or "").strip()
     if len(known) > 300:
@@ -880,7 +881,7 @@ def _gather_headline_sections(formatted_date):
 
 def topic_finder(formatted_date):
     today = date.today()
-    formatted_date2 = today.strftime("%Y_%m_%d")
+    formatted_date2 = edition.episode_key(today)
 
     # Load ledger and fall back to flat descriptions if empty
     ledger = load_ledger()

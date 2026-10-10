@@ -26,9 +26,9 @@ import subprocess
 import tempfile
 import time
 import urllib.request
-from datetime import datetime
 
 import newscaster.config as _config
+from newscaster import edition
 
 CHALLENGE_MARKERS = ("security verification", "just a moment", "verify you are human", "access denied",
                      "attention required", "enable javascript and cookies")
@@ -206,7 +206,7 @@ def scrape_rendered(url, label, event_prompt, timestamp_rules, ask, *, screensho
     """
     shot = None
     if screenshot_dir:
-        shot = os.path.join(screenshot_dir, "{}_{}.png".format(date_key or datetime.now().strftime("%Y_%m_%d"), label))
+        shot = os.path.join(screenshot_dir, "{}_{}.png".format(date_key or edition.episode_key(), label))
     page = render_page(url, screenshot_path=shot)
     limit = getattr(_config, "BROWSER_TEXT_CHARS", 60000)
     prompt = "{}{}{}\n\nRENDERED FRONT PAGE TEXT ({}):\n{}".format(

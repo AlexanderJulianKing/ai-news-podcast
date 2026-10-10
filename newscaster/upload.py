@@ -16,6 +16,7 @@ from googleapiclient.http import MediaFileUpload
 import httplib2
 import argparse
 
+from newscaster import edition
 from newscaster.llm import get_llm_response
 from newscaster.logging import print_and_write
 
@@ -130,7 +131,7 @@ def initialize_upload(youtube, options):
 
     today = date.today()
     formatted_date = today.strftime("%B %d, %Y")
-    formatted_date2 = today.strftime("%Y_%m_%d")
+    formatted_date2 = edition.episode_key(today)
 
     episode_file = f'episode_titles/{formatted_date2}.txt'
     if not os.path.exists(episode_file):
@@ -142,7 +143,8 @@ def initialize_upload(youtube, options):
         sys.exit("No titles found in the episode titles file.")
 
     first_title = titles[0].strip()
-    real_title = f"{formatted_date} - {first_title}"
+    when = f"{formatted_date} Evening" if edition.is_evening() else formatted_date
+    real_title = f"{when} - {first_title}"
     real_title = fit_title_to_limit(real_title)
     print(titles)
     print('real_title', real_title, type(real_title))
@@ -151,7 +153,7 @@ def initialize_upload(youtube, options):
 
     real_description = (
         f"{titles_content}.\nDaily News. Always ad-free. \nMade by Alex using Claude Opus 5.5, GPT-6 Luna, GPT-6.1 Sol, Gemini, and Google Cloud Text to speech. \n\n"
-        "I made this podcast to give me the news each morning as I get ready for the day. I wanted to stay informed about the world, but there are a lot of stories highlighted by media outlets that aren\'t important to the world, relevant to my life, or interesting. In the interest of making money, these media outlets will sensationalize stories and amplify negativity, which is what keeps eyeballs and therefore ad revenue.\n"
+        "I made this podcast to give me the news each morning as I get ready for the day, plus an evening edition on weekdays for the drive home. I wanted to stay informed about the world, but there are a lot of stories highlighted by media outlets that aren\'t important to the world, relevant to my life, or interesting. In the interest of making money, these media outlets will sensationalize stories and amplify negativity, which is what keeps eyeballs and therefore ad revenue.\n"
         "So I made a news podcast that circumvents these perverse incentives and distills out the important stories. \n"
         "Every day, an LLM will pick out news stories: one it deems the most important to the american people, and one it deems the most important to the average Californian. Additionally, it briefly goes over other stories that may be of general interest. \n\n"
     )

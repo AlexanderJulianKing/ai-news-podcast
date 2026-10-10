@@ -7,6 +7,7 @@ import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+from newscaster.edition import EVENING, MORNING, episode_key, key_date
 from newscaster.logging import print_and_write
 
 LEDGER_PATH = Path(__file__).resolve().parent.parent / "stories_chosen" / "story_ledger.json"
@@ -57,11 +58,8 @@ def prune_ledger(ledger: dict) -> dict:
         if not last_covered:
             to_remove.append(slug)
             continue
-        try:
-            last_date = datetime.strptime(last_covered, "%Y_%m_%d").date()
-            if (today - last_date).days > ARC_EXPIRY_DAYS:
-                to_remove.append(slug)
-        except ValueError:
+        last_date = key_date(last_covered)   # morning "2026_10_09" or evening "2026_10_09_pm"
+        if last_date is None or (today - last_date).days > ARC_EXPIRY_DAYS:
             to_remove.append(slug)
     for slug in to_remove:
         del ledger["arcs"][slug]
@@ -77,11 +75,8 @@ def format_arcs_for_dedup(ledger: dict, window_days: int = 14) -> str:
         last_covered = arc.get("last_covered")
         if not last_covered:
             continue
-        try:
-            last_date = datetime.strptime(last_covered, "%Y_%m_%d").date()
-            if (today - last_date).days > window_days:
-                continue
-        except ValueError:
+        last_date = key_date(last_covered)
+        if last_date is None or (today - last_date).days > window_days:
             continue
         audience_state = arc.get("audience_state", "")
         topic = arc.get("topic", "")
@@ -227,10 +222,7 @@ def arc_has_main_coverage(arc: dict) -> bool:
 
 
 def _parse_ledger_date(value):
-    try:
-        return datetime.strptime(str(value), "%Y_%m_%d").date()
-    except (TypeError, ValueError):
-        return None
+    return key_date(value)
 
 
 def last_main_date(arc: dict):
@@ -522,9 +514,15 @@ def load_recent_story_descriptions(window_days: int = 7):
     history_entries = []
     base_dir = Path(__file__).resolve().parent.parent / "stories_chosen"
     today_date = date.today()
-    for offset in range(1, window_days + 1):
+    current_key = episode_key(today_date)
+    keys = []
+    for offset in range(0, window_days + 1):
         day = today_date - timedelta(days=offset)
-        date_key = day.strftime("%Y_%m_%d")
+        for edition_name in (EVENING, MORNING):
+            key = episode_key(day, edition_name)
+            if key < current_key:           # earlier shows only: tonight sees this morning
+                keys.append(key)
+    for date_key in keys:
         summary_path = base_dir / f"{date_key}_story_summaries.json"
         if summary_path.exists():
             try:

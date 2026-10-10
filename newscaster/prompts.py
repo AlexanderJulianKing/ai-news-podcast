@@ -166,7 +166,7 @@ HEADLINE_EXTRACTION_PROMPT = (
 
 
 OVERVIEW_ANCHOR_PROMPT = (
-    'Please give a text of the following information as if you were a morning news anchor reading the news aloud. '
+    'Please give a text of the following information as if you were a news anchor reading the news aloud. '
     "No introductions, just preface it with 'here are some other headlines:' These headlines will not be covered later, "
     "this is all the information you get. \n\nIf you get information like \" Unfortunately, the search results do not provide "
     "specific details about the road crash in southern Turkey that resulted in at least 10 deaths. The search results are "
@@ -241,17 +241,24 @@ TITLE_PROMPT = (
 )
 
 
+MORNING_WEATHER_EXAMPLE = (
+    "La Jolla will reach eighty-one degrees today, about seventy-six at midday and seventy-eight "
+    "by five, so keep water in the car. Back in Temecula it cools to the low seventies this evening with an overnight low of "
+    "sixty-two."
+)
+EVENING_WEATHER_EXAMPLE = (
+    "For the drive home, Temecula is about seventy-four this evening, cooling to an overnight low of sixty-two."
+)
+
 INTRO_PROMPT_TEMPLATE = (
     "Pretend you are a scriptwriter for a daily news podcast called Alex's News. Write the text that the anchor will read "
     "for the preview of the news to come based on the stories given. Note that the anchor has already said \"{intro1}\", "
     "so do not include that greeting or any greeting of any kind. Today is {date}, but do not mention this unless it is a "
     "holiday. If it is a holiday, you should mention that it is one. Do not include dashes. Begin by talking about the fact "
-    "that {weather} Keep every temperature and both place names. Mention rain only if that sentence mentions it. Then, briefly mention the upcoming stories that will be covered in the episode, which are listed below. "
+    "that {weather} Keep every temperature and every place name. Mention rain only if that sentence mentions it. Then, briefly mention the upcoming stories that will be covered in the episode, which are listed below. "
     "Try to paraphrase the headlines instead of quoting them verbatim. For example: \"What's China Bringing Back from the "
     "Moon's Far Side?\" should be turned into \"What China plans on bringing back from the moon.\" \nSomething like this "
-    "would be a good text to make:\"La Jolla will reach eighty-one degrees today, about seventy-six at midday and seventy-eight "
-    "by five, so keep water in the car. Back in Temecula it cools to the low seventies this evening with an overnight low of "
-    "sixty-two. It's a perfect day to reflect on the "
+    "would be a good text to make:\"{weather_example} It's a perfect day to reflect on the "
     "importance of trees and nature in our lives. Happy Arbor Day! Coming up, we'll dive into why voters' views on the "
     "economy have gotten so political, explore how Mexico's cartels are infiltrating the tortilla industry, and discuss "
     "the good news and bad news about travel this summer. All this and more coming up on Alex's News. Stay tuned!\". "
@@ -264,7 +271,7 @@ INTRO_PROMPT_TEMPLATE = (
 
 SEGMENT_SCRIPT_PROMPT_TEMPLATE = (
     "You are a senior broadcast writer. Rewrite the news summary as a natural back-and-forth "
-    "between morning anchor Grace and reporter {reporter_name}. Keep it conversational and easy "
+    "between news anchor Grace and reporter {reporter_name}. Keep it conversational and easy "
     "to read aloud, with contractions and varied sentence lengths (mostly 8\u201322 words). Alternate "
     "speakers, with Grace asking short 1\u20132 sentence questions that build on the previous answer, "
     "and {reporter_name} replying in 3\u20135 sentences that add context listeners may not know. "
@@ -354,7 +361,7 @@ IMPORTANT: Some headlines may be tagged '[UPDATE: slug]', '[MAJOR ESCALATION: sl
 - '[DEVELOPMENT]' stories CAN be selected, with care. The audience heard a full segment on this story at least two days ago; the Coverage notes say when, and what they already know. Lead with it only when the new development, judged on its own by the lenses above, is clearly the day's most important story. When it is close, choose the fresh story. If you select it, your reasoning must say what is new against what the audience already knows.
 - When you repeat the headline in your Answer, do NOT include the tag prefix.
 
-PROVENANCE: Each brief lists the front pages its headline was taken from this morning ('Reported by:'). A headline carried by a wire service or major outlet is a reported fact even when the research brief could not add detail. Treat 'UNVERIFIED' in a brief as 'no additional detail was found', not as 'false'. A thin brief on a wire-reported story counts against it only when a comparably important story has a substantive brief. If a RESEARCH NOTICE appears at the top of the document, the research layer was degraded today and UNVERIFIED must not be penalized at all."""
+PROVENANCE: Each brief lists the front pages its headline was taken from today ('Reported by:'). A headline carried by a wire service or major outlet is a reported fact even when the research brief could not add detail. Treat 'UNVERIFIED' in a brief as 'no additional detail was found', not as 'false'. A thin brief on a wire-reported story counts against it only when a comparably important story has a substantive brief. If a RESEARCH NOTICE appears at the top of the document, the research layer was degraded today and UNVERIFIED must not be penalized at all."""
 
 
 TIER3_EVERYMAN_STORY_PROMPT = (
@@ -373,7 +380,7 @@ TIER3_EVERYMAN_STORY_PROMPT = (
     '- \'[SIDE-COVERED]\' stories CAN be selected. The audience has only heard a sentence or two about this story in the side-story roundup, never a full segment, so a full segment is not repetition. If the Coverage notes at the end of the document show it has recurred across several days, that persistence is evidence it has outgrown the roundup.\n'
     '- \'[DEVELOPMENT]\' stories CAN be selected, with care: the audience heard a full segment at least two days ago (the Coverage notes say when and what they know). Lead with it only when the new development is clearly the most important story for Californians on its own; when it is close, choose the fresh story, and if you select it say what is new.\n'
     '- When you repeat the headline in your Answer, do NOT include the tag prefix.\n\n'
-    'PROVENANCE: Each brief lists the front pages its headline was taken from this morning (\'Reported by:\'). A headline carried by a wire service or major outlet is a reported fact even when the research brief could not add detail. Treat \'UNVERIFIED\' as \'no additional detail was found\', not as \'false\'. If a RESEARCH NOTICE appears at the top of the document, the research layer was degraded today and UNVERIFIED must not be penalized at all.'
+    'PROVENANCE: Each brief lists the front pages its headline was taken from today (\'Reported by:\'). A headline carried by a wire service or major outlet is a reported fact even when the research brief could not add detail. Treat \'UNVERIFIED\' as \'no additional detail was found\', not as \'false\'. If a RESEARCH NOTICE appears at the top of the document, the research layer was degraded today and UNVERIFIED must not be penalized at all.'
 )
 
 
@@ -546,6 +553,22 @@ OUTRO_TEMPLATE = (
     "GPT six Luna, GPT six point one Sol, Gemini, and Google Cloud Text-to-Speech. "
     "I hope you have a great day. I'll see you tomorrow, Alex."
 )
+EVENING_OUTRO_TEMPLATE = (
+    "That's all we have for this evening. Tonight's episode was made by Alexander King with Claude Opus five point five, "
+    "GPT six Luna, GPT six point one Sol, Gemini, and Google Cloud Text-to-Speech. "
+    "Drive safe and have a good evening. I'll see you tomorrow morning, Alex."
+)
+
+
+def outro_for(which=None, today=None):
+    """Weekday mornings point to the evening show; everything else to tomorrow morning."""
+    from datetime import date
+    from newscaster import edition
+    if edition.is_evening(which):
+        return EVENING_OUTRO_TEMPLATE
+    if (today or date.today()).weekday() < 5:
+        return OUTRO_TEMPLATE.replace("I'll see you tomorrow, Alex.", "I'll see you this evening, Alex.")
+    return OUTRO_TEMPLATE
 
 
 RAG_REFINE_PROMPT = (

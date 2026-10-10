@@ -1,6 +1,13 @@
+from newscaster import edition
 from newscaster.llm import get_llm_response, call_with_default
 from newscaster.logging import print_and_write
-from newscaster.prompts import TITLE_PROMPT, INTRO_PROMPT_TEMPLATE
+from newscaster.prompts import TITLE_PROMPT, INTRO_PROMPT_TEMPLATE, MORNING_WEATHER_EXAMPLE, EVENING_WEATHER_EXAMPLE
+
+
+def greeting(formatted_date, which=None):
+    if edition.is_evening(which):
+        return "Good evening Alex and friends. I'm Grace. Today is {}, and this is the evening edition of Alex's News.".format(formatted_date)
+    return "Good Morning Alex and friends. I'm Grace. Today is {}, and you're listening to Alex's News.".format(formatted_date)
 
 
 def intro_writer(formatted_date, weather_string, topics, formatted_date2, stories):
@@ -24,11 +31,12 @@ def intro_writer(formatted_date, weather_string, topics, formatted_date2, storie
     outfile.write(episode_title)
     outfile.close()
 
-    intro1 = "Good Morning Alex and friends. I'm Grace. Today is {}, and you're listening to Alex's News.".format(formatted_date)
+    intro1 = greeting(formatted_date)
     intro_prompt = INTRO_PROMPT_TEMPLATE.format(
         intro1=intro1,
         date=formatted_date,
-        weather=weather_string
+        weather=weather_string,
+        weather_example=EVENING_WEATHER_EXAMPLE if edition.is_evening() else MORNING_WEATHER_EXAMPLE,
     )
 
     headline_string = '\n'.join(headlines_by_slot[slot] for slot in sorted(headlines_by_slot)) + '\n'

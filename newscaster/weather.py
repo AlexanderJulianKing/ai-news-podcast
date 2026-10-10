@@ -67,12 +67,12 @@ def _part_of_day(when):
     return "tonight"
 
 
-def rain_phrase(slots_by_place, today):
-    """One clause on rain across every place, for today from 6 a.m. to midnight.
+def rain_phrase(slots_by_place, today, from_hour=6):
+    """One clause on rain across every place, for today from `from_hour` to midnight.
     Returns "" when rain is unlikely everywhere."""
     mentions = []
     for place, slots in slots_by_place.items():
-        window = [s for s in slots if s[0].date() == today and s[0].hour >= 6]
+        window = [s for s in slots if s[0].date() == today and s[0].hour >= from_hour]
         if not window:
             continue
         wettest = max(window, key=lambda s: s[4])
@@ -83,14 +83,22 @@ def rain_phrase(slots_by_place, today):
     return "there is " + " and ".join(mentions)
 
 
-def describe(forecasts, now=None):
-    """Build the weather clause from {place: forecast JSON}. `now` is injectable for tests."""
+def describe(forecasts, now=None, edition=None):
+    """Build the weather clause from {place: forecast JSON}. `now` is injectable for tests.
+
+    The evening edition plays on the drive home, so it gives only Temecula's evening
+    and overnight numbers, and rain from now on.
+    """
+    from newscaster import edition as _edition
+    evening = _edition.is_evening(edition)
     now = now or datetime.now(LOCAL_TZ)
     today = now.date()
     slots_by_place = {place: _slots(data) for place, data in forecasts.items() if data}
+    if evening:
+        slots_by_place = {NIGHT_PLACE: slots_by_place[NIGHT_PLACE]} if NIGHT_PLACE in slots_by_place else {}
     parts = []
 
-    day_slots = slots_by_place.get(DAY_PLACE)
+    day_slots = None if evening else slots_by_place.get(DAY_PLACE)
     if day_slots:
         daytime = [s for s in day_slots if s[0].date() == today]
         if daytime:
@@ -106,16 +114,16 @@ def describe(forecasts, now=None):
         evening_start = datetime.combine(today, time(18), tzinfo=LOCAL_TZ)
         overnight = [s for s in night_slots if evening_start <= s[0] <= evening_start + timedelta(hours=14)]
         if overnight:
-            text = "back in {} the overnight low will be {} degrees".format(NIGHT_PLACE, round(min(s[2] for s in overnight)))
-            evening = _nearest(overnight, datetime.combine(today, time(20), tzinfo=LOCAL_TZ))
-            if evening:
-                text = "back in {} it will be about {} this evening, with an overnight low of {} degrees".format(
-                    NIGHT_PLACE, round(evening[1]), round(min(s[2] for s in overnight)))
+            text = "{} {} the overnight low will be {} degrees".format("in" if evening else "back in", NIGHT_PLACE, round(min(s[2] for s in overnight)))
+            evening_slot = _nearest(overnight, datetime.combine(today, time(20), tzinfo=LOCAL_TZ))
+            if evening_slot:
+                text = "{} {} it will be about {} this evening, with an overnight low of {} degrees".format(
+                    "in" if evening else "back in", NIGHT_PLACE, round(evening_slot[1]), round(min(s[2] for s in overnight)))
             parts.append(text)
 
     if not parts:
         return UNAVAILABLE
-    rain = rain_phrase(slots_by_place, today)
+    rain = rain_phrase(slots_by_place, today, from_hour=now.hour if evening else 6)
     if rain:
         parts.append(rain)
     return "; ".join(parts[:-1]) + ("; and " if len(parts) > 1 else "") + parts[-1] + "."

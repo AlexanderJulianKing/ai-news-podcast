@@ -1,8 +1,8 @@
 import os
 import re
 import time
-from datetime import datetime
 
+from newscaster import edition
 from newscaster.llm import get_llm_response, LLMError
 from newscaster.llm.errors import LLMMalformedResponseError
 from newscaster.logging import print_and_write
@@ -140,11 +140,14 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
                 if audience_state:
                     # Find the previous episode's date for spoken format
                     prev_date_str = episodes[-2]["date"] if len(episodes) >= 2 else episodes[0]["date"]
-                    try:
-                        prev_date = datetime.strptime(prev_date_str, "%Y_%m_%d").date()
-                        last_covered_spoken = format_spoken_date(prev_date)
-                    except ValueError:
+                    prev_date = edition.key_date(prev_date_str)
+                    if prev_date is None:
                         last_covered_spoken = prev_date_str
+                    elif prev_date == edition.key_date(formatted_date2):
+                        last_covered_spoken = "this morning, in today's morning edition"
+                    else:
+                        last_covered_spoken = format_spoken_date(prev_date) + (
+                            ", in the evening edition" if edition.key_edition(prev_date_str) == edition.EVENING else "")
                     context_template, kind = continuation_context_template(episodes, formatted_date2)
                     segment_script_prompt += context_template.format(
                         audience_state=audience_state,

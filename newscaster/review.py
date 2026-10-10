@@ -27,6 +27,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from newscaster import edition
 from newscaster.editor_agent import revise_script
 from newscaster.llm import get_llm_response
 from newscaster.logging import print_and_write, write_jsonl_log
@@ -563,6 +564,8 @@ def review_scripts(date2: str) -> list[tuple[str, str, str]]:
         print_and_write("QUOTE-CHECK: no persisted source excerpts yet; running stable-fact pass only.")
     flags: list[tuple[str, str, str]] = []
     for script_path in sorted(glob.glob(f"output_scripts/{date2}_*.txt")):
+        if not edition.belongs_to(script_path, date2):   # the morning key also matches "<date>_pm_*"
+            continue
         name = Path(script_path).name
         text = Path(script_path).read_text(encoding="utf-8")
         corpus = _corpus_for_script(date2, name, full_corpus)  # segments check against their own sources

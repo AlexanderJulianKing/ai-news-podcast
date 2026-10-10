@@ -5,6 +5,7 @@ import os
 import time
 from datetime import date
 
+from newscaster import edition
 from newscaster.logging import print_and_write
 from newscaster.dates import format_spoken_date
 from newscaster.text_utils import find_quoted_strings
@@ -13,7 +14,7 @@ from newscaster.prompts import (
     CHALLENGING_FOLLOW_UP_PROMPT_TEMPLATE,
     AUDIENCE_LEARNED_EXTRACTION_PROMPT,
     OVERVIEW_AUDIENCE_LEARNED_PROMPT,
-    OUTRO_TEMPLATE,
+    outro_for,
     RAG_REFINE_PROMPT,
 )
 from newscaster.llm import get_llm_response, call_with_default, LLMError
@@ -726,7 +727,7 @@ def write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list,
     # Extract audience_learned after scripts are written (uses segment summaries)
     _extract_audience_learned(formatted_date2, tf_result)
 
-    outro = OUTRO_TEMPLATE
+    outro = outro_for()
     outfile = open('output_scripts/{}_outro.txt'.format(formatted_date2), 'w', encoding='utf-8')
     outfile.write(outro)
     outfile.close()
@@ -802,7 +803,7 @@ def main():
 
     today = date.today()
     formatted_date = today.strftime("%B %d, %Y")
-    formatted_date2 = today.strftime("%Y_%m_%d")
+    formatted_date2 = edition.episode_key(today)   # "2026_10_09", or "2026_10_09_pm" for the evening show
     formatted_date3 = format_spoken_date(today)
     voices_list = ['Ethan', 'Chloe', 'Ethan', 'Chloe', 'Grace']
 

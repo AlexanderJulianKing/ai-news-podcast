@@ -1,6 +1,8 @@
 import subprocess
 from datetime import date
 
+from newscaster import edition
+
 
 def _audio_seconds(audio_path):
     out = subprocess.run(
@@ -37,7 +39,7 @@ def create_and_export_video():
     output_file = "output_video.mp4"
 
     today = date.today()
-    formatted_date2 = today.strftime("%Y_%m_%d")
+    formatted_date2 = edition.episode_key(today)
     NEW_OUTPUT_PATH = 'output_audio/' + formatted_date2
     audio_file = "{}_HQ.mp3".format(NEW_OUTPUT_PATH)
     print(audio_file)
