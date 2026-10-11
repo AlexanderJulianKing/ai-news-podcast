@@ -9,6 +9,7 @@ from newscaster.logging import print_and_write
 from newscaster.dates import format_spoken_date
 from newscaster.prompts import (
     SEGMENT_SCRIPT_PROMPT_TEMPLATE,
+    show_time_note,
     SEGMENT_SCRIPT_SIDE_COVERED_CONTEXT,
     SEGMENT_SCRIPT_UPDATE_CONTEXT,
 )
@@ -30,6 +31,18 @@ def continuation_context_template(episodes, formatted_date2):
     if prior_main:
         return SEGMENT_SCRIPT_UPDATE_CONTEXT, "update"
     return SEGMENT_SCRIPT_SIDE_COVERED_CONTEXT, "side-covered"
+
+
+def segment_prompt(reporter_name, formatted_date, story_num, total_stories, which=None):
+    """The segment-writing prompt for this edition. Without the edition, a morning script opened
+    "Our top story tonight" (2026-10-10)."""
+    return SEGMENT_SCRIPT_PROMPT_TEMPLATE.format(
+        anchor="evening" if edition.is_evening(which) else "morning",
+        reporter_name=reporter_name,
+        date=formatted_date,
+        story_num=story_num,
+        total_stories=total_stories,
+    ) + show_time_note(which)
 
 
 def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_context=None):
@@ -124,12 +137,7 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
         story_text = stories[slot]
         reporter_name = voices_list[slot]
 
-        segment_script_prompt = SEGMENT_SCRIPT_PROMPT_TEMPLATE.format(
-            reporter_name=reporter_name,
-            date=formatted_date,
-            story_num=narrative_idx + 1,
-            total_stories=total_stories
-        )
+        segment_script_prompt = segment_prompt(reporter_name, formatted_date, narrative_idx + 1, total_stories)
 
         # Append update context if this story is a continuation
         if arc_context and slot < len(arc_context) and arc_context[slot]:

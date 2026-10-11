@@ -271,7 +271,7 @@ INTRO_PROMPT_TEMPLATE = (
 
 SEGMENT_SCRIPT_PROMPT_TEMPLATE = (
     "You are a senior broadcast writer. Rewrite the news summary as a natural back-and-forth "
-    "between news anchor Grace and reporter {reporter_name}. Keep it conversational and easy "
+    "between {anchor} anchor Grace and reporter {reporter_name}. Keep it conversational and easy "
     "to read aloud, with contractions and varied sentence lengths (mostly 8\u201322 words). Alternate "
     "speakers, with Grace asking short 1\u20132 sentence questions that build on the previous answer, "
     "and {reporter_name} replying in 3\u20135 sentences that add context listeners may not know. "
@@ -558,6 +558,24 @@ EVENING_OUTRO_TEMPLATE = (
     "GPT six Luna, GPT six point one Sol, Gemini, and Google Cloud Text-to-Speech. "
     "Drive safe and have a good evening. I'll see you tomorrow morning, Alex."
 )
+
+
+def show_time_note(which=None):
+    """One sentence telling a script writer which edition it is writing for."""
+    from newscaster import edition
+    if edition.is_evening(which):
+        return (" This is the evening edition, heard on the drive home: refer to the show as tonight's or "
+                "this evening's, never this morning's.")
+    return (" This is the morning edition, heard in the morning: refer to the show as this morning's, "
+            "never tonight's or this evening's.")
+
+
+def overview_anchor_prompt(which=None):
+    """The roundup prompt for this edition (2026-10-10: a neutral 'news anchor' let scripts say 'tonight' in the morning)."""
+    from newscaster import edition
+    time_of_day = "evening" if edition.is_evening(which) else "morning"
+    return OVERVIEW_ANCHOR_PROMPT.replace("as if you were a news anchor", f"as if you were a {time_of_day} news anchor", 1) \
+        + show_time_note(which)
 
 
 def outro_for(which=None, today=None):

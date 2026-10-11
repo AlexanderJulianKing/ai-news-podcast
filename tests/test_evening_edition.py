@@ -71,3 +71,15 @@ def test_evening_show_speaks_like_an_evening_show():
     forecast = {"list": [slot(h, 70 - (h - 12)) for h in range(12, 33, 3)]}
     line = weather.describe({"La Jolla": forecast, "Temecula": forecast}, now=now, edition="evening")
     assert "La Jolla today" not in line and "Temecula" in line
+
+
+def test_scripts_and_roundup_know_which_edition_they_are():
+    # 2026-10-10: dropping "morning anchor" to fit both shows let the morning script open
+    # "Our top story tonight". Each writer is told its edition.
+    from newscaster.prompts import overview_anchor_prompt
+    from newscaster.script.segments import segment_prompt
+    morning, evening = segment_prompt("Ethan", "Saturday", 1, 2, "morning"), segment_prompt("Ethan", "Friday", 1, 2, "evening")
+    assert "morning anchor Grace" in morning and "never tonight" in morning
+    assert "evening anchor Grace" in evening and "never this morning" in evening
+    assert "morning news anchor" in overview_anchor_prompt("morning") and "never tonight" in overview_anchor_prompt("morning")
+    assert "evening news anchor" in overview_anchor_prompt("evening")

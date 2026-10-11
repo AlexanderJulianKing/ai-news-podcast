@@ -20,6 +20,7 @@ from newscaster.prompts import (
     OVERVIEW_PICK_PROMPT,
     HEADLINE_EXTRACTION_PROMPT,
     OVERVIEW_ANCHOR_PROMPT,
+    overview_anchor_prompt,
     REPETITION_REMOVER_TEMPLATE,
     LEDGER_REPETITION_REMOVER_TEMPLATE,
     TIER1_TRIAGE_PROMPT,
@@ -1081,7 +1082,7 @@ def topic_finder(formatted_date):
 
     # The writer needs today's date to leave out stale stories (see the prompt).
     overview_text = get_llm_response(f"TODAY: {formatted_date}\n{overview_raw}",
-                                     system_prompt=OVERVIEW_ANCHOR_PROMPT, mode='standard')
+                                     system_prompt=overview_anchor_prompt(), mode='standard')
 
     overview_text = overview_text.replace("*", "")
     print_and_write('\noverview3:', overview_text)
