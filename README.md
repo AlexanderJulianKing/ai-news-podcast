@@ -88,7 +88,7 @@ The comments in `newscaster/config.py` record why each model was chosen.
 
 ## Tech stack
 
-Python 3 · Anthropic, OpenRouter and Google Gemini APIs · Chromium + Xvfb (DevTools protocol) · LangGraph · Google Cloud TTS · YouTube Data API v3 · TinyFish search (Google Custom Search as backup) · OpenWeatherMap · NumPy + SQLite · BeautifulSoup · PyDub · MoviePy · pytest
+Python 3 · Anthropic, OpenRouter and Google Gemini APIs · Chromium + Xvfb (DevTools protocol) · LangGraph · Google Cloud TTS · YouTube Data API v3 · TinyFish search (Anthropic web search as backup) · OpenWeatherMap · NumPy + SQLite · BeautifulSoup · PyDub · ffmpeg · pytest
 
 ## Setup
 

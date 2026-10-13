@@ -90,7 +90,10 @@ TOOL_PLUS_HEAVY_MODEL = "gemini-3.1-pro-preview"
 # (benchmarks/agentic_search/). Google's Custom Search JSON API costs $5 per 1,000 searches past
 # 100 a day (the tool loop makes 300+) and shuts down on 2027-01-01; until then it is the backup.
 SEARCH_PROVIDER = "tinyfish"
-SEARCH_FALLBACK_PROVIDER = "google_cse"
+# Backup when TinyFish errors or comes back empty. Anthropic web search from 2026-10-13
+# (Haiku 5.5 runs one search; ~$0.012 each from the API credit): Google's Custom Search JSON
+# API shuts down on 2027-01-01. google_cse still works if selected.
+SEARCH_FALLBACK_PROVIDER = "anthropic_web"
 SEARCH_FALLBACK_ON_EMPTY = True
 SEARCH_OPENROUTER_MODEL = ADVERSARY_MODEL
 # Web-search briefs (Tier 2 memos, background fact checks) moved to GPT-6 Luna on 2026-09-23 after a

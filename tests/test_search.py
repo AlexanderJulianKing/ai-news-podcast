@@ -236,3 +236,45 @@ def test_tinyfish_retries_without_the_date_filter_when_empty(monkeypatch):
     assert out[0]["url"] == "https://www.gov.ca.gov/v"
     assert "recency_minutes" in get.call_args_list[0].kwargs["params"]
     assert "recency_minutes" not in get.call_args_list[1].kwargs["params"]
+
+
+# --- Anthropic web search as the backup engine (2026-10-13; Google's API ends 2027-01-01) ---
+
+class _B:
+    def __init__(self, type, **kw):
+        self.type = type
+        self.__dict__.update(kw)
+
+
+def _anthropic_reply():
+    results = [_B("web_search_result", url="https://www.npr.org/a", title="NPR: DOJ civil rights", page_age="Oct 11, 2026"),
+               _B("web_search_result", url="https://www.justice.gov/crt", title="Civil Rights Division", page_age=None)]
+    cite = _B("web_search_result_location", url="https://www.npr.org/a", cited_text="Hundreds of attorneys have left.")
+    msg = _B("message", content=[
+        _B("server_tool_use", id="s1", name="web_search", input={"query": "q"}),
+        _B("web_search_tool_result", tool_use_id="s1", content=results),
+        _B("text", text="NPR reports departures.", citations=[cite]),
+    ])
+    msg.usage = None
+    return msg
+
+
+def test_anthropic_web_search_returns_results_with_cited_snippets(monkeypatch):
+    import newscaster.search as s
+    sent = {}
+    monkeypatch.setattr(s, "_anthropic_create", lambda **kw: sent.update(kw) or _anthropic_reply())
+    out = s.anthropic_web_search("DOJ civil rights -site:instagram.com", num_results=5)
+    assert [r["url"] for r in out] == ["https://www.npr.org/a", "https://www.justice.gov/crt"]
+    assert out[0]["headline"] == "NPR: DOJ civil rights" and "Hundreds of attorneys" in out[0]["snippet"]
+    tool = sent["tools"][0]
+    assert tool["type"] == "web_search_20250305" and tool["max_uses"] == 1
+    assert tool["blocked_domains"] == ["instagram.com"] and "-site" not in sent["messages"][0]["content"]
+
+
+def test_search_falls_back_to_anthropic_when_tinyfish_is_empty(monkeypatch):
+    import newscaster.search as s
+    monkeypatch.setattr(cfg, "SEARCH_PROVIDER", "tinyfish")
+    monkeypatch.setattr(cfg, "SEARCH_FALLBACK_PROVIDER", "anthropic_web")
+    monkeypatch.setattr(s, "tinyfish_search", lambda *a, **k: [])
+    monkeypatch.setattr(s, "_anthropic_create", lambda **kw: _anthropic_reply())
+    assert search_web("DOJ civil rights")[0]["url"] == "https://www.npr.org/a"

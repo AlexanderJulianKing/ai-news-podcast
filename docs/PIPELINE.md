@@ -78,8 +78,11 @@ each mode to a model, and the models are set in `newscaster/config.py`.
 - **Plain search.** TinyFish's search API runs first (free within 30 searches a
   minute). `site:` becomes its `include_domains` setting and quotes are dropped;
   an empty result with a date filter is retried once without it (older documents
-  such as bill analyses fell outside the 30-day window). If it fails or is rate limited, Google Custom Search takes over until
-  that API shuts down on 2027-01-01. In a blind comparison on 32 real lookups,
+  such as bill analyses fell outside the 30-day window). If it fails or comes back empty, Anthropic's web search takes over
+  (`anthropic_web_search`, since 2026-10-13): Haiku 5.5 runs exactly one search, the
+  results come from the tool's result blocks, `site:`/`-site:` become allowed/blocked
+  domains, and it costs about $0.012 a search. It replaced Google Custom Search, whose
+  API shuts down on 2027-01-01 (`google_cse` still works if selected). In a blind comparison on 32 real lookups,
   research answers built on TinyFish results beat Google-based ones 25 to 7.
   Web briefs are logged to `search_audit.jsonl`, not the LLM audit log.
 

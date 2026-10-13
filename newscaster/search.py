@@ -288,6 +288,69 @@ def tinyfish_search(query: str, num_results: int = 8, days_prior: int = 1) -> li
     return results[:num_results]
 
 
+ANTHROPIC_SEARCH_MODEL = "claude-haiku-5-5"
+
+
+def _anthropic_create(**kwargs):
+    """One Messages API call (streamed), with the newscaster's key."""
+    import anthropic
+    import httpx
+    from newscaster.llm.claude import _create_message
+    client = anthropic.Anthropic(api_key=_config.ANTHROPIC_API_KEY, timeout=httpx.Timeout(120.0, connect=10.0))
+    return _create_message(client, **kwargs)
+
+
+def anthropic_web_search(query: str, num_results: int = 8, days_prior: int = 1) -> list[dict[str, str]]:
+    """Anthropic's web search tool as a plain search engine: the backup since 2026-10-13
+    (Google's Custom Search JSON API shuts down on 2027-01-01).
+
+    Haiku runs exactly one search. Results come straight from the search result blocks;
+    each snippet is the passage Haiku cited from that page, if any (the blocks carry only
+    encrypted page text). site:/-site: become allowed/blocked domains. The tool has no date
+    filter, so days_prior is passed as a hint in the request. $10 per 1,000 searches plus
+    Haiku tokens, paid from the Anthropic API credit.
+    """
+    params = _tinyfish_params(query)          # same site:/quote clean-up as for TinyFish
+    tool: dict[str, Any] = {"type": "web_search_20250305", "name": "web_search", "max_uses": 1}
+    if params.get("include_domains"):
+        tool["allowed_domains"] = params["include_domains"].split(",")
+    elif params.get("exclude_domains"):
+        tool["blocked_domains"] = params["exclude_domains"].split(",")
+    when = f" Prefer pages from the last {days_prior} day(s)." if days_prior else ""
+    message = _anthropic_create(
+        model=ANTHROPIC_SEARCH_MODEL, max_tokens=1500, tools=[tool],
+        messages=[{"role": "user", "content": (
+            f"Run exactly one web search for: {params['query']}.{when} Then list the results in one "
+            "short line each, citing each page you mention.")}],
+    )
+    snippets: dict[str, str] = {}
+    results: list[dict[str, str]] = []
+    error = None
+    for block in getattr(message, "content", None) or []:
+        if block.type == "web_search_tool_result":
+            content = getattr(block, "content", None)
+            if not isinstance(content, list):
+                error = getattr(content, "error_code", None) or "unknown error"
+                continue
+            for item in content:
+                url = getattr(item, "url", None)
+                if url:
+                    results.append({"headline": getattr(item, "title", "") or "", "url": url,
+                                    "page_age": getattr(item, "page_age", None) or ""})
+        elif block.type == "text":
+            for cite in getattr(block, "citations", None) or []:
+                url = getattr(cite, "url", None)
+                text = " ".join((getattr(cite, "cited_text", "") or "").replace("#", " ").split())
+                if url and text:
+                    snippets[url] = (snippets.get(url, "") + " " + text).strip()[:300]
+    if error and not results:
+        raise RuntimeError(f"Anthropic web search error: {error}")
+    for r in results:
+        r["snippet"] = snippets.get(r["url"]) or (f"Updated {r['page_age']}." if r.get("page_age") else "")
+        r.pop("page_age", None)
+    return results[:num_results]
+
+
 def search_web(query: str, num_results: int = 8, days_prior: int = 1,
                provider: str | None = None) -> list[dict[str, str]]:
     """Search the web with provider fallback and normalized result shape."""
@@ -301,6 +364,8 @@ def search_web(query: str, num_results: int = 8, days_prior: int = 1,
             return openrouter_web_search(query, num_results=num_results, days_prior=days_prior)
         if selected == "tinyfish":
             return tinyfish_search(query, num_results=num_results, days_prior=days_prior)
+        if selected == "anthropic_web":
+            return anthropic_web_search(query, num_results=num_results, days_prior=days_prior)
         raise ValueError(f"Unknown search provider: {selected}")
 
     try:
