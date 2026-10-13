@@ -218,8 +218,13 @@ queries from the question; pages are fetched and checked in code for date,
 entities and topic; and Luna answers from the accepted excerpts.
 
 **The two main stories** (`newscaster/pipeline.py`, `_gather_one_topic`):
-1. **Articles.** A web search finds articles. Up to 3 are kept after relevance
-   checks and summarized.
+1. **Articles** (`_collect_articles`). Up to 3 are kept after relevance checks and
+   summarized. The story's Tier-2 brief links are read first: the pages its web
+   search cited, matched to the picked story by shared story words (24 of 24 picks
+   in the week to Oct 12). A web search runs only if fewer than 3 articles are found
+   (today, then the last 3 days, then a rephrased query). Login-walled sites
+   (Instagram, Facebook, TikTok, X, Reddit, Threads, LinkedIn, YouTube) are skipped:
+   on Oct 12 a search that returned Instagram posts cost the show a main story.
    - A first source-hunter pass, the "seed", answers a starting question. Its
      answer is fed into the loop.
 2. **Agent loop** (`newscaster/research_agent.py`, built with LangGraph):

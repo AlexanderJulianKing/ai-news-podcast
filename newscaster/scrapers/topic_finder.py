@@ -80,6 +80,7 @@ class TopicFinderResult:
     arc_context: list = field(default_factory=list)
     ledger: dict = field(default_factory=dict)
     side_story_briefs: list = field(default_factory=list)
+    topic_links: list = field(default_factory=list)   # per topic: its Tier-2 brief's cited pages
 
 
 def _today_str():
@@ -663,7 +664,7 @@ def _format_research_briefs(briefs):
     return '\n'.join(sections)
 
 
-def _research_headline_brief(headline, formatted_date):
+def _research_headline_brief(headline, formatted_date, with_links=False):
     """Tier-2 selection brief: one cheap web-grounded LLM call (GPT-6 Luna + OpenRouter web search).
 
     This stage only *ranks* headlines by importance, so it does not need the source
@@ -674,17 +675,45 @@ def _research_headline_brief(headline, formatted_date):
     story. Falls back to an UNVERIFIED marker only if the web call fails or comes back empty.
     """
     research_prompt = TIER2_RESEARCH_PROMPT.format(date=formatted_date, headline=headline)
+    links = []
     try:
-        brief = openrouter_web_brief(research_prompt)
+        if with_links:
+            brief, links = openrouter_web_brief(research_prompt, with_sources=True)
+        else:
+            brief = openrouter_web_brief(research_prompt)
     except Exception as e:
         print_and_write(f'  Tier-2 web brief failed for "{headline}": {e}; marking unverified')
         brief = ""
-    if brief:
-        return brief
-    return (
-        "UNVERIFIED: Web research did not return a usable brief. "
-        f"Editor should manually verify this topic: {headline}"
-    )
+    if not brief:
+        brief = ("UNVERIFIED: Web research did not return a usable brief. "
+                 f"Editor should manually verify this topic: {headline}")
+        links = []
+    return (brief, links) if with_links else brief
+
+
+# A picked story is matched to the brief it came from by shared story words: Tier 3
+# rewords headlines ("overhauls Civil Rights Division" for "reshaped its civil rights
+# mission"), so the brief's opening text counts too. The best brief must share at
+# least half the picked headline's story words and beat the runner-up.
+_LINK_MATCH_MIN = 0.5
+
+
+def links_for_topic(topic, briefs, brief_links):
+    """The source links of the Tier-2 brief a picked story came from, or [] if none matches clearly."""
+    # Tier 3 sometimes prefixes a label ("Most Important Story for Californians: ..."); its words
+    # are not story words and pushed a correct match under the bar (Oct 2, Lyft settlement).
+    want = _story_tokens(re.sub(r"^\s*Most Important Story[^:]*:\s*", "", topic or "", flags=re.I))
+    if not want:
+        return []
+    scored = []
+    for item in briefs:
+        headline, brief = item[0], item[1]
+        have = _story_tokens(headline) | _story_tokens((brief or "")[:1500])
+        scored.append((len(want & have) / len(want), headline))
+    scored.sort(reverse=True)
+    if not scored or scored[0][0] < _LINK_MATCH_MIN or (len(scored) > 1 and scored[1][0] == scored[0][0]):
+        return []
+    return list(brief_links.get(scored[0][1]) or [])
 
 
 def _source_hunter_answer(prompt, topic, formatted_date):
@@ -1014,13 +1043,14 @@ def topic_finder(formatted_date):
 
     # === TIER 2: Research — controlled briefs per headline ===
     print_and_write('TIER 2: Researching shortlisted headlines')
-    briefs = []
+    briefs, brief_links = [], {}
     for headline in shortlisted_headlines:
         print_and_write(f'  Researching: {headline}')
         try:
-            brief = _research_headline_brief(headline, formatted_date)
+            brief, links = _research_headline_brief(headline, formatted_date, with_links=True)
             sources = attribute_headline_sources(headline, source_index)
             briefs.append((headline, brief, sources))
+            brief_links[headline] = links
             print_and_write(f'  Brief received ({len(brief)} chars); reported by: {", ".join(sources) or "unattributed"}')
         except Exception as e:
             print_and_write(f'  Research failed for "{headline}": {e}')
@@ -1100,6 +1130,9 @@ def topic_finder(formatted_date):
     everyman_clean = strip_arc_tags(everyman_raw)
 
     topics = [important_clean, everyman_clean]
+    topic_links = [links_for_topic(t, briefs, brief_links) for t in topics]
+    for t, links in zip(topics, topic_links):
+        print_and_write(f'Brief links for "{t[:80]}": {len(links)}')
     print_and_write()
     print_and_write(topics)
 
@@ -1191,4 +1224,5 @@ def topic_finder(formatted_date):
         arc_context=arc_context,
         ledger=ledger,
         side_story_briefs=overview_briefs,
+        topic_links=topic_links,
     )

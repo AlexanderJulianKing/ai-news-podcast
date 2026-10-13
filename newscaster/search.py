@@ -172,7 +172,7 @@ def openrouter_web_search(query: str, num_results: int = 8, days_prior: int = 1)
 
 
 def openrouter_web_brief(question: str, *, model: str | None = None,
-                         max_results: int = 5) -> str:
+                         max_results: int = 5, with_sources: bool = False):
     """Answer a research question with a single web-grounded LLM call.
 
     Uses OpenRouter's web-search plugin to ground a cheap model (WEB_BRIEF_MODEL,
@@ -180,7 +180,9 @@ def openrouter_web_brief(question: str, *, model: str | None = None,
     counterpart to the source hunter: one cheap call for the gist of a story so
     the editor can judge its importance, not a fully validated multi-source hunt.
     Raises on transport/HTTP failure or an empty completion so callers can fall
-    back to an UNVERIFIED marker.
+    back to an UNVERIFIED marker. with_sources=True returns (text, links), where links
+    are the pages the search cited ({"url", "headline", "snippet"}); main stories start
+    from them (2026-10-12).
     """
     model = model or _config.WEB_BRIEF_MODEL
     message, data = _openrouter_web_chat(
@@ -209,7 +211,16 @@ def openrouter_web_brief(question: str, *, model: str | None = None,
             "annotations": message.get("annotations") or [],
             "cost": (data.get("usage") or {}).get("cost"),
         })
-    return content
+    if not with_sources:
+        return content
+    links, seen = [], set()
+    for note in message.get("annotations") or []:
+        cite = note.get("url_citation") or {}
+        url = cite.get("url")
+        if url and url not in seen:
+            seen.add(url)
+            links.append({"url": url, "headline": cite.get("title") or "", "snippet": (cite.get("content") or "")[:300]})
+    return content, links
 
 
 TINYFISH_SEARCH_URL = "https://api.search.tinyfish.ai"

@@ -243,9 +243,11 @@ def gather_news(formatted_date, formatted_date2):
         overview = tf_result.overview
         follow_up_prompt_text = tf_result.follow_up_prompt_text
         challenging_follow_up_prompt_text = tf_result.challenging_follow_up_prompt_text
+        topic_links = list(getattr(tf_result, "topic_links", None) or [])
     else:
         topics, overview, follow_up_prompt_text, challenging_follow_up_prompt_text = tf_result
         tf_result = None
+        topic_links = []
 
     # Persist the manifest as soon as topics are pinned, so a crash mid-loop still
     # leaves a recoverable state for the next run.
@@ -281,6 +283,7 @@ def gather_news(formatted_date, formatted_date2):
                 topic, topic_index, formatted_date, formatted_date2,
                 follow_up_prompt_text, challenging_follow_up_prompt_text,
                 articles=articles, followups=followups,
+                links=topic_links[topic_index] if topic_index < len(topic_links) else None,
             )
         except LLMError as e:
             print_and_write(
@@ -438,101 +441,99 @@ _UNREADABLE_DOMAINS = ("instagram.com", "facebook.com", "tiktok.com", "x.com", "
                        "reddit.com", "threads.net", "linkedin.com", "youtube.com")
 
 
+def _unreadable(url):
+    host = (url or "").split("//", 1)[-1].split("/", 1)[0].lower()
+    return any(host == d or host.endswith("." + d) for d in _UNREADABLE_DOMAINS)
+
+
 def _article_search(query, num_results, days_prior=1):
     """search_web for news articles, without login-walled social sites."""
     excluded = " ".join(f"-site:{d}" for d in _UNREADABLE_DOMAINS)
     results = search_web(f"{query} {excluded}", num_results, days_prior=days_prior)
-    def unreadable(url):
-        host = (url or "").split("//", 1)[-1].split("/", 1)[0].lower()
-        return any(host == d or host.endswith("." + d) for d in _UNREADABLE_DOMAINS)
-    return [r for r in results if not unreadable(r.get("url"))]
+    return [r for r in results if not _unreadable(r.get("url"))]
 
 
-def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
-                     follow_up_prompt_text, challenging_follow_up_prompt_text,
-                     articles=None, followups=None):
-    """Gather a single topic into a super_summary. Raises LLMError on terminal failure
-    so the caller can isolate the slot. Returns the synthesized summary text."""
-    topic_OG = topic
-    successful_summary_counter = 0
-    waiting_time = [0, 5, 60, 60, 300, 600]
-    search_results = []
-    for waiting_duration in waiting_time:
+def _search_with_waits(query, num_results, days_prior=1):
+    """_article_search, retried with growing waits when the search itself errors."""
+    for waiting_duration in [0, 5, 60, 60, 300, 600]:
         time.sleep(waiting_duration)
         try:
-            search_results = _article_search(topic, 9)
-            break
+            return _article_search(query, num_results, days_prior=days_prior)
         except Exception as e:
-            print_and_write(f'Google search failed: {e}')
+            print_and_write(f'Article search failed: {e}')
+    return []
 
-    print_and_write('\n\n')
-    print_and_write('TOPIC:', topic, '\n')
+
+def _collect_articles(topic, topic_index, formatted_date, formatted_date2, articles=None, links=None):
+    """Read up to 3 articles about a main story. Returns (summary_prompt, article_count).
+
+    The story's Tier-2 brief links come first (2026-10-12): the brief has already found
+    real coverage, while a fresh search can miss it (that morning the DOJ Civil Rights
+    story's search returned unreadable Instagram posts and the story was dropped, though
+    its brief had cited NPR, WYPR, justice.gov and Bloomberg Law). Then the searches run as
+    before: today, the last 3 days, then a rephrased query. Raises when nothing is usable.
+    """
     summary_prompt = 'Today is {}.'.format(formatted_date)
-    summary_prompt_alpha = "Given the topic of '" + topic + "', and given the summaries below, please create a long synthesis text that holds as much information about the topic as possible. Do not include information irrelevant  to the topic, like side stories or topics that do not have anything to do with the main story. For example, if the main story is about a fire, if the page also includes a mention of abortion, you should remove it. That being said, your job is to synthesize a cohesive text that includes as much information as possible. I want DEPTH. In addition, it is of the utmost importance that you include the news outlets the stories come from, like CNN, the New York Times, ABC News, NPR, etc. The text below includes article summaries as well as follow-up questions and answers that provide additional context and nuance — be sure to incorporate those insights into the synthesis. Also note that today is " + formatted_date + '.\n\n """'
+    count = 0
+    tried = set()
 
-    summary_prompt2 = "Given the summary below, please refine the information by eliminating any sentences that aren't relevant to the core narrative. However, it's crucial to keep the majority of the information, including all key aspects, background context, and important details tied to the story. Remove any redundant elements but retain all relevant facts, figures, and potential implications. Aim for a summary that is concise yet comprehensive in preserving the essence of the original text." + '\n\n """'
-    irrelevance_prompt = 'Is there any information irrelevant to the main story in the below text, like information about upcoming programming or advertisements? For example, if the main story is about a fire, if the page the story was on also includes a mention of abortion, you should remove it. Give a yes or no answer and explain why: \n\n'
-    for result in search_results:
-        print_and_write(result)
-        summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2, articles=articles)
-
-        if successful_summary_counter == 3:
-            break
-
-    if successful_summary_counter < 1:
-        search_results = []
-        for waiting_duration in waiting_time:
-            time.sleep(waiting_duration)
-            try:
-                search_results = _article_search(topic, 9, days_prior=3)
-                break
-            except Exception as e:
-                print_and_write(f'Google search failed: {e}')
-        for result in search_results:
+    def read(results, query_topic):
+        nonlocal summary_prompt, count
+        for result in results:
+            url = result.get('url')
+            if not url or url in tried:
+                continue
+            tried.add(url)
             print_and_write(result)
             try:
-                summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2, articles=articles)
+                summary_prompt, count = result_piper(summary_prompt, count, query_topic, result, topic_index,
+                                                     formatted_date2, articles=articles)
             except Exception as e:
-                print_and_write(f'result_piper failed for topic {topic}: {e}')
-                pass
-            if successful_summary_counter == 3:
-                break
+                print_and_write(f'result_piper failed for topic {query_topic}: {e}')
+            if count >= 3:
+                return
 
-    if successful_summary_counter < 1:
+    readable = [l for l in (links or []) if not _unreadable(l.get('url'))]
+    if readable:
+        print_and_write(f'Reading {len(readable)} links from the story\'s brief first')
+        read(readable, topic)
+    if count < 3:
+        read(_search_with_waits(topic, 9), topic)
+    if count < 1:
+        read(_search_with_waits(topic, 9, days_prior=3), topic)
+    if count < 1:
         rephrased = call_with_default(
-            topic_OG,
+            topic,
             topic,
             system_prompt='Please change the following query into a rephrased google search query that can get more relevant results. Please only give the new query and do not give quotation marks.',
             _log_label=f'rephrase-query[slot={topic_index}]',
         )
-        topic = rephrased.strip("\"").strip('\'').strip('\n')
-        print_and_write('new topic:', topic)
-        search_results = []
-        for waiting_duration in waiting_time:
-            time.sleep(waiting_duration)
-            try:
-                search_results = _article_search(topic, 9)
-                break
-            except Exception as e:
-                print_and_write(f'Google search failed: {e}')
-        for result in search_results:
-            print_and_write(result)
-            try:
-                summary_prompt, successful_summary_counter = result_piper(summary_prompt, successful_summary_counter, topic, result, topic_index, formatted_date2, articles=articles)
-            except Exception as e:
-                print_and_write(f'result_piper failed for topic {topic}: {e}')
-                pass
-            if successful_summary_counter == 3:
-                break
-
-    if successful_summary_counter < 1:
+        query = rephrased.strip("\"").strip('\'').strip('\n')
+        print_and_write('new topic:', query)
+        read(_search_with_waits(query, 9), query)
+    if count < 1:
         from newscaster.llm.errors import LLMRetriesExhaustedError
         raise LLMRetriesExhaustedError(
-            f'topic "{topic_OG}" produced 0 articles after all search retries',
+            f'topic "{topic}" produced 0 articles after all search retries',
             provider='gather', model=f'slot={topic_index}',
         )
+    return summary_prompt, count
 
-    topic = topic_OG
+
+def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
+                     follow_up_prompt_text, challenging_follow_up_prompt_text,
+                     articles=None, followups=None, links=None):
+    """Gather a single topic into a super_summary. Raises LLMError on terminal failure
+    so the caller can isolate the slot. Returns the synthesized summary text."""
+    print_and_write('\n\n')
+    print_and_write('TOPIC:', topic, '\n')
+    summary_prompt_alpha = "Given the topic of '" + topic + "', and given the summaries below, please create a long synthesis text that holds as much information about the topic as possible. Do not include information irrelevant  to the topic, like side stories or topics that do not have anything to do with the main story. For example, if the main story is about a fire, if the page also includes a mention of abortion, you should remove it. That being said, your job is to synthesize a cohesive text that includes as much information as possible. I want DEPTH. In addition, it is of the utmost importance that you include the news outlets the stories come from, like CNN, the New York Times, ABC News, NPR, etc. The text below includes article summaries as well as follow-up questions and answers that provide additional context and nuance — be sure to incorporate those insights into the synthesis. Also note that today is " + formatted_date + '.\n\n """'
+
+    summary_prompt2 = "Given the summary below, please refine the information by eliminating any sentences that aren't relevant to the core narrative. However, it's crucial to keep the majority of the information, including all key aspects, background context, and important details tied to the story. Remove any redundant elements but retain all relevant facts, figures, and potential implications. Aim for a summary that is concise yet comprehensive in preserving the essence of the original text." + '\n\n """'
+    irrelevance_prompt = 'Is there any information irrelevant to the main story in the below text, like information about upcoming programming or advertisements? For example, if the main story is about a fire, if the page the story was on also includes a mention of abortion, you should remove it. Give a yes or no answer and explain why: \n\n'
+    summary_prompt, successful_summary_counter = _collect_articles(
+        topic, topic_index, formatted_date, formatted_date2, articles=articles, links=links)
+
     perplexity_prompt = 'Tell me about this story with as much detail as possible:\n' + topic
     import newscaster.config as _config
     if _config.SOURCE_HUNTER_ENABLED:
