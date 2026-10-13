@@ -431,6 +431,23 @@ def _augment_with_prior_research(super_summary, formatted_date2):
         return super_summary
 
 
+# Sites whose pages can't be read without logging in. On 2026-10-12 the DOJ Civil Rights
+# story's article search came back mostly Instagram posts; they passed the relevance check,
+# every scrape failed, and a main story was dropped from the show.
+_UNREADABLE_DOMAINS = ("instagram.com", "facebook.com", "tiktok.com", "x.com", "twitter.com",
+                       "reddit.com", "threads.net", "linkedin.com", "youtube.com")
+
+
+def _article_search(query, num_results, days_prior=1):
+    """search_web for news articles, without login-walled social sites."""
+    excluded = " ".join(f"-site:{d}" for d in _UNREADABLE_DOMAINS)
+    results = search_web(f"{query} {excluded}", num_results, days_prior=days_prior)
+    def unreadable(url):
+        host = (url or "").split("//", 1)[-1].split("/", 1)[0].lower()
+        return any(host == d or host.endswith("." + d) for d in _UNREADABLE_DOMAINS)
+    return [r for r in results if not unreadable(r.get("url"))]
+
+
 def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
                      follow_up_prompt_text, challenging_follow_up_prompt_text,
                      articles=None, followups=None):
@@ -443,7 +460,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
     for waiting_duration in waiting_time:
         time.sleep(waiting_duration)
         try:
-            search_results = search_web(topic, 9)
+            search_results = _article_search(topic, 9)
             break
         except Exception as e:
             print_and_write(f'Google search failed: {e}')
@@ -467,7 +484,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
         for waiting_duration in waiting_time:
             time.sleep(waiting_duration)
             try:
-                search_results = search_web(topic, 9, days_prior=3)
+                search_results = _article_search(topic, 9, days_prior=3)
                 break
             except Exception as e:
                 print_and_write(f'Google search failed: {e}')
@@ -494,7 +511,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
         for waiting_duration in waiting_time:
             time.sleep(waiting_duration)
             try:
-                search_results = search_web(topic, 9)
+                search_results = _article_search(topic, 9)
                 break
             except Exception as e:
                 print_and_write(f'Google search failed: {e}')
