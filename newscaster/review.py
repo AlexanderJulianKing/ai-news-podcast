@@ -79,10 +79,10 @@ def verify_quotes(script_text: str, corpus_text: str) -> list[QuoteVerdict]:
 # --- the gate (sketch): hooks into pipeline.main() between write_scripts and generate_audio ---
 
 _AUDIT_PATH = "logs/source_hunter_audit.jsonl"
-_EDITOR_SNIPPET_CHARS = 24000
+_EDITOR_SNIPPET_CHARS = 48000   # was 24,000; the 2026-10-13 DefenseScoop passage fell outside it
 _SNIPPET_CHUNK_CHARS = 3500
 _SNIPPET_CHUNK_OVERLAP = 350
-_SNIPPET_MAX_CHUNKS = 8
+_SNIPPET_MAX_CHUNKS = 14
 _TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9'_-]*", re.IGNORECASE)
 _STOPWORDS = {
     "about", "after", "again", "against", "also", "another", "because", "been", "being",
@@ -144,8 +144,23 @@ def _segment_research(date2: str, idx: int) -> dict:
         return {}
 
 
+def _source_label(name, url, published=None) -> str:
+    """'SOURCE: <outlet or title> — <url> (published <date>)', the first line of each piece of evidence.
+
+    2026-10-17: evidence used to reach the fact check as bare page text, so it could not see
+    which outlet said what, or a date carried only in a URL. A script aired "a September ninth
+    DefenseScoop report" when the URL said /2026/10/09/, and CNBC's figure aired as Al Jazeera's.
+    """
+    label = f"SOURCE: {(name or '').strip() or 'unknown source'}"
+    if url:
+        label += f" — {url}"
+    if published:
+        label += f" (published {published})"
+    return label
+
+
 def _segment_research_excerpts(date2: str, idx: int) -> list[str]:
-    """Source-hunter excerpts used by the selected-story research agent for one segment."""
+    """Source-hunter excerpts used by the selected-story research agent for one segment, each labeled."""
     research = _segment_research(date2, idx)
     excerpts = []
     for followup in research.get("followups") or []:
@@ -156,8 +171,32 @@ def _segment_research_excerpts(date2: str, idx: int) -> list[str]:
                 continue
             excerpt = source.get("excerpt")
             if excerpt:
-                excerpts.append(excerpt)
+                excerpts.append(_source_label(source.get("title"), source.get("url")) + "\n" + excerpt)
     return _dedupe_texts(excerpts)
+
+
+def _segment_article_sources(date2: str, idx: int) -> list[str]:
+    """A segment's scraped article texts, each labeled with its outlet and URL from the research record."""
+    meta = {}
+    for article in _segment_research(date2, idx).get("articles") or []:
+        m = re.search(r"_art(\d+)$", str(article.get("chunk_id") or ""))
+        if m:
+            meta[int(m.group(1))] = article
+    out = []
+    for path in sorted(glob.glob(f"segment_summaries/{date2}_segment{idx}_article*_source.txt")):
+        try:
+            content = Path(path).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if not content.strip():
+            continue
+        m = re.search(r"_article(\d+)_source\.txt$", path)
+        a = meta.get(int(m.group(1))) if m else None
+        # Always label, so an unlabeled article never inherits the previous source's label.
+        label = (_source_label(a.get("outlet") or a.get("original_headline"), a.get("url"), a.get("published_date"))
+                 if a else _source_label("article text (outlet unknown)", None))
+        out.append(label + "\n" + content)
+    return out
 
 
 def _selected_segment_indices(date2: str) -> list[int]:
@@ -281,8 +320,7 @@ def build_segment_corpus(date2: str, idx: int) -> str:
     improves the faithfulness pass's recall on subtle contradictions — a long, noisy corpus drowns
     them (the model can spot a reversal in two sentences but misses it inside 80k of text).
     """
-    scoped = (_article_sources(f"segment_summaries/{date2}_segment{idx}_article*_source.txt")
-              + _segment_research_excerpts(date2, idx))
+    scoped = _segment_article_sources(date2, idx) + _segment_research_excerpts(date2, idx)
     if scoped:
         return "\n\n".join(_dedupe_texts(scoped))
     return "\n\n".join(_article_sources(f"segment_summaries/{date2}_segment{idx}_article*_source.txt"))
@@ -322,18 +360,41 @@ def _source_chunks(corpus: str, *, chunk_chars: int = _SNIPPET_CHUNK_CHARS,
         return []
     sections = [s.strip() for s in re.split(r"\n{2,}", text) if s.strip()]
     chunks = []
+    label = ""
     for section in sections:
+        # A source's label line opens its first section; carry it onto every later chunk and
+        # paragraph of that source, so each snippet still says which outlet and page it is from.
+        if section.startswith("SOURCE: "):
+            label, _, section = section.partition("\n")
+            section = section.strip()
+            if not section:
+                continue
+        prefix = (label + "\n") if label else ""
         if len(section) <= chunk_chars:
-            chunks.append(section)
+            chunks.append(prefix + section)
             continue
         step = max(1, chunk_chars - overlap)
         for start in range(0, len(section), step):
             chunk = section[start:start + chunk_chars].strip()
             if chunk:
-                chunks.append(chunk)
+                chunks.append(prefix + chunk)
             if start + chunk_chars >= len(section):
                 break
     return chunks
+
+
+def _editor_evidence(report: str, corpus: str) -> str:
+    """What the editor reads: the story's whole evidence when it fits the editor's limit, else snippets.
+
+    2026-10-17: the lexical snippet picker dropped the decisive passage twice. AARP's own
+    "80 percent" never reached the editor, which then "corrected" the script to a secondhand 76%,
+    and the DefenseScoop passage that dated the report fell outside the 24,000-character cut.
+    A story's evidence ran 66,000-104,000 characters that week, within the 140,000 limit.
+    """
+    from newscaster.editor_agent import _MAX_CORPUS
+    if corpus and len(corpus) <= _MAX_CORPUS:
+        return corpus
+    return _snippet_corpus_for_report(report, corpus)
 
 
 def _snippet_corpus_for_report(report: str, corpus: str, *, max_chars: int = _EDITOR_SNIPPET_CHARS) -> str:
@@ -684,10 +745,10 @@ def review_and_revise_scripts(date2: str) -> dict:
             continue
         report = _format_report(editable)
         corpus = _corpus_for_script(date2, name, full_corpus)  # segment editor checks its own sources
-        snippet_corpus = _snippet_corpus_for_report(report, corpus)
+        snippet_corpus = _editor_evidence(report, corpus)
         if snippet_corpus:
             print_and_write(
-                f"FACT-FINDER EDITOR [{name}]: using {len(snippet_corpus)} chars of relevant source snippets "
+                f"FACT-FINDER EDITOR [{name}]: using {len(snippet_corpus)} chars of source evidence "
                 f"from {len(corpus)} chars"
             )
         elif _absence_only_report(report):

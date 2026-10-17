@@ -244,8 +244,10 @@ def test_review_and_revise_passes_relevant_snippets_to_editor(tmp_path, monkeypa
     sp.write_text("Vance arrived in Kyiv.", encoding="utf-8")
     from newscaster import review
     flags = [("2026_06_21_segment_0.txt", "faithfulness", "FLAG: Vance arrived — source says Vance left for Kyiv")]
+    # Over the editor's 140,000-character limit, so it gets snippets (a story's evidence that
+    # fits is passed whole since 2026-10-17; see tests/test_fact_check_sources.py).
     full_corpus = (
-        "UNRELATED " * 5000
+        "UNRELATED " * 20000
         + "\n\nSOURCE: wire\nVice President Vance left for Kyiv on Tuesday, according to officials."
     )
     captured = {}

@@ -304,6 +304,17 @@ the show.
   problems, Opus proposes find-and-replace fixes and Sol approves or rejects each
   one, for up to 3 rounds. Applied changes are logged to
   `logs/fact_finder_edits.jsonl`. Switch: `FACT_FINDER_AUTOEDIT_ENABLED`.
+  Since 2026-10-17:
+  - Every piece of evidence starts with a `SOURCE: <outlet or title> — <link>` line, kept on every chunk,
+    so the checker can see who said what and a date carried in a link.
+  - The editor reads the story's whole evidence when it fits its 140,000-character limit.
+  - The editor and the approver follow three rules: when reputable sources disagree, the primary source
+    wins and the script is left alone; a changed figure must carry the name of the source that reported it;
+    a fix must not leave a neighboring sentence contradicting it.
+
+  Why: an audit of Oct 13-17 found the old editor had made three bad "fixes" out of a few hundred flags,
+  and had missed a wrong date because the date was only in a link. Replays of those four scripts, three
+  runs each, fixed or avoided all four.
 - **Flags with nothing to fix.** A flag that only says a claim is missing from the
   sources, with no matching text, skips the editor.
 - **Malformed replies.** A reply that doesn't follow the expected format is asked
