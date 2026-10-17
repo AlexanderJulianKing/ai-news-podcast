@@ -312,7 +312,7 @@ the show.
     wins and the script is left alone; a changed figure must carry the name of the source that reported it;
     a fix must not leave a neighboring sentence contradicting it.
 
-  Why: an audit of Oct 13-17 found the old editor had made three bad "fixes" out of a few hundred flags,
+  Why: an audit of 18 stories (Oct 13-17) found three bad "fixes" by the old editor,
   and had missed a wrong date because the date was only in a link. Replays of those four scripts, three
   runs each, fixed or avoided all four.
 - **Flags with nothing to fix.** A flag that only says a claim is missing from the
