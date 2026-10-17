@@ -20,13 +20,25 @@ def test_a_digest_title_becomes_one_headline_per_story():
                      "top 9,000 — Drop Site Daily: October 14, 2026",
             "description": "Today's recap", "link": "https://www.dropsitenews.com/p/daily-oct-14",
             "published": datetime(2026, 10, 14, 22, tzinfo=timezone.utc)}
-    single = dict(item, title="Israel strikes Beirut suburb; dozens killed", description="")
+    single = dict(item, title="Israel strikes Beirut suburb; dozens killed", description="Israeli forces carry out daily raids")
     text = dropsite._format_headlines([item, single], now=datetime(2026, 10, 15, 11, tzinfo=timezone.utc))
     lines = text.strip().splitlines()[1:]
     assert [l.split(" [")[0] for l in lines] == [
         "Iranian mine sinks ship in Hormuz", "Trump pardons two at Alaska rally", "Congo Ebola cases top 9,000",
-        "Israel strikes Beirut suburb; dozens killed"]     # an ordinary title with a semicolon is left alone
+        "Israel strikes Beirut suburb; dozens killed — Israeli forces carry out daily raids"]   # left alone
     assert "Drop Site Daily" not in text.split("\n", 1)[1].split("Israel")[0]
+
+
+def test_the_real_feed_layout_with_the_recap_label_in_the_description_is_split_too():
+    # The live feed (2026-10-17) puts "Drop Site Daily: <date>" in the item's description.
+    item = {"title": "Record Israeli attacks on Palestinian olive groves; Teen shooter kills children at Oregon school; "
+                     "Poland scrambles jets following Russian strikes",
+            "description": "Drop Site Daily: October 16, 2026", "link": "https://www.dropsitenews.com/p/x",
+            "published": datetime(2026, 10, 16, 15, tzinfo=timezone.utc)}
+    text = dropsite._format_headlines([item], now=datetime(2026, 10, 17, 11, tzinfo=timezone.utc))
+    assert [l.split(" [")[0] for l in text.strip().splitlines()[1:]] == [
+        "Record Israeli attacks on Palestinian olive groves", "Teen shooter kills children at Oregon school",
+        "Poland scrambles jets following Russian strikes"]
 
 
 def test_article_summary_is_told_which_story_to_keep(monkeypatch):

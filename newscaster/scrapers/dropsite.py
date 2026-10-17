@@ -69,15 +69,18 @@ def _extract_items(feed_xml, now=None, lookback_hours=48):
     return items
 
 
-# "Story 1; Story 2; Story 3 — Drop Site Daily: October 14, 2026". On 2026-10-15 a recap title
+# "Story 1; Story 2; Story 3 — Drop Site Daily: October 14, 2026". On 2026-10-15 a recap line
 # like this became a main story's topic, and half that story's research went to the other items.
+# The live feed puts the "Drop Site Daily: <date>" label in the description; check both places.
 _DIGEST_SUFFIX = re.compile(r"\s+[—–-]\s+[^—–]*\b(?:Daily|Recap|Roundup|Round-up|Briefing)\b[^—–]*$", re.I)
+_DIGEST_LABEL = re.compile(r"^\s*[\w' ]{0,40}\b(?:Daily|Recap|Roundup|Round-up|Briefing)\s*:", re.I)   # "Drop Site Daily: Oct 16"
 
 
 def _split_digest(item):
     """One item per story for a digest/recap title; any other item is returned unchanged."""
     title = item["title"]
-    if not _DIGEST_SUFFIX.search(title):
+    labeled = _DIGEST_SUFFIX.search(title) or _DIGEST_LABEL.search(item.get("description") or "")
+    if not labeled:
         return [item]
     stories = [s.strip() for s in _DIGEST_SUFFIX.sub("", title).split(";") if s.strip()]
     if len(stories) < 2:
