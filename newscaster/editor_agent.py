@@ -31,7 +31,7 @@ from newscaster.llm import get_llm_response
 from newscaster.logging import print_and_write
 from newscaster.text_utils import extract_json
 
-_MAX_CORPUS = 140000
+_MAX_CORPUS = 200000   # was 140,000; with the seed lookup saved (2026-10-17) a story's evidence reached 188,000
 _MIN_KEEP_RATIO = 0.6  # discard the whole edit set if the result is shorter than this fraction
 
 

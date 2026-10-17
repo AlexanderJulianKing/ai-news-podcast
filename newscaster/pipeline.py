@@ -536,6 +536,7 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
 
     perplexity_prompt = 'Tell me about this story with as much detail as possible:\n' + topic
     import newscaster.config as _config
+    seed_record = None
     if _config.SOURCE_HUNTER_ENABLED:
         try:
             seed_result = answer_with_escalation(
@@ -543,6 +544,14 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
                 label="Source hunter seed",
             )
             if seed_result.status == "success":
+                # Saved with the story's research (2026-10-17) so the fact check can see the seed's
+                # pages: a CNBC figure from the seed aired credited to Al Jazeera, uncaught.
+                seed_record = {
+                    "asker": "Seed lookup", "question": perplexity_prompt, "answer": seed_result.answer,
+                    "challenging": False, "iteration": 0, "question_type": "seed", "action": "source_hunter",
+                    "reason": "", "memory_guided": False, "adversary_guided": False,
+                    "source_hunter_status": seed_result.status, "source_hunter_sources": seed_result.sources,
+                }
                 summary_prompt = (
                     summary_prompt
                     + "\n\nControlled source-hunter seed context:\n"
@@ -593,6 +602,9 @@ def _gather_one_topic(topic, topic_index, formatted_date, formatted_date2,
             summary_prompt, follow_up_prompt_text, challenging_follow_up_prompt_text,
             followups=followups, topic=topic, formatted_date=formatted_date,
         )
+
+    if seed_record is not None and followups is not None:
+        followups.insert(0, seed_record)     # after the research loop, which rewrites this list
 
     print_and_write('SUPER SUMMARY LENGTH:', len(summary_prompt))
 

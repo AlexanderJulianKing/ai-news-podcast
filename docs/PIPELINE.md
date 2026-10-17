@@ -95,7 +95,7 @@ each mode to a model, and the models are set in `newscaster/config.py`.
 |---|---|
 | NPR, AP, Democracy Now | The browser is warmed up once on a blank page first (NPR's first attempt failed on 6 of 8 mornings from a cold start). A normal, visible Chromium loads the page on a virtual screen (Xvfb). GPT-6 Luna lists the stories in page order. A screenshot is kept for 14 days. If the browser fails, the older Gemini readers run instead. (`newscaster/scrapers/browser.py`) |
 | ProPublica | RSS feed, last 48 hours. The front page has no dates. (`scrapers/dropsite.py`, `rss_scraper`) |
-| Drop Site News | RSS feed, last 48 hours |
+| Drop Site News | RSS feed, last 48 hours. A "Drop Site Daily" recap title ("Story 1; Story 2 — Drop Site Daily: date") is split into one headline per story (2026-10-17) |
 | CalMatters | Direct fetch of 7 section pages, today's and yesterday's stories (`scrapers/calmatters.py`) |
 | City of Riverside | Direct parse of the dated press-release cards, today and yesterday (`scrapers/riverside.py`) |
 | AI watch | OpenAI, Anthropic, Google DeepMind, METR, AI Incident Database and Import AI, last 72 hours. Opus keeps items that pass an event test (`scrapers/watchlist.py`) |
@@ -222,7 +222,8 @@ entities and topic; and Luna answers from the accepted excerpts.
 
 **The two main stories** (`newscaster/pipeline.py`, `_gather_one_topic`):
 1. **Articles** (`_collect_articles`). Up to 3 are kept after relevance checks and
-   summarized. The story's Tier-2 brief links are read first: the pages its web
+   summarized. Each summary covers only what the page says about this story, so a
+   digest, newsletter or live blog contributes just the relevant part (2026-10-17). The story's Tier-2 brief links are read first: the pages its web
    search cited, matched to the picked story by shared story words (24 of 24 picks
    in the week to Oct 12). A web search runs only if fewer than 3 articles are found
    (today, then the last 3 days, then a rephrased query). Login-walled sites
@@ -307,7 +308,8 @@ the show.
   Since 2026-10-17:
   - Every piece of evidence starts with a `SOURCE: <outlet or title> — <link>` line, kept on every chunk,
     so the checker can see who said what and a date carried in a link.
-  - The editor reads the story's whole evidence when it fits its 140,000-character limit.
+  - The editor reads the story's whole evidence when it fits its 200,000-character limit.
+  - The seed lookup is saved with the story's research rounds, so its pages are part of the evidence too.
   - The editor and the approver follow three rules: when reputable sources disagree, the primary source
     wins and the script is left alone; a changed figure must carry the name of the source that reported it;
     a fix must not leave a neighboring sentence contradicting it.

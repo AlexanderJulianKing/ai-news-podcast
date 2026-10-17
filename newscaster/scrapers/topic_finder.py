@@ -105,7 +105,7 @@ def determine_relevance(topic, result):
     return 'yes' in response.lower()
 
 
-def summarize_text(text, article):
+def summarize_text(text, article, topic=None):
     text_length = len(text)
     print_and_write(f"Text length: {text_length} characters")
     prompt = (
@@ -125,6 +125,15 @@ def summarize_text(text, article):
         'too.\n\n'
     )
 
+    if topic:
+        # 2026-10-17: digests and roundups were summarized whole (a weekly national-news page for
+        # one story, a daily recap for another), which filled the story's evidence with other news.
+        prompt += (
+            "This page may cover several stories (a digest, newsletter, roundup or live blog). "
+            f"Summarize ONLY what it says about this story: {topic}\n"
+            "Leave out every unrelated item. If the page says nothing about this story, reply "
+            "'Not about this story.'\n\n"
+        )
     completion = get_llm_response(prompt + text, mode='haiku')
     return completion
 
@@ -145,7 +154,7 @@ def result_piper(summary_prompt, successful_summary_counter, topic, result, i, f
             print_and_write('ARTICLE IS EMPTY')
             return summary_prompt, successful_summary_counter
         try:
-            summary = summarize_text(text, 'article')
+            summary = summarize_text(text, 'article', topic=topic)
         except LLMError as e:
             print_and_write(f'summarize_text failed for {url}: {e}; skipping article')
             return summary_prompt, successful_summary_counter

@@ -42,7 +42,7 @@ def test_every_chunk_of_a_long_source_keeps_its_label():
 
 def test_editor_gets_the_whole_story_evidence_when_it_fits():
     # 2026-10-17: the snippet picker dropped the decisive passage twice (AARP's own "80 percent";
-    # the DefenseScoop report), so the editor sees everything up to its 140,000-character limit.
+    # the DefenseScoop report), so the editor sees everything up to its 200,000-character limit.
     corpus = "SOURCE: AARP — https://www.aarp.org/x\n80 percent said 3.5 percent would not be enough.\n\n" + "filler. " * 5000
     assert review._editor_evidence("FLAG: eighty percent — CNBC says 76%", corpus) == corpus
     huge = corpus * 10

@@ -89,7 +89,8 @@ def test_gather_one_topic_uses_adaptive_research(monkeypatch):
     mock_adaptive.assert_called_once()
     assert "controlled seed context" in captured["adaptive_prompt"]
     assert captured["synthesis_prompt"] == "adapted prompt"
-    assert followups[0]["asker"] == "Research Agent"
+    # The seed lookup is saved first (2026-10-17), then the controller's rounds.
+    assert [f["asker"] for f in followups] == ["Seed lookup", "Research Agent"]
 
 
 def test_gather_one_topic_falls_back_to_fixed_rounds(monkeypatch):

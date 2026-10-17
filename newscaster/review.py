@@ -389,7 +389,7 @@ def _editor_evidence(report: str, corpus: str) -> str:
     2026-10-17: the lexical snippet picker dropped the decisive passage twice. AARP's own
     "80 percent" never reached the editor, which then "corrected" the script to a secondhand 76%,
     and the DefenseScoop passage that dated the report fell outside the 24,000-character cut.
-    A story's evidence ran 66,000-104,000 characters that week, within the 140,000 limit.
+    A story's evidence ran 66,000-188,000 characters (with the seed's sources), within the 200,000 limit.
     """
     from newscaster.editor_agent import _MAX_CORPUS
     if corpus and len(corpus) <= _MAX_CORPUS:

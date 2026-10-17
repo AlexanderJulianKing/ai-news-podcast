@@ -69,6 +69,23 @@ def _extract_items(feed_xml, now=None, lookback_hours=48):
     return items
 
 
+# "Story 1; Story 2; Story 3 — Drop Site Daily: October 14, 2026". On 2026-10-15 a recap title
+# like this became a main story's topic, and half that story's research went to the other items.
+_DIGEST_SUFFIX = re.compile(r"\s+[—–-]\s+[^—–]*\b(?:Daily|Recap|Roundup|Round-up|Briefing)\b[^—–]*$", re.I)
+
+
+def _split_digest(item):
+    """One item per story for a digest/recap title; any other item is returned unchanged."""
+    title = item["title"]
+    if not _DIGEST_SUFFIX.search(title):
+        return [item]
+    stories = [s.strip() for s in _DIGEST_SUFFIX.sub("", title).split(";") if s.strip()]
+    if len(stories) < 2:
+        return [item]
+    # The description summarizes the whole recap, so it does not belong to any one story.
+    return [dict(item, title=story, description="") for story in stories]
+
+
 def _format_headlines(items, now=None, source="Drop Site News", lookback_hours=48):
     now = now or datetime.now(timezone.utc)
     today = now.astimezone().strftime("%B %e, %Y")
@@ -82,7 +99,7 @@ def _format_headlines(items, now=None, source="Drop Site News", lookback_hours=4
         f"{source}, the news source, has released the following headlines "
         f"in the past {lookback_hours} hours as of {today}:"
     ]
-    for item in items:
+    for item in (story for raw in items for story in _split_digest(raw)):
         published = item["published"].astimezone().strftime("%b %-d, %Y %I:%M %p")
         description = f" — {item['description']}" if item.get("description") else ""
         link = f" ({item['link']})" if item.get("link") else ""
