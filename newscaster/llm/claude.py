@@ -117,14 +117,17 @@ def _create_message(client, **kwargs):
 # changes. Claude caches everything before it for an hour (cache reads cost 5% of the
 # input price on Opus 5.5); other providers get the marker replaced by a newline.
 CACHE_BREAK = "\n<<<CACHE_BREAK>>>\n"
+# Same, with the 5-minute cache: cheaper to write (1.25x input vs 2x), for repeats within minutes.
+# The fact-check editor's rounds on one script come minutes apart (2026-10-18).
+CACHE_BREAK_5M = "\n<<<CACHE_BREAK_5M>>>\n"
 
 
 def _user_content(user_prompt):
-    if CACHE_BREAK not in (user_prompt or ""):
-        return [{"type": "text", "text": user_prompt}]
-    stable, changing = user_prompt.split(CACHE_BREAK, 1)
-    return [{"type": "text", "text": stable, "cache_control": {"type": "ephemeral", "ttl": "1h"}},
-            {"type": "text", "text": changing}]
+    for marker, cache in ((CACHE_BREAK, {"type": "ephemeral", "ttl": "1h"}), (CACHE_BREAK_5M, {"type": "ephemeral"})):
+        if marker in (user_prompt or ""):
+            stable, changing = user_prompt.split(marker, 1)
+            return [{"type": "text", "text": stable, "cache_control": cache}, {"type": "text", "text": changing}]
+    return [{"type": "text", "text": user_prompt}]
 
 
 def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='You are an intelligent assistant.',

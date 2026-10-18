@@ -11,7 +11,7 @@ import random
 import time
 import uuid
 
-from newscaster.llm.claude import CACHE_BREAK
+from newscaster.llm.claude import CACHE_BREAK, CACHE_BREAK_5M
 
 import newscaster.config as _config
 from newscaster.logging import print_and_write, write_jsonl_log
@@ -151,7 +151,7 @@ def _dispatch(spec, user_prompt, system_prompt):
     provider = spec['provider']
     model = spec['model']
     if provider != 'anthropic':
-        user_prompt = (user_prompt or "").replace(CACHE_BREAK, "\n")
+        user_prompt = (user_prompt or "").replace(CACHE_BREAK, "\n").replace(CACHE_BREAK_5M, "\n")
 
     if provider == 'google':
         return gemini(

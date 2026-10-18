@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 
 import newscaster.config as _config
 from newscaster.llm import get_llm_response
+from newscaster.llm.claude import CACHE_BREAK_5M
 from newscaster.logging import print_and_write
 from newscaster.text_utils import extract_json
 
@@ -128,9 +129,11 @@ def _propose_edits(script: str, report: str, corpus: str, already: list[Edit]) -
             "\n\nALREADY APPLIED THIS RUN (do not repeat these, and note the script now reflects them):\n"
             + done
         )
+    # The evidence and the report stay the same across this script's rounds; the script changes
+    # as edits land. Cache the first part for 5 minutes (rounds come minutes apart; 2026-10-18).
     prompt = (
         f"SOURCE MATERIAL:\n{(corpus or '(none provided)')[:_MAX_CORPUS]}\n\n---\n\n"
-        f"FACT-FINDER REPORT (flags):\n{report}\n\n---\n\n"
+        f"FACT-FINDER REPORT (flags):\n{report}{CACHE_BREAK_5M}"
         f"SCRIPT:\n{script}{already_note}\n\n---\n\n"
         "Return the JSON of factual-discrepancy edits, or {\"edits\": []}."
     )

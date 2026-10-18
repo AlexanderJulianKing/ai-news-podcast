@@ -54,3 +54,27 @@ def test_other_models_never_see_the_marker():
         router._dispatch({"provider": "openrouter", "model": "openai/gpt-6-sol", "name": "Sol"},
                          f"STABLE{CACHE_BREAK}CHANGING", "system")
     assert CACHE_BREAK not in seen["prompt"] and "STABLE" in seen["prompt"] and "CHANGING" in seen["prompt"]
+
+
+def test_five_minute_cache_marker_for_short_repeat_windows(monkeypatch):
+    # The fact-check editor re-sends a story's evidence within minutes (2026-10-18: 1 round on 15
+    # scripts, 2 on 13, 3 on 1), where a 5-minute cache (1.25x write) beats a 1-hour one (2x write).
+    from newscaster.llm.claude import CACHE_BREAK_5M, _user_content
+    blocks = _user_content(f"EVIDENCE{CACHE_BREAK_5M}SCRIPT")
+    assert blocks[0]["text"] == "EVIDENCE" and blocks[0]["cache_control"] == {"type": "ephemeral"}
+    assert blocks[1]["text"] == "SCRIPT" and "cache_control" not in blocks[1]
+    seen = {}
+    with patch.object(router, "get_openrouter_response", side_effect=lambda *a, **k: seen.setdefault("p", a[0]) or "ok"):
+        router._dispatch({"provider": "openrouter", "model": "openai/gpt-6.1-sol", "name": "Sol"},
+                         f"EVIDENCE{CACHE_BREAK_5M}SCRIPT", "system")
+    assert "<<<" not in seen["p"] and "EVIDENCE" in seen["p"] and "SCRIPT" in seen["p"]
+
+
+def test_editor_caches_evidence_and_report_but_not_the_changing_script(monkeypatch):
+    from newscaster import editor_agent
+    from newscaster.llm.claude import CACHE_BREAK_5M
+    sent = {}
+    monkeypatch.setattr(editor_agent, "get_llm_response", lambda p, **k: sent.setdefault("p", p) or '{"edits": []}')
+    editor_agent._propose_edits("THE SCRIPT", "FLAG: x", "SOURCE: CNBC — https://cnbc.com\nfacts", [])
+    stable, changing = sent["p"].split(CACHE_BREAK_5M)
+    assert "SOURCE: CNBC" in stable and "FLAG: x" in stable and "THE SCRIPT" in changing
