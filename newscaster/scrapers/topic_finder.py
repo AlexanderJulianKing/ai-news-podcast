@@ -317,6 +317,9 @@ def _followup_note(arc_info, ledger, today=None, current_key=None):
     if last.get("headline"):
         note += f", under the headline: \"{strip_arc_tags(last['headline']).strip()}\""
     note += "."
+    phrase = edition.reference_phrase(last["date"], current_key)
+    if phrase:
+        note += f" Refer to it as \"{phrase}\"."
     if known:
         note += f" Listeners already know: {known}"
     return note

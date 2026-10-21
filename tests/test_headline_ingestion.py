@@ -121,8 +121,9 @@ def test_followup_note_says_when_and_how_the_show_covered_it():
 
 def test_roundup_prompt_explains_follow_ups():
     from newscaster.prompts import OVERVIEW_ANCHOR_PROMPT
-    assert "marked FOLLOW-UP" in OVERVIEW_ANCHOR_PROMPT
-    assert "Never present a follow-up as a new, unrelated story" in OVERVIEW_ANCHOR_PROMPT
+    assert "FOLLOW-UP note" in OVERVIEW_ANCHOR_PROMPT
+    assert "Refer to it as" in OVERVIEW_ANCHOR_PROMPT              # use the note's exact words (2026-10-21)
+    assert "DIFFERENT event that only shares a theme" in OVERVIEW_ANCHOR_PROMPT   # not every note is a follow-up
 
 
 def test_side_stories_run_in_parallel_but_keep_their_order(monkeypatch):

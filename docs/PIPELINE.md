@@ -278,9 +278,15 @@ entities and topic; and Luna answers from the accepted excerpts.
 - **Roundup.** Grace reads up to 5 side stories. Stories marked UNVERIFIED are
   left out. The writer sees each story's headline, and a FOLLOW-UP note for any
   story the show covered before (when, whether it led or was in the roundup, and
-  what listeners already know). A follow-up opens with a short tie-back such as
-  "Following up on yesterday's story about…" instead of sounding like a new story. The note names the headline that actually aired, so the writer can't claim the
-  show covered a development it didn't. The writer also gets today's date and leaves
+  what listeners already know). The note names the headline that actually aired, so
+  the writer can't claim the show covered a development it didn't, and gives the exact
+  words for it ("Refer to it as \"last night's story\"": yesterday's, last night's,
+  Monday's, Monday evening's, or this morning's in an evening show). A new development
+  in the same story opens with a tie-back such as "Following up on yesterday's story
+  about…". A different event that only shares a theme (another fire, another AI
+  incident) is told as its own story. Since 2026-10-21: before that, 7 of 14 tie-backs
+  on Oct 16-21 named the wrong time ("this morning's story" for yesterday's), and some
+  opened "Following up on…" and then said the story was separate. The writer also gets today's date and leaves
   out any story whose research shows the main event is more than two days old with
   nothing newer (2026-09-29: a five-day-old Senate vote from Democracy Now's Monday
   front page aired as news).

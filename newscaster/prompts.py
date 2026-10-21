@@ -183,13 +183,19 @@ OVERVIEW_ANCHOR_PROMPT = (
     'vaguely. Never substitute a joke or a turn of phrase for a fact you do not have. '
     # 2026-09-25: the roundup told a follow-up to the previous day's lead (the OpenAI agent
     # that breached an Australian government portal) as "an investigation into a security incident".
-    'Some stories are marked FOLLOW-UP: the show has covered them before. Open that story\'s paragraph '
-    'with one short clause that reminds listeners what the story is and that we covered it, for example '
-    "'Following up on Tuesday\'s story about the Los Angeles transit strike,' and then give the new facts. Never present a follow-up as a new, unrelated story, and never "
-    "refer to it only as 'an incident' or 'the case'. The FOLLOW-UP note names the headline we actually "
-    "aired: tie back to that, and never say we covered something we did not (a new turn in a larger story "
-    "we covered is 'in the Ukraine war, where on Monday we looked at the grain corridor', not 'following up on "
-    "Monday's story about' the new turn). "
+    'Some stories carry a FOLLOW-UP note: the show covered a related story before, under the headline the '
+    'note names. First decide whether this story is a new development in that SAME story (the same event, '
+    'case, decision, or person\'s situation). '
+    "If it is, open its paragraph with one short clause that ties back to it, for example 'Following up on "
+    "yesterday\'s story about the Los Angeles transit strike,' and then give the new facts. Refer to the "
+    "earlier story with exactly the words the note gives after 'Refer to it as' (such as \"last night\'s "
+    "story\" or \"Monday\'s story\"); never call it this morning\'s or this evening\'s story unless the note "
+    "says so. Never refer to it only as 'an incident' or 'the case'. "
+    "If it is a DIFFERENT event that only shares a theme with the earlier story (another fire or storm, another "
+    "AI incident, another arrest in the same dispute), do not call it a follow-up: tell it as its own story, and mention the "
+    "earlier one only if listeners could confuse the two ('this is a different case from the one we covered "
+    "Monday'). A new turn in a larger story we covered is 'in the Ukraine war, where on Monday we looked at "
+    "the grain corridor', not 'following up on Monday\'s story about' the new turn. "
     # 2026-09-29: a five-day-old Senate vote aired as news although its research said so.
     "The input starts with TODAY. If a story's research shows its main event happened more than two days "
     "before today and reports no newer development, leave that story out entirely. "
@@ -563,11 +569,15 @@ EVENING_OUTRO_TEMPLATE = (
 def show_time_note(which=None):
     """One sentence telling a script writer which edition it is writing for."""
     from newscaster import edition
+    # 2026-10-21: "refer to the show as this morning's" was read as covering earlier stories too,
+    # and morning roundups aired "following up on this morning's story" about yesterday's coverage.
     if edition.is_evening(which):
-        return (" This is the evening edition, heard on the drive home: refer to the show as tonight's or "
-                "this evening's, never this morning's.")
-    return (" This is the morning edition, heard in the morning: refer to the show as this morning's, "
-            "never tonight's or this evening's.")
+        return (" This is the evening edition, heard on the drive home: when you mention this broadcast itself, "
+                "call it tonight's or this evening's, never this morning's. Earlier stories keep the timing "
+                "given in their notes.")
+    return (" This is the morning edition, heard in the morning: when you mention this broadcast itself, "
+            "call it this morning's, never tonight's or this evening's. Earlier stories keep the timing given "
+            "in their notes.")
 
 
 def overview_anchor_prompt(which=None):

@@ -48,6 +48,28 @@ def belongs_to(filename, key):
     return key_edition(key) == EVENING or not name.startswith(key + EVENING_SUFFIX + "_")
 
 
+def reference_phrase(prior_key, current_key):
+    """The exact words for an earlier episode's story, as a host would say them on air:
+    "this morning's story", "yesterday's story", "last night's story", "Monday's story",
+    "Monday evening's story", or "the story we covered on October 7". None if unreadable.
+
+    2026-10-21: given only "yesterday" or "2 days ago", the roundup writer aired "this
+    morning's story" for earlier coverage and "Tuesday's story" for Monday's.
+    """
+    then, now = key_date(prior_key), key_date(current_key)
+    if then is None or now is None:
+        return None
+    days = (now - then).days
+    evening = key_edition(prior_key) == EVENING
+    if days == 0:
+        return "this morning's story"
+    if days == 1:
+        return "last night's story" if evening else "yesterday's story"
+    if days < 7:
+        return f"{then.strftime('%A')}{' evening' if evening else ''}'s story"
+    return f"the story we covered on {then.strftime('%B')} {then.day}"
+
+
 def when_spoken(prior_key, current_key):
     """How a script refers back to an earlier episode: 'this morning', 'yesterday evening',
     'yesterday', or 'N days ago'. None if the dates can't be read."""

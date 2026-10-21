@@ -83,3 +83,18 @@ def test_scripts_and_roundup_know_which_edition_they_are():
     assert "evening anchor Grace" in evening and "never this morning" in evening
     assert "morning news anchor" in overview_anchor_prompt("morning") and "never tonight" in overview_anchor_prompt("morning")
     assert "evening news anchor" in overview_anchor_prompt("evening")
+
+
+def test_followup_note_gives_the_exact_words_for_the_earlier_story():
+    # 2026-10-21: notes said "yesterday" / "yesterday evening" / "2 days ago", and morning roundups
+    # aired "Following up on this morning's story" (Oct 15, 17, 20, 21) and a Wednesday aired
+    # "Tuesday's story" for Monday's. The note now spells out what to say.
+    def note(prior_key, today, current_key):
+        led = _arc({"date": prior_key, "coverage": "main", "coverage_slot": 0, "headline": "Quake hits"})
+        return tf._followup_note(("UPDATE", "quake"), led, today=today, current_key=current_key)
+    wed, thu = date(2026, 10, 14), date(2026, 10, 15)
+    assert "Refer to it as \"yesterday's story\"" in note("2026_10_14", thu, "2026_10_15")
+    assert "Refer to it as \"last night's story\"" in note("2026_10_14_pm", thu, "2026_10_15")
+    assert "Refer to it as \"Monday's story\"" in note("2026_10_12", wed, "2026_10_14")
+    assert "Refer to it as \"Monday evening's story\"" in note("2026_10_12_pm", wed, "2026_10_14")
+    assert "Refer to it as \"this morning's story\"" in note("2026_10_14", wed, "2026_10_14_pm")
