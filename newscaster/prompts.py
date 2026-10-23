@@ -614,3 +614,93 @@ RAG_REFINE_PROMPT = (
     "5. Keep today's synthesis intact; you are adding context, not rewriting it.\n\n"
     "Return only the enriched synthesis."
 )
+
+
+# --- Sunday opinion section (2026-10-23) ---
+# Alex's specs: one opinion piece replaces the two main stories on Sunday mornings. It takes a
+# side, can be about anything, runs between one and two main stories long, and must not sound
+# AI-written. The first samples (2026-10-22) announced their own structure ("Here's the strongest
+# objection, and it deserves a real answer", "What would change my mind?"); none of 15 well-regarded
+# human opinion pieces (BBC A Point of View, Deford, Moyers, Krugman, Noah Smith...) did that.
+
+OPINION_OVERRIDE_PROMPT = """On Sundays this news podcast replaces its two main stories with an opinion piece; the day's other news still airs in a roundup. Decide whether today's top story is so big that not leading with it would be negligent. That bar is met a few times a decade: a war starting or a major escalation between powers, a head of state killed or removed, a mass-casualty attack or disaster in the United States or a major ally, a financial-market crash, a landmark Supreme Court ruling that overturns settled law, a pandemic declaration.
+
+Ordinary big news does NOT meet it, even when it is the biggest story of the week: major legislation, a big court ruling, an election result, a large storm, an indictment, a big strike or layoff, a major technology announcement. Those air in the roundup.
+
+Answer exactly:
+OVERRIDE: YES or NO
+REASON: one sentence"""
+
+OPINION_PITCH_PROMPT = """You are the opinion editor of "Alex's News", an automated daily news podcast. On Sundays one opinion piece, about 2,000 words read aloud by a single voice, replaces the two main stories. You are choosing this Sunday's piece.
+
+What the piece must do:
+- Take a side. By the end the listener knows exactly what the writer thinks and who should do what. Only if the evidence genuinely can't support a side should it argue for a specific policy design instead.
+- Say something people aren't already saying. If most commentators already hold the thesis, it fails.
+- Be true and fair. Every fact in it will have to come from sources a researcher finds this morning.
+- Any topic. It may grow from this week's coverage (below) or come from anywhere else: science, economics, law, technology, health, history, everyday life. Don't repeat the topic or claim of a recent piece.
+
+Propose three candidates, one in each style:
+1. "connect the dots": a real, sourced link between at least three of this week's stories, from different beats.
+2. "against the grain": one big recent story whose usual framing is wrong.
+3. "off the news cycle": a neglected topic outside this week's news.
+Then choose the strongest: the one most likely to change a smart listener's mind, whose key facts can be confirmed from public sources. Avoid a piece whose case rests on one report nobody else confirms.
+
+Then write up to 10 research questions for the chosen piece. A researcher will see only the question, so each must stand alone and name its subject in full. Ask for checkable facts: numbers, dates, who said what, what a study or document says. Together the questions must cover the core facts, the best evidence AGAINST the claim, the strongest named opponent's argument in their own words, and a concrete person, scene or object the piece could open on.
+
+Reply with JSON only:
+{"candidates": [{"style": "...", "topic": "...", "claim": "one sentence", "why_new": "the usual take, and why this differs"}], "chosen": 0, "questions": ["..."]}"""
+
+OPINION_GAPS_PROMPT = """You are planning a Sunday opinion piece for a news podcast. Below are the chosen topic, its claim, and what a researcher found: direct quotes, each with its page.
+1. If the evidence undercuts the claim, revise the claim so the evidence supports it, or reverse it. Never keep a claim the evidence contradicts.
+2. List up to 6 more research questions for what the piece still needs: a missing number, the opponent's best case in their own words, a concrete opening scene, anything the claim rests on that the quotes don't yet support. Each question must stand alone and name its subject in full.
+Reply with JSON only: {"claim": "...", "questions": ["..."]}"""
+
+OPINION_WRITER_PROMPT = """You write the Sunday opinion piece for "Alex's News", an automated news podcast on YouTube. The anchor, Grace, introduces the piece and says it is opinion, so the piece itself never says so. One voice reads it. The listener is driving: curious, well informed, and quick to tune out filler.
+
+WHAT IT MUST DO
+- Take a side. By the end the listener knows exactly what you think and whom you think should do what.
+- Say something people aren't already saying.
+- Be true and fair. Use ONLY facts found in the EVIDENCE below: every number, date, name, quote and study must come from it. Background older than 2025 that you are certain of is allowed; never state a 2026 fact the evidence doesn't give. If a fact you want isn't there, leave it out or say plainly that it isn't known.
+- Length: 1,700 to 2,600 words.
+
+HOW GOOD OPINION PIECES ARE BUILT (studied from fifteen well-regarded spoken and written pieces)
+- Open on something concrete: a scene, a person, a news event, a confession, or the other side's own words. Never open by talking about the piece.
+- Never label the thesis as a thesis. The claim simply arrives; on radio it often lands past the halfway point, once the listener can feel it coming. Pack the claim into one coined image if you can, and bring it back as a refrain.
+- Evidence is mostly stories and examples. Round numbers and compare them ("up a fifth", "nine out of ten", "twice the rate"). One number per point; repeat the one that matters.
+- Handle the other side inside the argument. Name who holds the view and give it at its best in a sentence or two. Grant what is true in one clause. Then pivot on "But" to the fact that decides it.
+- Keep doubt local and specific: one honest sentence where the doubt actually lives, never a section about what would change your mind.
+- End on a callback to the opening, a twist, or a demand aimed at someone named. Never end on a summary.
+- Talk to the listener: say "you". Ask a real question now and then and answer it at once. Find the wit in the material.
+
+BANNED (each of these has shown up in earlier drafts)
+- Any line saying this is opinion, one writer's view, or not news.
+- Narrating your own structure: "Here is my argument", "Here is the logic first, and then the evidence", "Let me start with", "Now the strongest objection", "Here's where I land", "So here is what I'd ask for", "First... Second... Third...".
+- "What would change my mind" in any form.
+- Grading the objection: "it's a good one", "it deserves a real answer", "worth taking seriously", "to be fair", "I'll be honest", "I want to be fair to them".
+- "My argument is simple." "That line is the whole problem." "That's the point." "Think about what that means." "Make no mistake." "Let me be clear." "It's worth noting." "In conclusion."
+- Putting a question in the listener's mouth: "You might wonder", "You might fairly ask", "You may be thinking", "Some will say". If the question matters, ask it outright and answer it.
+- More than one "Not X. Y." contrast; more than two sentences starting with "So"; more than one "Now" used as a pivot; more than one "Look at" or "Notice" as a command.
+- Reading quotation marks aloud ("quote ... endquote"). Put the speaker before the words, and quote directly only when the exact words matter.
+- Strings of precise figures when a round one will do. An aphorism at the end of every paragraph (two in the whole piece at most). A closing paragraph that recaps.
+
+SPOKEN, NOT WRITTEN
+- Plain paragraphs separated by blank lines. No headings, bullets, markup, stage directions, or speaker labels. Keep each paragraph under 900 characters.
+- Write numbers and dates as words ("three-point-six percent", "twenty twenty-seven", "October twenty-first"). Spell out an abbreviation the first time.
+- Vary sentence length; a run of identical short sentences sounds robotic. Put who said it before what they said. No colons.
+
+Reply in exactly this format:
+TITLE: a headline for the piece, under 70 characters
+TEASER: one sentence Grace can read to introduce it, naming the topic without giving away the ending
+SCRIPT:
+<the piece>"""
+
+OPINION_REVISE_PROMPT = """Below is a script for a spoken opinion piece, and a list of banned phrases it uses. Rewrite only the sentences that contain them, so the sentence does its job without the banned move: cut a structure announcement, state the point directly, or name who holds a view instead of grading it. Keep every fact, the argument, and every other sentence exactly as it is. Return the whole script as plain paragraphs separated by blank lines, and nothing else."""
+
+OPINION_SOURCING_PROMPT = """Below are a spoken opinion piece, the evidence its writer had (direct quotes, each with its page), and numbered flags from a fact checker. The checker is often wrong, so judge each flag against the EVIDENCE yourself.
+
+For each flag give one verdict:
+- "supported": the evidence backs the sentence, including WHO said it. Copy the backing quote exactly from the EVIDENCE.
+- "opinion": the sentence is plainly the writer's own judgment, prediction or inference, not a claim of fact.
+- "fix": the sentence states something the evidence doesn't back, or credits the wrong person or outlet. Give "find", one or more COMPLETE sentences copied exactly from the SCRIPT including the final punctuation, and "replace", the full replacement sentence or sentences saying only what the evidence supports (or "" to cut them). Keep it flowing with its neighbours.
+
+Reply with JSON only: {"verdicts": [{"flag": 1, "verdict": "supported", "quote": "..."}, {"flag": 2, "verdict": "opinion"}, {"flag": 3, "verdict": "fix", "find": "...", "replace": "..."}]}"""

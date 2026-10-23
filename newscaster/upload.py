@@ -157,6 +157,9 @@ def initialize_upload(youtube, options):
         "So I made a news podcast that circumvents these perverse incentives and distills out the important stories. \n"
         "Every day, an LLM will pick out news stories: one it deems the most important to the american people, and one it deems the most important to the average Californian. Additionally, it briefly goes over other stories that may be of general interest. \n\n"
     )
+    if first_title.startswith("Opinion:"):
+        real_description += ("On Sundays an opinion piece replaces the two main stories. It is an argument, written by "
+                             "Claude Opus 5.5 from sourced research and fact-checked, not news reporting.\n\n")
     print('real_description', type(real_description), real_description)
 
     tags_prompt = "Based on this description, please make 6 tags for a YouTube video with a mix of broad tags and specific tags. For example: Broad tags: 'fitness', 'workouts' Specific tags: 'how to do a pushup', 'proper pushup form'. Only give the tags and separate by comma.\n\nDescription: " + real_description

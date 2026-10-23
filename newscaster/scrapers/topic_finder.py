@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 import newscaster.config as _config
-from newscaster import edition
+from newscaster import edition, opinion
 from newscaster.logging import print_and_write
 from newscaster.text_utils import _grounded_response_needs_retry
 from newscaster.prompts import (
@@ -81,6 +81,7 @@ class TopicFinderResult:
     ledger: dict = field(default_factory=dict)
     side_story_briefs: list = field(default_factory=list)
     topic_links: list = field(default_factory=list)   # per topic: its Tier-2 brief's cited pages
+    opinion: bool = False   # Sunday opinion section: no main stories; the main picks lead the roundup
 
 
 def _today_str():
@@ -710,6 +711,13 @@ def _research_headline_brief(headline, formatted_date, with_links=False):
 _LINK_MATCH_MIN = 0.5
 
 
+def _best_brief(headline, briefs):
+    """The Tier-2 brief whose headline shares the most words with this one ('' if none share any)."""
+    want = _story_tokens(headline)
+    best = max(briefs or [], key=lambda b: len(want & _story_tokens(b[0])), default=None)
+    return best[1] if best and want & _story_tokens(best[0]) else ""
+
+
 def links_for_topic(topic, briefs, brief_links):
     """The source links of the Tier-2 brief a picked story came from, or [] if none matches clearly."""
     # Tier 3 sometimes prefixes a label ("Most Important Story for Californians: ..."); its words
@@ -1115,6 +1123,18 @@ def topic_finder(formatted_date):
     overview_candidates = _filter_overview_candidates(
         overview, [important_headline, everyman_headline], headline_arc_map, ledger
     )
+
+    # Sunday opinion section: unless today's top story is once-in-years big, the opinion piece
+    # takes the main stories' place and the two main picks lead the roundup instead.
+    opinion_mode = False
+    if opinion.is_opinion_day(today):
+        top = important_headline.strip('"').strip("'").strip()
+        opinion_mode = not opinion.breaking_override(
+            strip_arc_tags(top), _best_brief(top, briefs), [s['headline'] for s in scored[:10]])
+        print_and_write(f"OPINION SUNDAY: {'opinion piece replaces the main stories' if opinion_mode else 'breaking story; normal show'}")
+        if opinion_mode:
+            overview_candidates = opinion.roundup_with_mains(
+                [top, everyman_headline.strip('"').strip("'").strip()], overview_candidates)
     overview = '\n'.join(f'- {headline}' for headline in overview_candidates)
 
     overview_raw, overview_headlines, overview_briefs, overview_arc_infos = overview_process(
@@ -1141,69 +1161,70 @@ def topic_finder(formatted_date):
     important_clean = strip_arc_tags(important_raw)
     everyman_clean = strip_arc_tags(everyman_raw)
 
-    topics = [important_clean, everyman_clean]
+    topics = [] if opinion_mode else [important_clean, everyman_clean]
     topic_links = [links_for_topic(t, briefs, brief_links) for t in topics]
     for t, links in zip(topics, topic_links):
         print_and_write(f'Brief links for "{t[:80]}": {len(links)}')
     print_and_write()
     print_and_write(topics)
 
-    filename = "stories_chosen/{}_stories_chosen.txt".format(formatted_date2)
-    outstring = important_clean + ', ' + everyman_clean
-    with open(filename, 'w', encoding='utf-8') as outfile:
-        outfile.write(outstring)
-
-    # --- Legacy story summaries (secondary record) ---
-    story_summaries = []
-    try:
-        important_summary = summarize_story_for_archive(important_clean, important_response)
-    except Exception as error:
-        print_and_write('Failed to summarize important story', error)
-        important_summary = important_response.strip() if isinstance(important_response, str) else important_clean
-    story_summaries.append({
-        "headline": important_clean,
-        "summary": important_summary,
-        "type": "important",
-    })
-    try:
-        everyman_summary = summarize_story_for_archive(everyman_clean, everyman_topic_response)
-    except Exception as error:
-        print_and_write('Failed to summarize everyman story', error)
-        everyman_summary = everyman_topic_response.strip() if isinstance(everyman_topic_response, str) else everyman_clean
-    story_summaries.append({
-        "headline": everyman_clean,
-        "summary": everyman_summary,
-        "type": "everyman",
-    })
-    summary_filename = "stories_chosen/{}_story_summaries.json".format(formatted_date2)
-    try:
-        with open(summary_filename, 'w', encoding='utf-8') as summary_file:
-            json.dump({
-                "date": today.isoformat(),
-                "stories": story_summaries,
-            }, summary_file, ensure_ascii=False, indent=2)
-        print_and_write('Wrote story summaries to', summary_filename)
-    except IOError as error:
-        print_and_write('Failed to write story summaries', error)
-
-    # --- Ledger updates ---
     arc_context = []  # parallel to topics: [arc_dict_for_slot_0, arc_dict_for_slot_1]
-    main_stories_info = [
-        (important_clean, important_summary, important_arc_info, 0),
-        (everyman_clean, everyman_summary, everyman_arc_info, 1),
-    ]
-    for headline, summary, arc_info, slot in main_stories_info:
-        if arc_info:
-            tag_type, slug = arc_info
-            if slug in ledger["arcs"]:
-                update_arc(ledger, slug, headline, "main", slot, formatted_date2)
-                arc_context.append(ledger["arcs"][slug])
+    if not opinion_mode:   # on an opinion Sunday the main picks are roundup items, recorded below as side stories
+        filename = "stories_chosen/{}_stories_chosen.txt".format(formatted_date2)
+        outstring = important_clean + ', ' + everyman_clean
+        with open(filename, 'w', encoding='utf-8') as outfile:
+            outfile.write(outstring)
+
+        # --- Legacy story summaries (secondary record) ---
+        story_summaries = []
+        try:
+            important_summary = summarize_story_for_archive(important_clean, important_response)
+        except Exception as error:
+            print_and_write('Failed to summarize important story', error)
+            important_summary = important_response.strip() if isinstance(important_response, str) else important_clean
+        story_summaries.append({
+            "headline": important_clean,
+            "summary": important_summary,
+            "type": "important",
+        })
+        try:
+            everyman_summary = summarize_story_for_archive(everyman_clean, everyman_topic_response)
+        except Exception as error:
+            print_and_write('Failed to summarize everyman story', error)
+            everyman_summary = everyman_topic_response.strip() if isinstance(everyman_topic_response, str) else everyman_clean
+        story_summaries.append({
+            "headline": everyman_clean,
+            "summary": everyman_summary,
+            "type": "everyman",
+        })
+        summary_filename = "stories_chosen/{}_story_summaries.json".format(formatted_date2)
+        try:
+            with open(summary_filename, 'w', encoding='utf-8') as summary_file:
+                json.dump({
+                    "date": today.isoformat(),
+                    "stories": story_summaries,
+                }, summary_file, ensure_ascii=False, indent=2)
+            print_and_write('Wrote story summaries to', summary_filename)
+        except IOError as error:
+            print_and_write('Failed to write story summaries', error)
+
+        # --- Ledger updates ---
+        main_stories_info = [
+            (important_clean, important_summary, important_arc_info, 0),
+            (everyman_clean, everyman_summary, everyman_arc_info, 1),
+        ]
+        for headline, summary, arc_info, slot in main_stories_info:
+            if arc_info:
+                tag_type, slug = arc_info
+                if slug in ledger["arcs"]:
+                    update_arc(ledger, slug, headline, "main", slot, formatted_date2)
+                    arc_context.append(ledger["arcs"][slug])
+                else:
+                    new_slug = create_arc(ledger, headline, "main", slot, formatted_date2, summary)
+                    arc_context.append(ledger["arcs"][new_slug])
             else:
                 new_slug = create_arc(ledger, headline, "main", slot, formatted_date2, summary)
                 arc_context.append(ledger["arcs"][new_slug])
-        else:
-            new_slug = create_arc(ledger, headline, "main", slot, formatted_date2, summary)
-            arc_context.append(ledger["arcs"][new_slug])
 
     # Archive side stories in ledger
     for i, (oh_headline, oh_brief) in enumerate(overview_briefs):
@@ -1237,4 +1258,5 @@ def topic_finder(formatted_date):
         ledger=ledger,
         side_story_briefs=overview_briefs,
         topic_links=topic_links,
+        opinion=opinion_mode,
     )

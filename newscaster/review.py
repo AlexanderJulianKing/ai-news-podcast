@@ -172,7 +172,26 @@ def _segment_research_excerpts(date2: str, idx: int) -> list[str]:
             excerpt = source.get("excerpt")
             if excerpt:
                 excerpts.append(_source_label(source.get("title"), source.get("url")) + "\n" + excerpt)
+        excerpts.extend(_verified_findings(followup))
     return _dedupe_texts(excerpts)
+
+
+_FINDING_RE = re.compile(r'^- "(.+)" \[(\S+)\]\s*$', re.M)
+
+
+def _verified_findings(followup: dict) -> list[str]:
+    """The research tool's quotes, which code found on the page, grouped by page and labeled.
+
+    2026-10-23: a page's saved excerpt is capped at 4,000 characters around its quotes, so with
+    several quotes from one page the later ones fell outside it, and the fact check flagged
+    verified figures (a CalMatters estimate, the governor's housing count) as unsourced.
+    """
+    titles = {s.get("url"): s.get("title") for s in followup.get("source_hunter_sources") or [] if isinstance(s, dict)}
+    by_url: dict[str, list[str]] = {}
+    for quote, url in _FINDING_RE.findall(str(followup.get("answer") or "")):
+        by_url.setdefault(url, []).append(quote)
+    return [_source_label(titles.get(url) or url, url) + " (verified quotes)\n" + "\n".join(f'"{q}"' for q in quotes)
+            for url, quotes in by_url.items()]
 
 
 def _segment_article_sources(date2: str, idx: int) -> list[str]:
@@ -518,6 +537,27 @@ def _ask_for_flags(label, user_prompt, system_prompt, mode):
     return []
 
 
+_FAITHFULNESS_MAX_CORPUS = 160000
+
+
+def _fit_corpus(script: str, corpus: str, max_chars: int) -> str:
+    """The corpus itself if it fits; otherwise the source chunks sharing the most words with the script,
+    in their original order. 2026-10-23: cutting at a fixed length dropped the end of a 188,000-character
+    opinion corpus, and the check then flagged a CalMatters figure that was in the dropped part."""
+    if len(corpus) <= max_chars:
+        return corpus
+    want = _content_tokens(script)
+    chunks = _source_chunks(corpus)
+    ranked = sorted(range(len(chunks)), key=lambda i: -len(want & _content_tokens(chunks[i])))
+    keep, used = set(), 0
+    for i in ranked:
+        if used + len(chunks[i]) + 2 > max_chars:
+            continue
+        keep.add(i)
+        used += len(chunks[i]) + 2
+    return "\n\n".join(chunks[i] for i in sorted(keep))
+
+
 def faithfulness_flags(script_text: str, corpus_text: str, mode: str = "advanced") -> list[str]:
     """LLM faithfulness pass: flag script statements that contradict or aren't supported by the sources.
 
@@ -535,7 +575,7 @@ def faithfulness_flags(script_text: str, corpus_text: str, mode: str = "advanced
     if not corpus or not script:
         return []
     prompt = (
-        f"SOURCE MATERIAL:\n{corpus[:160000]}\n\n---\n\nSCRIPT:\n{script}\n\n---\n\n"
+        f"SOURCE MATERIAL:\n{_fit_corpus(script, corpus, _FAITHFULNESS_MAX_CORPUS)}\n\n---\n\nSCRIPT:\n{script}\n\n---\n\n"
         "List contradictions, conflations, misattributions, and unsupported claims as 'FLAG: ...' lines, or 'NONE'."
     )
     return _ask_for_flags("FAITHFULNESS", prompt, _FAITHFULNESS_SYSTEM, mode)

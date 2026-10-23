@@ -48,3 +48,18 @@ def intro_writer(formatted_date, weather_string, topics, formatted_date2, storie
         _log_label='intro2-narration',
     )
     return intro1, intro2
+
+
+def opinion_intro(formatted_date, weather_string, piece):
+    """An opinion Sunday's intro: Grace's greeting and weather, then the opinion piece and the roundup.
+    piece is opinion.write_opinion()'s {"title", "teaser"}, or None if the writer failed."""
+    intro1 = greeting(formatted_date)
+    intro_prompt = INTRO_PROMPT_TEMPLATE.format(
+        intro1=intro1, date=formatted_date, weather=weather_string, weather_example=MORNING_WEATHER_EXAMPLE)
+    if piece:
+        lineup = f"Our Sunday opinion section: {piece['teaser']}\nThen the rest of the news in our roundup.\n"
+    else:
+        lineup = "This Sunday, the latest headlines in our roundup.\n"
+    intro2 = call_with_default(f"On the program today: {lineup}", lineup,
+                               system_prompt=intro_prompt, _log_label='intro2-narration')
+    return intro1, intro2

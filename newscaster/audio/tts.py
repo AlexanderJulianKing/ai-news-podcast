@@ -96,6 +96,16 @@ def google_speak(name, text, filename):
 
     text = text_cleaner(text)
 
+    if name == 'Opinion':
+        # The Sunday opinion voice is Gemini TTS; Chirp3-HD Schedar steps in if it fails.
+        try:
+            from newscaster.audio import gemini_tts
+            gemini_tts.speak(text, filename)
+            normalize_loudness(filename)
+            return
+        except Exception as e:
+            print_and_write(f"Opinion voice (Gemini) failed: {e!r:.200}; using {_config.OPINION_FALLBACK_VOICE}")
+
     client = texttospeech.TextToSpeechClient()
     if name == 'Elias':
         robo_name = "en-US-Studio-M"
@@ -105,6 +115,8 @@ def google_speak(name, text, filename):
         robo_name = 'en-US-Chirp3-HD-Aoede'
     elif name == 'Ethan':
         robo_name = 'en-US-Chirp3-HD-Fenrir'
+    elif name == 'Opinion':
+        robo_name = _config.OPINION_FALLBACK_VOICE
 
     input_text = texttospeech.SynthesisInput(text=text)
 
@@ -185,8 +197,19 @@ def google_speak(name, text, filename):
     return
 
 
+def split_speaker(line, voices_list, current):
+    """("Ethan: Good morning." -> ("Ethan", "Good morning.")). A line without a known speaker keeps
+    the current one and all of its words. Before 2026-10-23 the line was split on every colon and
+    anything after the second was dropped, so "a name only Congress could love: PASTEUR" lost words."""
+    if ':' in line:
+        head, rest = line.split(':', 1)
+        if head.strip().capitalize() in voices_list:
+            return head.strip().capitalize(), rest.strip()
+    return current, line.strip()
+
+
 def text2speech(date_str, voices_list):
-    voices_list = list(voices_list) + ['Connie']
+    voices_list = list(voices_list) + ['Connie', 'Opinion']
     OUTPUT_PATH = 'segment_audio/' + date_str
 
     speaker = 'Grace'
@@ -208,23 +231,7 @@ def text2speech(date_str, voices_list):
                         thing = line_list[j]
                         print_and_write(thing)
 
-                        if ':' in thing:
-                            thing = thing.split(':')
-                            print_and_write(thing)
-                            speaker1 = thing[0].capitalize()
-                            if speaker1 in voices_list:
-                                speaker = speaker1
-                                text = ''
-                            else:
-                                text = speaker1
-                            if len(thing) > 2:
-                                text = text + thing[1] + thing[2]
-                            elif len(thing) == 2:
-                                text = text + thing[1]
-                            else:
-                                text = thing[0]
-                        else:
-                            text = thing
+                        speaker, text = split_speaker(thing, voices_list, speaker)
 
                         if text.strip().startswith('[') and text.strip().endswith(']'):
                             continue

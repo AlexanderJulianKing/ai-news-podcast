@@ -63,5 +63,5 @@ def test_text2speech_speaks_bracketed_quote_clarification(tmp_path, monkeypatch)
     tts.text2speech(date2, ["Grace", "Chloe"])
 
     spoken_texts = [text for _, text, _ in calls]
-    assert " Robinson allegedly said he had enough of Kirk's hatred." in spoken_texts
+    assert "Robinson allegedly said he had enough of Kirk's hatred." in spoken_texts
     assert all("[pause]" not in text for text in spoken_texts)

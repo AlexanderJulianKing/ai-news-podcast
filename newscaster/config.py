@@ -136,6 +136,20 @@ OFF_THE_WIRE_BANK_PATH = "theme_song/off_the_wire/steinway_bank_48k.npz"
 ROUNDUP_BED_ENABLED = True
 ROUNDUP_BED_ASSETS = "theme_song/elsewhere/elsewhere_assets.npz"
 
+# --- Sunday opinion section (newscaster/opinion.py, 2026-10-23) ---
+# Sunday mornings: one opinion piece, written by Opus, replaces the two main stories; the main picks
+# join the roundup. A once-in-years story keeps the normal show. Read by Gemini TTS (Alex judged it
+# "miles better" than Chirp3-HD on 2026-10-22); Chirp3-HD Schedar if Gemini fails.
+OPINION_SUNDAY_ENABLED = True
+OPINION_HISTORY_PATH = "stories_chosen/opinion_history.json"
+OPINION_TTS_MODEL = "gemini-3.8-flash-lite-tts"   # Gemini API only; not on the Cloud TTS API
+OPINION_VOICE = "Schedar"
+OPINION_FALLBACK_VOICE = "en-US-Chirp3-HD-Schedar"
+OPINION_TTS_DIRECTION = ("Style: a seasoned radio essayist delivering a Sunday opinion column. Conversational, "
+                         "confident, unhurried, with dry, understated wit. Let the jokes land lightly; give the "
+                         "last sentence a little weight.")
+OPINION_TTS_CHECK_MODEL = "gemini-3.1-flash-lite"   # transcribes each render to catch skipped or repeated words
+
 # --- Fact-finder auto-edit (agentic editor: fix confirmed factual errors before TTS) ---
 FACT_FINDER_AUTOEDIT_ENABLED = True
 FACT_FINDER_AUTOEDIT_MAX_ROUNDS = 3

@@ -39,6 +39,50 @@ morning's stories as earlier coverage:
 - A morning story can return in the evening roundup as a follow-up ("this
   morning..."), and the next morning refers back to "yesterday evening".
 
+### The Sunday opinion section
+
+Added 2026-10-23 (`newscaster/opinion.py`). On Sunday mornings, one opinion piece
+replaces the two main stories, and the roundup follows as usual.
+
+- **The override.** After the main stories are picked, Opus asks one question: is
+  today's top story so big that not leading with it would be negligent? The bar is
+  something like a war starting, a head of state killed, or a market crash. If the
+  answer is yes, the normal show runs. If the check fails, the normal show runs too.
+  - Test (2026-10-23): it said no on 79 past mornings out of 79. It said yes on 5
+    made-up once-in-years events out of 5.
+- **The main picks still air.** When the override says no, the two main picks lead
+  the roundup instead. The ledger records them as side stories, so they stay
+  eligible to lead on Monday.
+- **How the piece is written:**
+  1. Opus pitches three pieces in different styles against the week's coverage
+     and the earlier pieces (`stories_chosen/opinion_history.json`), then picks one.
+  2. The tool-using researcher answers up to 10 questions.
+  3. Opus revises the claim to fit the evidence and asks up to 6 more.
+  4. Opus writes from that evidence alone, under `OPINION_WRITER_PROMPT`.
+  5. A list of banned phrases catches AI-isms, which are rewritten. That list is
+     based on 15 well-regarded opinion pieces, and the AI tics are ones Alex
+     flagged in the first samples.
+  6. A self-check runs the faithfulness pass twice against the writer's own quotes.
+     Opus then rules on each flag: supported (quoting the evidence), opinion, or a
+     whole-sentence fix, which code applies. Most flags are false alarms. In the
+     rehearsal, about 9 of 11 came from the checker missing a quote that was there.
+
+  Each stage is saved in `segment_summaries/<key>_opinion_state.json`, so a retry
+  doesn't pay twice.
+- **Fact check.** The evidence is saved as slot 0's research record, so the usual
+  fact check and editor check the piece.
+- **Voice.** Grace introduces it with a disclaimer: it was written by an AI model, and
+  it doesn't necessarily reflect Alex's views or the program's. The voice "Opinion" reads it:
+  Gemini 3.8 Flash-Lite TTS with the voice Schedar (`newscaster/audio/gemini_tts.py`).
+  Gemini returns a whole WAV file, which ends in a C2PA content-credentials block, so
+  only its samples are read. Reading the file as raw audio made a click and a burst
+  of noise around every paragraph. Each render is transcribed and compared with its
+  text, and redone up to twice if it's garbled, which happens to about one paragraph
+  in ten. If Gemini fails, or garbles a paragraph on every try, Chirp3-HD Schedar
+  reads it.
+- **If the writer fails twice,** the episode airs as intro, roundup and outro.
+- **Turn it off** with `OPINION_SUNDAY_ENABLED = False`.
+
 The evening show greets with "Good evening". Its weather covers only Temecula's
 evening and overnight, plus rain from now on. Its title reads "October 9, 2026
 Evening - ...". Gathering is the same as the morning's: the 24-hour feed windows

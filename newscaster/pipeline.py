@@ -24,7 +24,7 @@ from newscaster.scrapers.topic_finder import result_piper
 from newscaster.dedup import update_audience_learned, save_ledger
 from newscaster.weather import get_daily_temp
 from newscaster.script.headlines import story_gatherer, headline_maker
-from newscaster.script.intro import intro_writer
+from newscaster.script.intro import intro_writer, opinion_intro
 from newscaster.script.segments import segments_writer
 from newscaster.rag.indexer import index_day, build_research_record
 from newscaster.rag.retrieve import retrieve_prior_research
@@ -336,7 +336,7 @@ def gather_news(formatted_date, formatted_date2):
     # Otherwise an all-failed transient becomes sticky: the next run sees the
     # marker, returns the manifest, and write_scripts then loops forever
     # against zero summaries (it can't write SCRIPTS_COMPLETE either).
-    if stories:
+    if stories or getattr(tf_result, "opinion", False):   # an opinion Sunday has no main stories by design
         _atomic_write_text(marker_path, formatted_date2)
     else:
         print_and_write(
@@ -778,6 +778,37 @@ def write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list,
         )
 
 
+def write_opinion_scripts(formatted_date, formatted_date2, formatted_date3):
+    """Stage 2 on an opinion Sunday: the opinion segment, then the intro and outro around it.
+
+    If the writer fails twice the episode still airs, as intro, roundup and outro: main2.bash's
+    retries keep the gather files, so they would only fail the same way.
+    """
+    marker_path = "output_scripts/{}_SCRIPTS_COMPLETE.flag".format(formatted_date2)
+    if os.path.exists(marker_path):
+        print_and_write(f"Scripts already complete for {formatted_date2} (marker exists); skipping")
+        return
+    from newscaster import opinion
+
+    piece = None
+    for attempt in (1, 2):
+        try:
+            piece = opinion.write_opinion(formatted_date2, formatted_date)
+            break
+        except Exception as e:
+            print_and_write(f"OPINION FAILURE (attempt {attempt}/2): {e!r:.300}")
+    if piece is None:
+        print_and_write("OPINION FAILURE: airing the roundup without an opinion piece")
+        with open('episode_titles/{}.txt'.format(formatted_date2), 'w', encoding='utf-8') as f:
+            f.write("The week's headlines")
+
+    weather_string = get_daily_temp()
+    intro1, intro2 = opinion_intro(formatted_date3, weather_string, piece)
+    for name, text in (("intro1", intro1), ("intro2", intro2), ("outro", outro_for())):
+        _atomic_write_text('output_scripts/{}_{}.txt'.format(formatted_date2, name), text)
+    _atomic_write_text(marker_path, formatted_date2)
+
+
 def make_intro(formatted_date2):
     """The day's intro: 'Off the Wire' when enabled, the classic theme otherwise or if it fails."""
     from newscaster.audio.intro_music import fun_intromaker
@@ -840,7 +871,10 @@ def main():
     print_and_write(formatted_date3)
 
     tf_result = gather_news(formatted_date, formatted_date2)
-    write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list, tf_result=tf_result)
+    if getattr(tf_result, "opinion", False):
+        write_opinion_scripts(formatted_date, formatted_date2, formatted_date3)
+    else:
+        write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list, tf_result=tf_result)
     try:
         from newscaster import review
         review.review_and_revise_scripts(formatted_date2)
