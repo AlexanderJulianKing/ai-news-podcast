@@ -255,6 +255,19 @@ MORNING_WEATHER_EXAMPLE = (
 EVENING_WEATHER_EXAMPLE = (
     "For the drive home, Temecula is about seventy-four this evening, cooling to an overnight low of sixty-two."
 )
+WEEKEND_WEATHER_EXAMPLE = (
+    "Temecula will reach eighty-eight degrees today, about seventy-eight at midday and eighty-four by five, cooling "
+    "to about seventy this evening with an overnight low of fifty-three."
+)
+
+
+def weather_example(which=None, day=None):
+    """The intro prompt's weather example: the commute on weekday mornings, Temecula alone otherwise."""
+    from datetime import date
+    from newscaster import edition
+    if edition.is_evening(which):
+        return EVENING_WEATHER_EXAMPLE
+    return WEEKEND_WEATHER_EXAMPLE if (day or date.today()).weekday() >= 5 else MORNING_WEATHER_EXAMPLE
 
 INTRO_PROMPT_TEMPLATE = (
     "Pretend you are a scriptwriter for a daily news podcast called Alex's News. Write the text that the anchor will read "

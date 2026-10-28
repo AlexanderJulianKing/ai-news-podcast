@@ -87,22 +87,25 @@ def describe(forecasts, now=None, edition=None):
     """Build the weather clause from {place: forecast JSON}. `now` is injectable for tests.
 
     The evening edition plays on the drive home, so it gives only Temecula's evening
-    and overnight numbers, and rain from now on.
+    and overnight numbers, and rain from now on. Weekends have no commute, so the whole
+    day is Temecula's (Alex, 2026-10-28).
     """
     from newscaster import edition as _edition
     evening = _edition.is_evening(edition)
     now = now or datetime.now(LOCAL_TZ)
     today = now.date()
+    weekend = today.weekday() >= 5 and not evening
     slots_by_place = {place: _slots(data) for place, data in forecasts.items() if data}
-    if evening:
+    if evening or weekend:
         slots_by_place = {NIGHT_PLACE: slots_by_place[NIGHT_PLACE]} if NIGHT_PLACE in slots_by_place else {}
+    day_place = NIGHT_PLACE if weekend else DAY_PLACE
     parts = []
 
-    day_slots = None if evening else slots_by_place.get(DAY_PLACE)
+    day_slots = None if evening else slots_by_place.get(day_place)
     if day_slots:
         daytime = [s for s in day_slots if s[0].date() == today]
         if daytime:
-            text = "in {} today the high will be {} degrees".format(DAY_PLACE, round(max(s[3] for s in daytime)))
+            text = "in {} today the high will be {} degrees".format(day_place, round(max(s[3] for s in daytime)))
             midday = _nearest(daytime, datetime.combine(today, time(12), tzinfo=LOCAL_TZ))
             five = _nearest(daytime, datetime.combine(today, time(17), tzinfo=LOCAL_TZ))
             if midday and five:
@@ -119,6 +122,8 @@ def describe(forecasts, now=None, edition=None):
             if evening_slot:
                 text = "{} {} it will be about {} this evening, with an overnight low of {} degrees".format(
                     "in" if evening else "back in", NIGHT_PLACE, round(evening_slot[1]), round(min(s[2] for s in overnight)))
+            if weekend and parts:          # the same place all day: no "back in Temecula"
+                text = text.split(NIGHT_PLACE + " ", 1)[1]
             parts.append(text)
 
     if not parts:

@@ -46,3 +46,5 @@ benchmarks/tier_swap/data/
 benchmarks/tier_swap/*.log
 theme_song/elsewhere/*.npz
 theme_song/elsewhere/render_part
+theme_song/bebop_lab/*.npz
+theme_song/bebop_lab/out/

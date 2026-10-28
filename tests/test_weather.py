@@ -49,3 +49,17 @@ def test_one_place_failing_still_gives_the_other_and_both_failing_says_so():
     line = weather.describe({"La Jolla": None, "Temecula": _forecast(START, TEM)}, now=NOW)
     assert line.startswith("back in Temecula")
     assert weather.describe({"La Jolla": None, "Temecula": None}, now=NOW) == weather.UNAVAILABLE
+
+
+def test_weekends_give_only_temecula():
+    # Alex (2026-10-28): no commute on weekends, so the whole day is Temecula's.
+    sat_now = datetime(2026, 10, 31, 4, 0, tzinfo=LOCAL_TZ)
+    sat_start = datetime(2026, 10, 31, 5, 0, tzinfo=LOCAL_TZ)
+    line = weather.describe({"La Jolla": _forecast(sat_start, SD), "Temecula": _forecast(sat_start, TEM)}, now=sat_now)
+    assert "La Jolla" not in line and "back in" not in line
+    assert "in Temecula today the high will be 89 degrees" in line
+    assert "around 78 at midday and 84 at five" in line
+    assert line.endswith("it will be about 70 this evening, with an overnight low of 53 degrees.")
+    from newscaster.prompts import weather_example, MORNING_WEATHER_EXAMPLE
+    assert "La Jolla" not in weather_example("morning", sat_now.date())
+    assert weather_example("morning", NOW.date()) == MORNING_WEATHER_EXAMPLE

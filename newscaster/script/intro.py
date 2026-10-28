@@ -1,7 +1,7 @@
 from newscaster import edition
 from newscaster.llm import get_llm_response, call_with_default
 from newscaster.logging import print_and_write
-from newscaster.prompts import TITLE_PROMPT, INTRO_PROMPT_TEMPLATE, MORNING_WEATHER_EXAMPLE, EVENING_WEATHER_EXAMPLE
+from newscaster.prompts import TITLE_PROMPT, INTRO_PROMPT_TEMPLATE, weather_example
 
 
 def greeting(formatted_date, which=None):
@@ -36,7 +36,7 @@ def intro_writer(formatted_date, weather_string, topics, formatted_date2, storie
         intro1=intro1,
         date=formatted_date,
         weather=weather_string,
-        weather_example=EVENING_WEATHER_EXAMPLE if edition.is_evening() else MORNING_WEATHER_EXAMPLE,
+        weather_example=weather_example(),
     )
 
     headline_string = '\n'.join(headlines_by_slot[slot] for slot in sorted(headlines_by_slot)) + '\n'
@@ -55,7 +55,7 @@ def opinion_intro(formatted_date, weather_string, piece):
     piece is opinion.write_opinion()'s {"title", "teaser"}, or None if the writer failed."""
     intro1 = greeting(formatted_date)
     intro_prompt = INTRO_PROMPT_TEMPLATE.format(
-        intro1=intro1, date=formatted_date, weather=weather_string, weather_example=MORNING_WEATHER_EXAMPLE)
+        intro1=intro1, date=formatted_date, weather=weather_string, weather_example=weather_example())
     if piece:
         lineup = f"Our Sunday opinion section: {piece['teaser']}\nThen the rest of the news in our roundup.\n"
     else:
