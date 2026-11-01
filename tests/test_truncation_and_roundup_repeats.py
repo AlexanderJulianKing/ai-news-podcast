@@ -104,6 +104,8 @@ def test_all_existing_complete_segment_scripts_pass_terminal_check(tmp_path, mon
     monkeypatch.chdir(tmp_path)
     for index, path in enumerate(files):
         script = path.read_text(encoding='utf-8')
+        if '\nOpinion: ' in script:
+            continue                # a Sunday opinion piece (since 2026-10-25): one voice, not the dialogue writer
         reporters = [name for name in ('Ethan', 'Chloe') if f'{name}:' in script]
         assert reporters, path.name
         with patch.object(segments, 'get_llm_response', return_value=script), \
