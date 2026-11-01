@@ -32,7 +32,8 @@ from newscaster.llm.claude import CACHE_BREAK_5M
 from newscaster.logging import print_and_write
 from newscaster.text_utils import extract_json
 
-_MAX_CORPUS = 200000   # was 140,000; with the seed lookup saved (2026-10-17) a story's evidence reached 188,000
+_MAX_CORPUS = 260000   # was 140,000, then 200,000 (2026-10-17); in the week to 10-29, 8 of 25 stories ran 200-255k
+                       # and the editor saw only ~45k of snippets for them
 _MIN_KEEP_RATIO = 0.6  # discard the whole edit set if the result is shorter than this fraction
 
 

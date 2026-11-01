@@ -323,6 +323,13 @@ def anthropic_web_search(query: str, num_results: int = 8, days_prior: int = 1) 
             f"Run exactly one web search for: {params['query']}.{when} Then list the results in one "
             "short line each, citing each page you mention.")}],
     )
+    try:
+        from newscaster import costs
+        from newscaster.llm.claude import _usage_to_dict
+        tokens = (_usage_to_dict(getattr(message, "usage", None), ANTHROPIC_SEARCH_MODEL) or {}).get("estimated_cost_usd")
+        costs.record("search", "Anthropic web search", 0.01 + float(tokens or 0))
+    except Exception:
+        pass
     snippets: dict[str, str] = {}
     results: list[dict[str, str]] = []
     error = None

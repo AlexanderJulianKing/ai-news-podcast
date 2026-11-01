@@ -7,9 +7,11 @@ from newscaster.llm import get_llm_response, LLMError
 from newscaster.llm.errors import LLMMalformedResponseError
 from newscaster.logging import print_and_write
 from newscaster.dates import format_spoken_date
+from newscaster.text_utils import extract_producer_notes
 from newscaster.prompts import (
     SEGMENT_SCRIPT_PROMPT_TEMPLATE,
     show_time_note,
+    SCRIPT_WRITING_RULES,
     SEGMENT_SCRIPT_SIDE_COVERED_CONTEXT,
     SEGMENT_SCRIPT_UPDATE_CONTEXT,
 )
@@ -42,13 +44,14 @@ def segment_prompt(reporter_name, formatted_date, story_num, total_stories, whic
         date=formatted_date,
         story_num=story_num,
         total_stories=total_stories,
-    ) + show_time_note(which)
+    ) + show_time_note(which) + SCRIPT_WRITING_RULES
 
 
 def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_context=None):
     """stories: dict[int, str] keyed by slot. Failed slots are absent and skipped."""
     MAX_VARIANTS = 3
     MAX_CONTENT_RETRIES = 5
+    MAX_STRAY_RETRIES = 2     # then the stray lines are dropped (and logged) instead
     FIRST_PASS_THRESHOLD = 0.55
     attribution_phrases = (
         "according to",
@@ -58,15 +61,28 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
         "investigation by"
     )
 
-    def _fetch_dialogue(story_text, prompt, reporter_name):
+    def _stray_lines(text, reporter_name):
+        """Lines no one in the segment speaks: a writer's note, a title, a stage direction."""
+        speakers = ('Grace', reporter_name)
+        return [line.strip() for line in text.splitlines()
+                if line.strip() and line.split(':', 1)[0].strip(' *_') not in speakers]
+
+    def _fetch_dialogue(story_text, prompt, reporter_name, label):
         """Content-shape retry: re-prompt if the LLM returns a script missing
-        the expected Grace/reporter lines or ends mid-sentence. Network/transport failures are
-        already retried by the router — those raise LLMError here, which we
-        propagate so the caller can decide what to do with this segment."""
+        the expected Grace/reporter lines, ends mid-sentence, or has lines no one speaks.
+        Network/transport failures are already retried by the router — those raise
+        LLMError here, which we propagate so the caller can decide what to do with this segment."""
         attempt = 0
         while attempt < MAX_CONTENT_RETRIES:
             attempt += 1
-            response = get_llm_response(story_text, system_prompt=prompt, mode='heavy')
+            response = extract_producer_notes(get_llm_response(story_text, system_prompt=prompt, mode='heavy'),
+                                              where=label)
+            stray = _stray_lines(response, reporter_name)
+            if stray and attempt <= MAX_STRAY_RETRIES:
+                print_and_write(f'{label}: {len(stray)} line(s) no one speaks, e.g. {stray[0][:120]!r} '
+                                f'(attempt {attempt}); retrying')
+                time.sleep(2)
+                continue
 
             if 'Grace:' not in response:
                 print_and_write(f'Missing Grace line for reporter {reporter_name} (attempt {attempt}); retrying')
@@ -87,14 +103,18 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
             provider='script-shape', model=reporter_name,
         )
 
-    def _normalize_dialogue(text):
+    def _normalize_dialogue(text, reporter_name=None):
+        """'Name: text' lines only, and only for this segment's speakers when reporter_name is given."""
         lines = []
         for raw_line in text.splitlines():
             line = raw_line.strip()
             if not line or ':' not in line:
                 continue
             speaker, dialogue = line.split(':', 1)
-            speaker = speaker.strip()
+            speaker = speaker.strip(' *_')
+            if reporter_name and speaker not in ('Grace', reporter_name):
+                print_and_write(f'Dropping a line no one in the segment speaks: {line[:160]!r}')
+                continue
             dialogue = dialogue.strip().replace("\u2019", "'")
             lines.append(f'{speaker}: {dialogue}')
         return '\n'.join(lines)
@@ -169,8 +189,9 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
 
         try:
             for variant in range(MAX_VARIANTS):
-                raw_script = _fetch_dialogue(story_text, segment_script_prompt, reporter_name)
-                dialogue = _normalize_dialogue(raw_script)
+                raw_script = _fetch_dialogue(story_text, segment_script_prompt, reporter_name,
+                                             label=f'{formatted_date2} segment {slot}')
+                dialogue = _normalize_dialogue(raw_script, reporter_name)
                 score = _score_dialogue(dialogue, reporter_name)
                 quality_records.append((score, dialogue))
                 print_and_write(f'Segment slot {slot}, attempt {variant + 1}, score {score}')

@@ -288,6 +288,26 @@ INTRO_PROMPT_TEMPLATE = (
 )
 
 
+# Rules every script writer gets (2026-11-01, from the Oct 22-29 week review).
+# - Oct 24: told about "earlier coverage" of a different story, the writer explained itself in a line of
+#   the script, and it aired. Writers now have a producers' channel that code removes before audio.
+# - Several shows read the research notes aloud ("docket checks hadn't turned up", "not available in the
+#   information reviewed").
+# - Oct 26: an August ruling aired as "ruled Friday".
+SCRIPT_WRITING_RULES = (
+    "\n\nPRODUCER NOTES: if anything in your instructions or context doesn't fit the story (for example, "
+    "notes about earlier coverage that describe a different story), don't mention it in the script and don't "
+    "invent a connection. Write the story on its own, and put a one-line explanation for the producers inside "
+    "[[NOTE: ...]] on its own line. Notes are removed before broadcast."
+    "\n\nDON'T NARRATE THE RESEARCH: never say things like 'the reporting reviewed', 'the materials reviewed', "
+    "'searches didn't turn up', 'docket checks hadn't turned up', or 'not available in the information reviewed'. "
+    "When something isn't known, say it the way a reporter would: 'the county hasn't said', 'it isn't clear yet "
+    "whether', 'officials haven't released'."
+    "\n\nDATES: name a weekday ('on Friday') only for something that happened in the past six days. For anything "
+    "older, give the date ('on August twenty-first') and make clear what is new now."
+)
+
+
 SEGMENT_SCRIPT_PROMPT_TEMPLATE = (
     "You are a senior broadcast writer. Rewrite the news summary as a natural back-and-forth "
     "between {anchor} anchor Grace and reporter {reporter_name}. Keep it conversational and easy "
@@ -598,7 +618,7 @@ def overview_anchor_prompt(which=None):
     from newscaster import edition
     time_of_day = "evening" if edition.is_evening(which) else "morning"
     return OVERVIEW_ANCHOR_PROMPT.replace("as if you were a news anchor", f"as if you were a {time_of_day} news anchor", 1) \
-        + show_time_note(which)
+        + show_time_note(which) + SCRIPT_WRITING_RULES
 
 
 def outro_for(which=None, today=None):
@@ -693,6 +713,7 @@ BANNED (each of these has shown up in earlier drafts)
 - "My argument is simple." "That line is the whole problem." "That's the point." "Think about what that means." "Make no mistake." "Let me be clear." "It's worth noting." "In conclusion."
 - Putting a question in the listener's mouth: "You might wonder", "You might fairly ask", "You may be thinking", "Some will say". If the question matters, ask it outright and answer it.
 - More than one "Not X. Y." contrast; more than two sentences starting with "So"; more than one "Now" used as a pivot; more than one "Look at" or "Notice" as a command.
+- Narrating the research ("the reporting reviewed", "searches didn't turn up"). Say what isn't known the way a columnist would.
 - Reading quotation marks aloud ("quote ... endquote"). Put the speaker before the words, and quote directly only when the exact words matter.
 - Strings of precise figures when a round one will do. An aphorism at the end of every paragraph (two in the whole piece at most). A closing paragraph that recaps.
 
@@ -700,6 +721,8 @@ SPOKEN, NOT WRITTEN
 - Plain paragraphs separated by blank lines. No headings, bullets, markup, stage directions, or speaker labels. Keep each paragraph under 900 characters.
 - Write numbers and dates as words ("three-point-six percent", "twenty twenty-seven", "October twenty-first"). Spell out an abbreviation the first time.
 - Vary sentence length; a run of identical short sentences sounds robotic. Put who said it before what they said. No colons.
+
+If anything in these instructions or the evidence doesn't fit, don't mention it in the piece: put a one-line explanation for the producers inside [[NOTE: ...]] on its own line. Notes are removed before broadcast.
 
 Reply in exactly this format:
 TITLE: a headline for the piece, under 70 characters
@@ -714,6 +737,19 @@ OPINION_SOURCING_PROMPT = """Below are a spoken opinion piece, the evidence its 
 For each flag give one verdict:
 - "supported": the evidence backs the sentence, including WHO said it. Copy the backing quote exactly from the EVIDENCE.
 - "opinion": the sentence is plainly the writer's own judgment, prediction or inference, not a claim of fact.
-- "fix": the sentence states something the evidence doesn't back, or credits the wrong person or outlet. Give "find", one or more COMPLETE sentences copied exactly from the SCRIPT including the final punctuation, and "replace", the full replacement sentence or sentences saying only what the evidence supports (or "" to cut them). Keep it flowing with its neighbours.
+- "fix": the sentence states something the evidence doesn't back, or credits the wrong person or outlet. Give "find", one or more COMPLETE sentences copied exactly from the SCRIPT including the final punctuation, and "replace", the full replacement sentence or sentences saying only what the evidence supports, with "quote", the evidence line that backs the new wording, copied exactly. To cut the sentences instead, give "replace": "" and no quote. Keep it flowing with its neighbours.
 
-Reply with JSON only: {"verdicts": [{"flag": 1, "verdict": "supported", "quote": "..."}, {"flag": 2, "verdict": "opinion"}, {"flag": 3, "verdict": "fix", "find": "...", "replace": "..."}]}"""
+Reply with JSON only: {"verdicts": [{"flag": 1, "verdict": "supported", "quote": "..."}, {"flag": 2, "verdict": "opinion"}, {"flag": 3, "verdict": "fix", "find": "...", "replace": "...", "quote": "..."}]}"""
+
+# 2026-11-01 (week review): the editor fixes contradictions with a known correct value, but never an
+# unsupported claim, so a wrong full name ("state Senator Susan Rubio Chu" for the source's "Chu"), a tool
+# no source named, and a caveat the judge never gave all aired. The same ruling the opinion piece gets
+# now runs on the main stories and the roundup after the editor.
+SCRIPT_SOURCING_PROMPT = """Below are a news script read aloud on a podcast (lines start with the speaker's name), the sources the newsroom had, and numbered flags from an automated fact checker. The checker is often wrong: most of its flags point at claims the sources do support. Judge each flag against the SOURCES yourself.
+
+For each flag give one verdict:
+- "supported": the sources back the sentence, including WHO said it and WHEN. Copy the backing line exactly from the SOURCES as "quote".
+- "judgment": the sentence is plainly framed as analysis or context ("that could mean", "the question now is"), not a new claim of fact.
+- "fix": the sentence states something the sources don't back (a name, number, date, title, quote or detail no source gives), credits the wrong person or outlet, or says something happened on a day it didn't. Give "find", one or more COMPLETE sentences copied exactly from the SCRIPT including the final punctuation (never the speaker's name), and "replace", the full replacement saying only what the sources support, with "quote", the source line that backs the new wording, copied exactly. To cut the sentences instead, give "replace": "" and no quote. Keep the conversation flowing.
+
+Reply with JSON only: {"verdicts": [{"flag": 1, "verdict": "supported", "quote": "..."}, {"flag": 2, "verdict": "judgment"}, {"flag": 3, "verdict": "fix", "find": "...", "replace": "...", "quote": "..."}]}"""

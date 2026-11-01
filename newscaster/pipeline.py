@@ -870,14 +870,18 @@ def main():
 
     print_and_write(formatted_date3)
 
-    tf_result = gather_news(formatted_date, formatted_date2)
-    if getattr(tf_result, "opinion", False):
-        write_opinion_scripts(formatted_date, formatted_date2, formatted_date3)
-    else:
-        write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list, tf_result=tf_result)
+    from newscaster import costs
     try:
-        from newscaster import review
-        review.review_and_revise_scripts(formatted_date2)
-    except Exception as e:
-        print_and_write(f"Fact-finder gate/editor failed (non-blocking): {e}")
-    generate_audio(formatted_date2, voices_list)
+        tf_result = gather_news(formatted_date, formatted_date2)
+        if getattr(tf_result, "opinion", False):
+            write_opinion_scripts(formatted_date, formatted_date2, formatted_date3)
+        else:
+            write_scripts(formatted_date, formatted_date2, formatted_date3, voices_list, tf_result=tf_result)
+        try:
+            from newscaster import review
+            review.review_and_revise_scripts(formatted_date2)
+        except Exception as e:
+            print_and_write(f"Fact-finder gate/editor failed (non-blocking): {e}")
+        generate_audio(formatted_date2, voices_list)
+    finally:
+        costs.write_run_summary(formatted_date2)

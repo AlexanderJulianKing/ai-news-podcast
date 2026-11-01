@@ -1,6 +1,30 @@
 import json
 import re
 
+from newscaster.logging import print_and_write, write_jsonl_log
+
+_NOTE_RE = re.compile(r"[ \t]*\[\[\s*NOTE\s*:(.*?)\]\][ \t]*\n?", re.S | re.I)
+
+
+def extract_producer_notes(text, where=""):
+    """Remove [[NOTE: ...]] remarks a writer left for the producers, and log them (logs/producer_notes.jsonl).
+
+    2026-10-24: given "earlier coverage" of a different story, the script writer explained itself in a
+    line of the script ("Note: The update context describes ... I've written this as a standalone
+    report") and Ethan read it on air. The writers now have this channel for such remarks instead.
+    """
+    notes = []
+
+    def take(m):
+        notes.append(" ".join(m.group(1).split()))
+        return ""
+    clean = _NOTE_RE.sub(take, text or "")
+    for note in notes:
+        print_and_write(f"PRODUCER NOTE [{where}]: {note}")
+        write_jsonl_log("producer_notes", {"where": where, "note": note})
+    return clean.strip()
+
+
 
 def text_cleaner(text):
     text = text.replace("\u2019", "'")

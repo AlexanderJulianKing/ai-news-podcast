@@ -23,3 +23,10 @@ def _no_research_tool_loop(monkeypatch):
     """Never run the live tool-using researcher in tests; tests that cover it turn it on and mock the model."""
     import newscaster.config as config
     monkeypatch.setattr(config, "RESEARCH_TOOL_LOOP_ENABLED", False, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _no_live_sourcing_ruling(monkeypatch):
+    """The post-editor sourcing ruling calls Opus; tests that cover it turn it on and mock the model."""
+    import newscaster.config as config
+    monkeypatch.setattr(config, "FACT_FINDER_SOURCING_RULING_ENABLED", False, raising=False)

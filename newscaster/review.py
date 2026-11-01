@@ -27,10 +27,12 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from newscaster import config as _config
 from newscaster import edition
 from newscaster.editor_agent import revise_script
 from newscaster.llm import get_llm_response
 from newscaster.logging import print_and_write, write_jsonl_log
+from newscaster.prompts import SCRIPT_SOURCING_PROMPT as SOURCING_PROMPT
 from newscaster.search import openrouter_web_brief
 
 # prompts.py instructs the script writer: "Person A said, quote, yadda yadda, endquote".
@@ -176,6 +178,10 @@ def _segment_research_excerpts(date2: str, idx: int) -> list[str]:
     return _dedupe_texts(excerpts)
 
 
+def _norm_words(text) -> str:
+    return " ".join(re.findall(r"[a-z0-9$%]+", str(text or "").lower().replace("\u2019", "'")))
+
+
 _FINDING_RE = re.compile(r'^- "(.+)" \[(\S+)\]\s*$', re.M)
 
 
@@ -186,9 +192,15 @@ def _verified_findings(followup: dict) -> list[str]:
     several quotes from one page the later ones fell outside it, and the fact check flagged
     verified figures (a CalMatters estimate, the governor's housing count) as unsourced.
     """
-    titles = {s.get("url"): s.get("title") for s in followup.get("source_hunter_sources") or [] if isinstance(s, dict)}
+    sources = [s for s in followup.get("source_hunter_sources") or [] if isinstance(s, dict)]
+    titles = {s.get("url"): s.get("title") for s in sources}
+    excerpts = {s.get("url"): _norm_words(s.get("excerpt")) for s in sources}
     by_url: dict[str, list[str]] = {}
     for quote, url in _FINDING_RE.findall(str(followup.get("answer") or "")):
+        # 2026-10-29: repeating quotes the excerpt already holds pushed 3 of the week's stories past the
+        # editor's limit, where it sees only snippets. Only the quotes the excerpt cut off are added.
+        if _norm_words(quote) and _norm_words(quote) in excerpts.get(url, ""):
+            continue
         by_url.setdefault(url, []).append(quote)
     return [_source_label(titles.get(url) or url, url) + " (verified quotes)\n" + "\n".join(f'"{q}"' for q in quotes)
             for url, quotes in by_url.items()]
@@ -744,6 +756,83 @@ def _audit_edits(date2: str, name: str, outcome) -> None:
     })
 
 
+def rule_on_flags(script: str, evidence: str, flags: list[str], system_prompt: str, label: str = ""):
+    """Opus rules on each fact-check flag against the evidence; code applies only what it can check.
+
+    A "supported" verdict must quote the evidence (logged if the quote isn't there). A "fix" must
+    replace whole sentences, and new wording must quote a line of the evidence that code finds there;
+    a plain cut needs no quote. Returns (script, audit). Used by the opinion self-check (2026-10-23)
+    and, since 2026-11-01, on the main stories and the roundup after the editor.
+    """
+    audit = {"flags": flags, "verdicts": [], "applied": 0, "skipped": [], "unbacked": []}
+    if not flags:
+        return script, audit
+    numbered = "\n".join(f"{i}. {f}" for i, f in enumerate(flags, 1))
+    try:
+        reply = get_llm_response(f"FLAGS:\n{numbered}\n\nEVIDENCE:\n{evidence}\n\nSCRIPT:\n{script}",
+                                 system_prompt=system_prompt, mode="routine")
+        m = re.search(r"\{.*\}", reply or "", re.S)
+        verdicts = (json.loads(m.group(0)) if m else {}).get("verdicts") or []
+    except Exception as exc:
+        print_and_write(f"SOURCING RULING [{label}]: failed ({exc!r:.200}); leaving the script as it is")
+        return script, audit
+    audit["verdicts"] = verdicts
+    ev = _norm_words(evidence)
+    end_mark = re.compile(r'[.!?]["\u201d\u2019\']*$')
+    for v in verdicts:
+        kind = str(v.get("verdict", "")).lower()
+        if kind == "fix" and v.get("find") and v["find"] in script:
+            start = script.index(v["find"])
+            end = start + len(v["find"])
+            while end < len(script) and script[end] in '.!?"\u201d\u2019\'':   # take the sentence's own punctuation
+                end += 1
+            replace = (v.get("replace") or "").strip()
+            if not end_mark.search(script[start:end]):
+                audit["skipped"].append(dict(v, why="not a whole sentence"))
+                continue
+            if replace and _norm_words(v.get("quote"))[:200] not in ev or (replace and not _norm_words(v.get("quote"))):
+                audit["skipped"].append(dict(v, why="new wording without a backing quote"))
+                continue
+            if replace and not end_mark.search(replace):
+                replace += "."
+            script = script[:start] + replace + script[end:]
+            audit["applied"] += 1
+        elif kind == "supported" and _norm_words(v.get("quote"))[:200] not in ev:
+            audit["unbacked"].append(v)
+    script = re.sub(r"[ \t]{2,}", " ", script)
+    counts = {k: sum(str(v.get("verdict")).lower() == k for v in verdicts) for k in ("supported", "judgment", "opinion")}
+    print_and_write(f"SOURCING RULING [{label}]: {len(flags)} flag(s): {audit['applied']} fixed, "
+                    f"{len(audit['skipped'])} fix(es) refused, {counts['supported']} supported, "
+                    f"{counts['judgment'] + counts['opinion']} judgment, {len(audit['unbacked'])} 'supported' without a matching quote")
+    return script, audit
+
+
+def _rule_on_remaining_flags(date2: str, by_script: dict, full_corpus: str) -> int:
+    """After the editor: let the ruling fix or cut what the sources don't support. Returns sentences fixed."""
+    fixed = 0
+    for name, script_flags in by_script.items():
+        flags = [tx for ft, tx in script_flags if ft != "stable-fact"]
+        path = f"output_scripts/{name}"
+        corpus = _corpus_for_script(date2, name, full_corpus)
+        if not flags or not corpus.strip():
+            continue
+        try:
+            text = Path(path).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if text.lstrip().startswith("Grace:") and "\nOpinion: " in text:
+            continue                        # the opinion piece had its own ruling while it was written
+        evidence = _editor_evidence(_format_report([(ft, tx) for ft, tx in script_flags if ft != "stable-fact"]), corpus) or corpus
+        new, audit = rule_on_flags(text, evidence, flags, SOURCING_PROMPT, label=name)
+        if new != text:
+            _atomic_write_text(path, new)
+            fixed += audit["applied"]
+        write_jsonl_log("fact_finder_edits", {"event": "sourcing_ruling", "date": date2, "script": name,
+                                              "verdicts": audit["verdicts"], "applied": audit["applied"],
+                                              "skipped": audit["skipped"], "unbacked": audit["unbacked"]})
+    return fixed
+
+
 def review_and_revise_scripts(date2: str) -> dict:
     """Run the fact-finder, then auto-fix confirmed factual discrepancies in place before TTS.
 
@@ -828,4 +917,10 @@ def review_and_revise_scripts(date2: str) -> dict:
         _audit_edits(date2, name, outcome)
 
     print_and_write(f"FACT-FINDER EDITOR: applied {total_edits} fix(es) across {edited_scripts} script(s).")
-    return {"flags": len(flags), "edited_scripts": edited_scripts, "edits": total_edits}
+    ruled = 0
+    if getattr(_config, "FACT_FINDER_SOURCING_RULING_ENABLED", False):
+        try:
+            ruled = _rule_on_remaining_flags(date2, by_script, full_corpus)
+        except Exception as exc:
+            print_and_write(f"SOURCING RULING failed (non-blocking): {exc!r:.200}")
+    return {"flags": len(flags), "edited_scripts": edited_scripts, "edits": total_edits, "ruled": ruled}

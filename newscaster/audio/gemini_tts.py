@@ -72,6 +72,10 @@ def _render(client, text):
         try:
             r = client.models.generate_content(model=_config.OPINION_TTS_MODEL, contents=contents, config=config)
             audio = r.candidates[0].content.parts[0].inline_data
+            um = getattr(r, "usage_metadata", None)
+            from newscaster import costs
+            costs.record("tts", "Gemini TTS", (getattr(um, "candidates_token_count", 0) or 0)
+                         * getattr(_config, "OPINION_TTS_USD_PER_M_AUDIO_TOKENS", 6.0) / 1e6)
             if audio.data:
                 return decode(audio.data, audio.mime_type)
         except Exception as exc:

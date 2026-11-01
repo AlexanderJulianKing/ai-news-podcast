@@ -109,9 +109,16 @@ def test_all_existing_complete_segment_scripts_pass_terminal_check(tmp_path, mon
         with patch.object(segments, 'get_llm_response', return_value=script), \
              patch.object(segments.time, 'sleep') as sleep:
             segments.segments_writer({0: 'Story'}, f'test_{index}', [reporters[0]], 'Test day')
-        written = (tmp_path / f'output_scripts/test_{index}_segment_0.txt').exists()
+        out = tmp_path / f'output_scripts/test_{index}_segment_0.txt'
+        written = out.exists()
+        # 2026-11-01: lines no one speaks (an old "(Word count: ...)" footer, the 10-24 writer's note)
+        # now trigger a retry, and are dropped if they persist; the terminal check is unaffected.
+        stray = [l for l in script.splitlines() if l.strip() and l.split(':', 1)[0].strip(' *_') not in ('Grace', reporters[0])]
         if path.name in KNOWN_TRUNCATED:
             assert sleep.called and not written, path.name
+        elif stray:
+            assert written, path.name
+            assert not any(l in out.read_text(encoding='utf-8') for l in stray), path.name
         else:
             sleep.assert_not_called()
             assert written, path.name

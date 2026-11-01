@@ -168,6 +168,8 @@ def google_speak(name, text, filename):
 
     with open(filename, "wb") as out_file:
         out_file.write(response.audio_content)
+    from newscaster import costs
+    costs.record("tts", "Chirp3-HD", len(text) * 30e-6, units=len(text), unit="chars")
 
     # --- clipping detection with retry ---
     is_clipped, clip_pct = check_clipping(filename)
@@ -197,15 +199,17 @@ def google_speak(name, text, filename):
     return
 
 
-def split_speaker(line, voices_list, current):
+def split_speaker(line, voices_list, current, strict=False):
     """("Ethan: Good morning." -> ("Ethan", "Good morning.")). A line without a known speaker keeps
-    the current one and all of its words. Before 2026-10-23 the line was split on every colon and
-    anything after the second was dropped, so "a name only Congress could love: PASTEUR" lost words."""
+    the current one and all of its words, or, when strict, returns None: segment scripts are always
+    labeled, and on 2026-10-24 an unlabeled writer's note ("Note: The update context ...") went to
+    Ethan's voice. Before 2026-10-23 the line was split on every colon and anything after the second
+    was dropped, so "a name only Congress could love: PASTEUR" lost words."""
     if ':' in line:
         head, rest = line.split(':', 1)
         if head.strip().capitalize() in voices_list:
             return head.strip().capitalize(), rest.strip()
-    return current, line.strip()
+    return None if strict else (current, line.strip())
 
 
 def text2speech(date_str, voices_list):
@@ -231,7 +235,11 @@ def text2speech(date_str, voices_list):
                         thing = line_list[j]
                         print_and_write(thing)
 
-                        speaker, text = split_speaker(thing, voices_list, speaker)
+                        labeled = split_speaker(thing, voices_list, speaker, strict=True)
+                        if labeled is None:
+                            print_and_write(f"TTS: not voicing a line with no speaker label: {thing[:160]!r}")
+                            continue
+                        speaker, text = labeled
 
                         if text.strip().startswith('[') and text.strip().endswith(']'):
                             continue

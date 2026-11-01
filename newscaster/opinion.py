@@ -28,7 +28,8 @@ from newscaster.prompts import (OPINION_GAPS_PROMPT as GAPS_PROMPT, OPINION_OVER
                                 OPINION_SOURCING_PROMPT as SOURCING_PROMPT, OPINION_WRITER_PROMPT as WRITER_PROMPT)
 from newscaster.rag.indexer import build_research_record
 from newscaster.research_tools import research_with_tools
-from newscaster.review import faithfulness_flags
+from newscaster.review import faithfulness_flags, rule_on_flags
+from newscaster.text_utils import extract_producer_notes
 
 SLOT = 0
 _SENT = re.compile(r"(?<=[.!?])\s+")
@@ -142,6 +143,7 @@ def _evidence(followups):
 
 
 def _parse_piece(reply):
+    reply = extract_producer_notes(reply, where="opinion piece")
     m = re.search(r"TITLE:\s*(.+?)\s*\n\s*TEASER:\s*(.+?)\s*\n\s*SCRIPT:\s*\n(.*)", reply or "", re.S)
     if not m:
         raise ValueError(f"writer reply not in TITLE/TEASER/SCRIPT form: {(reply or '')[:200]!r}")
@@ -162,11 +164,10 @@ def _norm(text):
 
 
 def self_check(script, evidence):
-    """Run the faithfulness pass against the writer's own evidence; Opus rules on each flag.
-    A "supported" verdict must quote the evidence, and code checks the quote is really there;
-    a "fix" is an exact find/replace that code applies. Returns (script, audit)."""
+    """Run the faithfulness pass against the writer's own evidence; Opus rules on each flag
+    (review.rule_on_flags: quotes and whole-sentence fixes, checked by code). Returns (script, audit)."""
     # The checker finds different things on each run (9 and 15 flags on one script, 2026-10-23), so
-    # two runs are merged. Most flags are false alarms; the ruling below sorts them out.
+    # two runs are merged. Most flags are false alarms; the ruling sorts them out.
     with ThreadPoolExecutor(max_workers=2) as pool:
         runs = list(pool.map(lambda _: faithfulness_flags(script, evidence), range(2)))
     flags, seen = [], set()
@@ -175,42 +176,7 @@ def self_check(script, evidence):
         if span not in seen:
             seen.add(span)
             flags.append(flag)
-    audit = {"flags": flags, "verdicts": [], "applied": 0, "skipped": [], "unbacked": []}
-    if not flags:
-        return script, audit
-    numbered = "\n".join(f"{i}. {f}" for i, f in enumerate(flags, 1))
-    try:
-        verdicts = _json(get_llm_response(f"FLAGS:\n{numbered}\n\nEVIDENCE:\n{evidence}\n\nSCRIPT:\n{script}",
-                                          system_prompt=SOURCING_PROMPT, mode="routine")).get("verdicts") or []
-    except Exception as exc:
-        print_and_write(f"OPINION self-check: ruling failed ({exc!r:.200}); keeping the draft")
-        return script, audit
-    audit["verdicts"] = verdicts
-    ev = _norm(evidence)
-    for v in verdicts:
-        kind = str(v.get("verdict", "")).lower()
-        if kind == "fix" and v.get("find") and v["find"] in script:
-            find = v["find"]
-            start = script.index(find)
-            end = start + len(find)
-            while end < len(script) and script[end] in '.!?"\u201d\u2019\'':   # take the sentence's own punctuation
-                end += 1
-            if not re.search(r'[.!?]["\u201d\u2019\']*$', script[start:end]):
-                audit["skipped"].append(v)            # not a whole sentence: replacing it could leave a fragment
-                continue
-            replace = (v.get("replace") or "").strip()
-            if replace and not re.search(r'[.!?]["\u201d\u2019\']*$', replace):
-                replace += "."
-            script = script[:start] + replace + script[end:]
-            audit["applied"] += 1
-        elif kind == "supported" and _norm(v.get("quote"))[:200] not in ev:
-            audit["unbacked"].append(v)
-    script = re.sub(r"[ \t]{2,}", " ", script)
-    print_and_write(f"OPINION self-check: {len(flags)} flag(s): {audit['applied']} fixed, {len(audit['skipped'])} fix(es) skipped, "
-                    f"{sum(str(v.get('verdict')).lower() == 'supported' for v in verdicts)} supported, "
-                    f"{sum(str(v.get('verdict')).lower() == 'opinion' for v in verdicts)} opinion, "
-                    f"{len(audit['unbacked'])} 'supported' without a matching quote")
-    return script, audit
+    return rule_on_flags(script, evidence, flags, SOURCING_PROMPT, label="opinion self-check")
 
 
 def write_opinion(key, formatted_date):

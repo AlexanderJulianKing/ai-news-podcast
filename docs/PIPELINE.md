@@ -358,7 +358,7 @@ the show.
   Since 2026-10-17:
   - Every piece of evidence starts with a `SOURCE: <outlet or title> — <link>` line, kept on every chunk,
     so the checker can see who said what and a date carried in a link.
-  - The editor reads the story's whole evidence when it fits its 200,000-character limit.
+  - The editor reads the story's whole evidence when it fits its limit, 260,000 characters since 2026-11-01.
   - The seed lookup is saved with the story's research rounds, so its pages are part of the evidence too.
   - The editor and the approver follow three rules: when reputable sources disagree, the primary source
     wins and the script is left alone; a changed figure must carry the name of the source that reported it;
@@ -369,8 +369,42 @@ the show.
   runs each, fixed or avoided all four.
 - **Flags with nothing to fix.** A flag that only says a claim is missing from the
   sources, with no matching text, skips the editor.
+- **Sourcing ruling** (since 2026-11-01, `review.rule_on_flags`). The editor fixes
+  contradictions only where it knows the correct value. So after it runs, Opus rules
+  on every remaining flag in the main stories and the roundup:
+  - **supported:** the claim stands, and Opus must quote the evidence that backs it;
+  - **judgment:** the line is framed as analysis or context;
+  - **fix:** whole sentences only. New wording must quote the evidence line behind it,
+    and code checks the line is there. A plain cut needs no quote.
+
+  The verdicts go to `logs/fact_finder_edits.jsonl` as `sourcing_ruling` records.
+  The opinion piece gets the same ruling while it is written. Switch:
+  `FACT_FINDER_SOURCING_RULING_ENABLED`.
+
+  Why: the review of the week of Oct 22-29 found unsupported specifics that aired,
+  such as a wrong full name ("state Senator Susan Rubio Chu" for the source's "Chu"),
+  a tool no source named, and a caveat the judge never gave. The checker had flagged
+  some of them, but the editor never touches an unsupported claim.
+- **Evidence size.** The research tool's verified quotes are added to the evidence
+  only when the page excerpt cut them off. Adding all of them pushed stories past the
+  editor's limit (2026-10-29).
 - **Malformed replies.** A reply that doesn't follow the expected format is asked
   again once, then logged.
+
+**Producer notes and stray lines** (since 2026-11-01). On 2026-10-24 the script
+writer explained a context mismatch in a line of the script, and it aired. Now:
+- Every writer can leave remarks for the producers in `[[NOTE: ...]]`. Code removes
+  them before audio and logs them to `logs/producer_notes.jsonl`.
+- A main-story script with a line neither speaker says is rewritten, up to twice.
+  After that, the line is dropped.
+- Text-to-speech never voices a segment line without a speaker label.
+
+The writers are also told not to narrate the research ("searches didn't turn up").
+They name a weekday only for the past six days and give the date for anything older.
+
+**Cost per run.** `newscaster/costs.py` records every paid call as it happens: LLM
+calls, research lookups, Anthropic searches, and both voices. `main.py` writes one
+line per run to `logs/run_costs.jsonl`, and prints a `RUN COST` line to the log.
 
 ## 7. Audio
 

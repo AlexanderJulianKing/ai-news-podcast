@@ -149,10 +149,15 @@ OPINION_TTS_DIRECTION = ("Style: a seasoned radio essayist delivering a Sunday o
                          "confident, unhurried, with dry, understated wit. Let the jokes land lightly; give the "
                          "last sentence a little weight.")
 OPINION_TTS_CHECK_MODEL = "gemini-3.1-flash-lite"   # transcribes each render to catch skipped or repeated words
+OPINION_TTS_USD_PER_M_AUDIO_TOKENS = 6.0   # Flash-Lite TTS preview price to 2026-12-31 ($12 after); for the cost log
 
 # --- Fact-finder auto-edit (agentic editor: fix confirmed factual errors before TTS) ---
 FACT_FINDER_AUTOEDIT_ENABLED = True
 FACT_FINDER_AUTOEDIT_MAX_ROUNDS = 3
+# After the editor, Opus rules on each remaining flag: supported (with a quote), judgment, or a whole-sentence
+# fix that must quote its evidence, or a cut (review.rule_on_flags). Catches unsupported specifics the editor
+# never touches: a wrong full name, a tool no source named, an invented caveat (week of 2026-10-22).
+FACT_FINDER_SOURCING_RULING_ENABLED = True
 
 # --- Controlled source-hunter research ---
 SOURCE_HUNTER_ENABLED = True

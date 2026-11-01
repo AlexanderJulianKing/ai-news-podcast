@@ -389,6 +389,8 @@ def research_with_tools(question: str, formatted_date: str | None) -> dict[str, 
         else:
             dropped += 1
     gaps = [str(g) for g in parsed.get("gaps") or [] if str(g).strip()]
+    from newscaster import costs
+    costs.record("research", f"lookup ({model})", cost)
     metadata = {"engine": "tools", "model": model, "steps": steps, "cost": round(cost, 4),
                 "seconds": round(time.time() - started), "facts_kept": len(kept), "facts_dropped": dropped}
     print_and_write(f"Research tool loop ({model}): {len(steps)} tool calls, {len(kept)} verified facts "

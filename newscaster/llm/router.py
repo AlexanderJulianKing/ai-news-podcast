@@ -31,6 +31,12 @@ from newscaster.llm.errors import (
 def _audit_llm_event(event, spec, user_prompt, system_prompt, *, call_id, phase,
                      attempt=None, latency_seconds=None, response=None, error=None,
                      usage=None):
+    if event == "success":
+        from newscaster import costs
+        cost = (usage or {}).get("estimated_cost_usd") if isinstance(usage, dict) else None
+        if cost is None and isinstance(usage, dict):
+            cost = usage.get("cost")
+        costs.record("llm", spec.get("name") or spec.get("model") or "?", cost)
     if not getattr(_config, "LLM_AUDIT_LOG_ENABLED", False):
         return
     payload = {

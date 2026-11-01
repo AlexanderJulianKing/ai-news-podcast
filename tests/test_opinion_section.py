@@ -88,7 +88,8 @@ def _fake_llm(prompt, system_prompt=None, mode=None, **_):
         assert "2. FLAG" not in prompt
         return json.dumps({"verdicts": [{"flag": 1, "verdict": "fix",
                                          "find": "The CDC counts more than thirty-five thousand deaths a year",
-                                         "replace": "The CDC counts tens of thousands of deaths a year"}]})
+                                         "replace": "The CDC counts tens of thousands of deaths a year",
+                                         "quote": "more than 35,000 people die"}]})
     raise AssertionError(f"unexpected prompt: {system_prompt[:60]}")
 
 
@@ -108,6 +109,7 @@ def test_the_writer_leaves_a_script_the_voices_and_the_fact_check_can_use(tmp_pa
         return ["FLAG: thirty-five thousand deaths a year — not in the quote's wording"] if "thirty-five" in script else []
     # (the check runs twice and the identical flags are merged into one)
     with patch.object(opinion, "get_llm_response", side_effect=_fake_llm), \
+         patch.object(review, "get_llm_response", side_effect=_fake_llm), \
          patch.object(opinion, "research_with_tools", side_effect=_fake_research), \
          patch.object(opinion, "faithfulness_flags", side_effect=fake_faithfulness):
         opinion.write_opinion("2026_10_25", "October 25, 2026")
@@ -194,6 +196,6 @@ def test_a_fix_that_would_leave_a_sentence_fragment_is_skipped():
     script = "The caps are highest where permits are slowest. Prices rose."
     reply = json.dumps({"verdicts": [{"flag": 1, "verdict": "fix", "find": "where permits are", "replace": "in big counties"}]})
     with patch.object(opinion, "faithfulness_flags", return_value=["FLAG: permits — unsupported"]), \
-         patch.object(opinion, "get_llm_response", return_value=reply):
+         patch.object(review, "get_llm_response", return_value=reply):
         out, audit = opinion.self_check(script, "evidence")
     assert out == script and len(audit["skipped"]) == 1
