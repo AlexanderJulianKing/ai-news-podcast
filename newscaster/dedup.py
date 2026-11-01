@@ -393,6 +393,31 @@ def build_headline_arc_map(tagged_text: str) -> dict:
     return mapping
 
 
+def build_new_headline_keys(tagged_text: str) -> set:
+    """Keys of the pool headlines the tagger left untagged, i.e. judged NEW.
+
+    The tagger saw every pool line next to the tracked arcs (their recent main
+    coverage and what the audience knows) and returned one verdict per line. A line
+    with no tag is a "new" verdict (or, rarely, a line the tagger never answered,
+    which tag_pool logs as undecided). Same line filter as the tagger's own.
+    """
+    keys = set()
+    for line in (tagged_text or "").split("\n"):
+        if len(line.strip()) <= 20 or _ARC_TAG_RE.search(line):
+            continue
+        key = _headline_key(line)
+        if key:
+            keys.add(key)
+    return keys
+
+
+def tagger_judged_new(headline: str, new_headline_keys) -> bool:
+    """True when the chosen headline is (exactly or near-verbatim) a pool line the tagger judged NEW."""
+    if not new_headline_keys:
+        return False
+    return recover_arc_for_headline(headline, dict.fromkeys(new_headline_keys, True)) is not None
+
+
 def recover_arc_for_headline(headline: str, headline_arc_map: dict, threshold: float = _FUZZY_OVERLAP_THRESHOLD):
     """Recover (tag_type, slug) for a chosen, possibly de-tagged headline.
 
@@ -491,17 +516,34 @@ def llm_recover_arc(headline: str, headline_arc_map: dict, ledger: dict):
     )
     slug = _parse_arc_slug(response, list(candidates.keys()))
     if slug:
+        # Logged so an audit can see which step attached an arc (2026-11-01: the Oct 22/24
+        # attachments had to be inferred by elimination because this answer was never logged).
+        print_and_write(f'Arc match (LLM fallback): "{strip_arc_tags(headline).strip()[:80]}" -> {slug}')
         return (candidates[slug][0], slug)
     return None
 
 
-def resolve_arc_identity(headline: str, headline_arc_map: dict, ledger: dict = None, *, use_llm: bool = True):
+def resolve_arc_identity(headline: str, headline_arc_map: dict, ledger: dict = None, *, use_llm: bool = True,
+                         new_headline_keys=None):
     """Full arc-identity resolution: deterministic string match first, then the
     scoped LLM fallback for paraphrases, then any tag that survived on the
-    headline. Returns (tag_type, slug) or None."""
+    headline. Returns (tag_type, slug) or None.
+
+    The LLM fallback exists to recover the tagger's verdict for a headline the
+    selection LLMs reworded. It must not overrule the tagger: when the chosen
+    headline is itself a pool line the tagger judged NEW (new_headline_keys), the
+    answer is None. On 2026-10-22 evening and 2026-10-24 morning the fallback
+    attached a PHP-flaw story and a Russian-influence story, both judged NEW by
+    the tagger, to ai_safety_cyberattacks, and both aired as false follow-ups.
+    """
     info = recover_arc_for_headline(headline, headline_arc_map)
     if info:
         return info
+    if tagger_judged_new(headline, new_headline_keys):
+        print_and_write(
+            f'Arc match skipped: the tagger judged "{strip_arc_tags(headline).strip()[:60]}" a new story'
+        )
+        return None
     if use_llm:
         info = llm_recover_arc(headline, headline_arc_map, ledger)
         if info:

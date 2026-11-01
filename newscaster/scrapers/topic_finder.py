@@ -53,6 +53,7 @@ from newscaster.dedup import (
     find_matching_arc,
     strip_arc_tags,
     build_headline_arc_map,
+    build_new_headline_keys,
     recover_arc_for_headline,
     resolve_arc_identity,
 )
@@ -422,7 +423,7 @@ def _filter_overview_candidates(overview, main_headlines, headline_arc_map=None,
     return kept[:5]
 
 
-def overview_process(overview, headline_arc_map=None, ledger=None, headlines=None):
+def overview_process(overview, headline_arc_map=None, ledger=None, headlines=None, new_headline_keys=None):
     """Research up to five side stories and assemble the roundup writer's input.
 
     The stories are independent, so they run in parallel (PARALLEL_STORY_RESEARCH);
@@ -436,7 +437,8 @@ def overview_process(overview, headline_arc_map=None, ledger=None, headlines=Non
     with ThreadPoolExecutor(max_workers=workers) as pool:
         results = list(pool.map(
             lambda i: _research_side_story(overview, i, headline_arc_map, ledger,
-                                           headlines[i] if headlines is not None else None),
+                                           headlines[i] if headlines is not None else None,
+                                           new_headline_keys=new_headline_keys),
             range(story_count),
         ))
     story_overviews = ''
@@ -454,7 +456,7 @@ def overview_process(overview, headline_arc_map=None, ledger=None, headlines=Non
     return story_overviews, overview_headlines, overview_briefs, overview_arc_infos
 
 
-def _research_side_story(overview, i, headline_arc_map, ledger, headline_n=None):
+def _research_side_story(overview, i, headline_arc_map, ledger, headline_n=None, new_headline_keys=None):
     """One side story: (roundup text, headline, brief, arc_info), or None if it failed."""
     number = str(i + 1)
     if headline_n is None:
@@ -467,7 +469,8 @@ def _research_side_story(overview, i, headline_arc_map, ledger, headline_n=None)
 
     # Resolve the arc ONCE here so the audience_state lookup (for writing) and the
     # later ledger archival agree and don't each pay for a separate LLM match.
-    arc_info = resolve_arc_identity(headline_n, headline_arc_map, ledger) if headline_arc_map else None
+    arc_info = (resolve_arc_identity(headline_n, headline_arc_map, ledger, new_headline_keys=new_headline_keys)
+                if headline_arc_map else None)
     prior_state = _audience_state_for_arc(arc_info, ledger)
     if prior_state:
         print_and_write(f'Side story "{strip_arc_tags(headline_n).strip()[:60]}" is a continuation; injecting prior audience_state')
@@ -984,6 +987,9 @@ def topic_finder(formatted_date):
     # branch emits slugs, so the history-only branch yields an (empty) map harmlessly.
     headline_arc_map = build_headline_arc_map(all_headlines)
     print_and_write(f'Built headline->arc map with {len(headline_arc_map)} tagged continuations')
+    # The lines the tagger left untagged are its "new story" verdicts. Arc resolution
+    # must not let the LLM fallback overrule them (2026-10-22 pm and 2026-10-24).
+    new_headline_keys = build_new_headline_keys(all_headlines) if use_ledger else set()
 
     # === TIER 1: Triage — score all headlines ===
     # Opus (heavy), not Gemma: the first cut decides recall. A weak score can drop a good story
@@ -1138,7 +1144,8 @@ def topic_finder(formatted_date):
     overview = '\n'.join(f'- {headline}' for headline in overview_candidates)
 
     overview_raw, overview_headlines, overview_briefs, overview_arc_infos = overview_process(
-        overview, headline_arc_map=headline_arc_map, ledger=ledger, headlines=overview_candidates
+        overview, headline_arc_map=headline_arc_map, ledger=ledger, headlines=overview_candidates,
+        new_headline_keys=new_headline_keys,
     )
     print_and_write('\noverview2:', overview_raw)
 
@@ -1155,8 +1162,10 @@ def topic_finder(formatted_date):
 
     # Recover the arc slug the dedup tagger assigned (deterministic string match,
     # then a scoped LLM match for paraphrases, then any surviving inline tag).
-    important_arc_info = resolve_arc_identity(important_raw, headline_arc_map, ledger)
-    everyman_arc_info = resolve_arc_identity(everyman_raw, headline_arc_map, ledger)
+    important_arc_info = resolve_arc_identity(important_raw, headline_arc_map, ledger,
+                                              new_headline_keys=new_headline_keys)
+    everyman_arc_info = resolve_arc_identity(everyman_raw, headline_arc_map, ledger,
+                                             new_headline_keys=new_headline_keys)
 
     important_clean = strip_arc_tags(important_raw)
     everyman_clean = strip_arc_tags(everyman_raw)
