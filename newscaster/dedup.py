@@ -454,19 +454,32 @@ def recover_arc_for_headline(headline: str, headline_arc_map: dict, threshold: f
     return best_info if best_overlap >= threshold else None
 
 
-def _build_arc_candidates(headline_arc_map: dict, ledger: dict) -> dict:
-    """{slug: (tag_type, topic)} for the day's tagged arcs, deduped by slug.
+def _arc_description(slug: str, arc: dict) -> str:
+    """A short description plus the last three headlines that aired on the arc, newest last.
 
-    Topic comes from the ledger when available (more descriptive for the LLM),
-    falling back to the slug itself.
+    2026-11-01: arcs that began as a roundup item store their whole first research brief as the topic
+    (the median such topic is 3,575 characters, never updated). Judging against those, the fallback filed
+    a PHP flaw and a Russian influence campaign under ai_safety_cyberattacks, whose September brief
+    mentions cyberattacks and Russian propaganda. A replay of its 121 recorded decisions with this
+    description kept all 32 genuine matches and rejected both.
     """
+    episodes = sorted(arc.get("episodes") or [], key=lambda e: e.get("date", ""))
+    topic = " ".join((arc.get("topic") or "").split())
+    if not topic or topic.upper().startswith("FINDINGS") or len(topic) > 400:
+        topic = episodes[0].get("headline", "") if episodes else ""
+    topic = topic[:300] or slug.replace("_", " ")
+    aired = "; ".join(f"{e.get('date')}: {(e.get('headline') or '')[:140]}" for e in episodes[-3:])
+    return f"{topic}\n    aired: {aired or 'none yet'}"
+
+
+def _build_arc_candidates(headline_arc_map: dict, ledger: dict) -> dict:
+    """{slug: (tag_type, description)} for the day's tagged arcs, deduped by slug (see _arc_description)."""
     candidates = {}
     for tag_type, slug in (headline_arc_map or {}).values():
         if slug in candidates:
             continue
         arc = (ledger or {}).get("arcs", {}).get(slug) or {}
-        topic = arc.get("topic") or slug.replace("_", " ")
-        candidates[slug] = (tag_type, topic)
+        candidates[slug] = (tag_type, _arc_description(slug, arc))
     return candidates
 
 
@@ -509,7 +522,7 @@ def llm_recover_arc(headline: str, headline_arc_map: dict, ledger: dict):
     from newscaster.prompts import ARC_MATCH_PROMPT
 
     listing = "\n".join(f"- {slug}: {topic}" for slug, (_t, topic) in candidates.items())
-    user_prompt = f"Tracked arcs:\n{listing}\n\nHeadline: {strip_arc_tags(headline).strip()}\n\nAnswer:"
+    user_prompt = f"Tracked stories:\n{listing}\n\nHeadline: {strip_arc_tags(headline).strip()}\n\nAnswer:"
     response = call_with_default(
         "NONE", user_prompt, system_prompt=ARC_MATCH_PROMPT, mode="light",
         _log_label=f"arc-match[{strip_arc_tags(headline).strip()[:40]}]",

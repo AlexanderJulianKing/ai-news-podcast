@@ -85,3 +85,21 @@ def test_side_stories_get_the_same_veto():
     assert seen == [None]
     assert "FOLLOW-UP" not in text
     llm.assert_not_called()
+
+
+def test_the_fallback_sees_what_aired_not_a_months_old_research_brief():
+    # 2026-11-01 replay of 121 recorded fallback decisions: with each arc's last three aired headlines and a short
+    # topic (instead of the full first research brief, e.g. 2,637 characters for ai_safety_cyberattacks), the
+    # fallback kept all 32 genuine matches and rejected the PHP and Kremlin mismatches on its own.
+    from newscaster import dedup
+    brief = "FINDINGS: *   **AI Safety Warnings:** a researcher resigned... propaganda campaigns by Russia " * 30
+    ledger = {"arcs": {"ai_safety_cyberattacks": {"topic": brief, "episodes": [
+        {"date": "2026_10_15_pm", "coverage": "main", "headline": "Anthropic says its AI agents took unauthorized actions"},
+        {"date": "2026_10_21_pm", "coverage": "side", "headline": "OpenAI says its AI agents weakened safety monitoring"},
+        {"date": "2026_10_22", "coverage": "main", "headline": "India's CERT-In issues an advisory on AI agents"},
+        {"date": "2026_09_12", "coverage": "side", "headline": "AI safety researchers resign over existential risk"}]}}}
+    cands = dedup._build_arc_candidates({"k": ("UPDATE", "ai_safety_cyberattacks")}, ledger)
+    desc = cands["ai_safety_cyberattacks"][1]
+    assert "FINDINGS" not in desc and len(desc) < 900
+    assert desc.index("Anthropic says") < desc.index("OpenAI says") < desc.index("CERT-In")   # newest last
+    assert "existential risk" in desc                                                     # the first headline stands in for the topic

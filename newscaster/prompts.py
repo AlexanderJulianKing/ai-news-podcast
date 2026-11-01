@@ -437,15 +437,19 @@ TIER3_OVERVIEW_PICK_PROMPT = (
 
 
 ARC_MATCH_PROMPT = (
-    "You are matching one news headline to an ongoing story arc the show is already tracking.\n"
-    "Below is a list of tracked arcs as 'slug: description'. Decide whether the headline is a "
-    "CONTINUATION of the SAME real-world story as exactly one of them.\n\n"
-    "Answer with the exact slug of the single matching arc, or NONE.\n"
+    # 2026-11-01: rewritten with the candidate format (short description + the headlines that aired), after a
+    # replay of 121 recorded decisions: 32/32 genuine matches kept, the PHP and Kremlin mismatches rejected.
+    "You are matching one news headline to a story the show is already following.\n"
+    "Each tracked story below has a slug, a short description, and the headlines that aired on it, newest last. "
+    "Decide whether the headline is a new development in the SAME story as exactly one of them.\n\n"
+    "Answer with the exact slug of that one story, or NONE.\n"
     "Rules:\n"
-    "- Match only the SAME event/story, not merely the same topic. Two different earthquakes, "
-    "two different court rulings, or two different strikes are NOT a match.\n"
-    "- If the headline matches none of them, or you are unsure, answer NONE. A wrong match is "
-    "worse than no match.\n"
+    "- The SAME story means the same event, case, decision, investigation, conflict or person's situation that the "
+    "aired headlines follow. A new turn in that same situation counts.\n"
+    "- A different event that only shares a theme is NOT a match: another cyberattack or software flaw, another "
+    "company's AI incident, a different court case, another storm. Shared words like 'AI', 'election', 'security' "
+    "or 'Russia' are not enough.\n"
+    "- If you are unsure, answer NONE. A wrong match is worse than no match.\n"
     "- Output only the slug or the word NONE. No explanation.\n"
 )
 
