@@ -314,6 +314,11 @@ entities and topic; and Luna answers from the accepted excerpts.
   with Ethan on the first story and Chloe on the second.
   - **Framing.** A story that already had a full segment is framed as an update.
     A story heard only in the roundup is introduced as a first full telling.
+    An update also lists, with dates, up to 10 facts from earlier episodes that
+    name something rare in today's brief, and tells the writer not to retell them
+    as news (`segments.earlier_facts`). The thread's one-paragraph summary drops
+    specifics on long threads: on 2026-11-02 the lead retold the July Hugging Face
+    breach, which aired on September 24, 27 and 30.
   - **Draft scoring.** Code scores the first draft on length near 1,500 words,
     speaker balance and attribution. Below 0.55, two more drafts are written and
     the best of the three is kept.

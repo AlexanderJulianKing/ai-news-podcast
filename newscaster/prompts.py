@@ -536,6 +536,14 @@ SEGMENT_SCRIPT_UPDATE_CONTEXT = (
 )
 
 
+SEGMENT_SCRIPT_EARLIER_FACTS = (
+    "\n\nThe show has already told listeners these facts, which name things in today's material:\n{facts}\n\n"
+    "Do not tell these again as if they were new, even where today's material describes them at length. "
+    "If today's story builds on one, remind listeners in a sentence or two and say when we covered it, "
+    "then spend the time on what is new."
+)
+
+
 SEGMENT_SCRIPT_SIDE_COVERED_CONTEXT = (
     "\n\nIMPORTANT CONTEXT — This story has only been mentioned briefly in this podcast's side-story roundup, "
     "never as a full segment. Here is the little that listeners already heard:\n{audience_state}\n\n"

@@ -14,7 +14,69 @@ from newscaster.prompts import (
     SCRIPT_WRITING_RULES,
     SEGMENT_SCRIPT_SIDE_COVERED_CONTEXT,
     SEGMENT_SCRIPT_UPDATE_CONTEXT,
+    SEGMENT_SCRIPT_EARLIER_FACTS,
 )
+
+MAX_EARLIER_FACTS = 10
+
+_NAME = re.compile(r"\b[A-Z][\w'&.-]*[A-Za-z0-9](?:\s+(?:of\s+|the\s+|de\s+)?[A-Z][\w'&.-]*[A-Za-z0-9])*")
+_NOT_NAMES = {"The", "A", "An", "On", "In", "It", "This", "That", "These", "He", "She", "They", "As", "At",
+              "By", "For", "According", "After", "While", "However", "But", "And", "Also", "Its", "His", "Her",
+              "Their", "AI", "U.S", "US", "January", "February", "March", "April", "May", "June", "July",
+              "August", "September", "October", "November", "December", "Monday", "Tuesday", "Wednesday",
+              "Thursday", "Friday", "Saturday", "Sunday"}
+
+
+def _names(text):
+    out = set()
+    for m in _NAME.finditer(text):
+        words = m.group(0).strip(".").split()
+        while words and words[0] in _NOT_NAMES:
+            words = words[1:]
+        name = " ".join(words)
+        if len(name) >= 3 and name not in _NOT_NAMES:
+            out.add(name)
+    return out
+
+
+def _has_word(word, text):
+    return re.search(r"\b" + re.escape(word) + r"\b", text) is not None
+
+
+def earlier_facts(episodes, story_text, formatted_date2, limit=MAX_EARLIER_FACTS):
+    """Facts from this thread's earlier episodes that name something in today's brief, as dated lines.
+
+    The thread's audience_state is one paragraph rewritten after every episode, so on a long thread it
+    drops specifics: on 2026-11-02 it no longer mentioned Hugging Face, and the writer retold that breach
+    as news. A name counts when it is rare in the thread (a name in most facts, like "OpenAI" on the AI
+    thread, says nothing about which ones matter) and is a real name, not a word that is capitalized only
+    because it starts a sentence ("Security researchers ...").
+    """
+    facts = [(ep["date"], fact) for ep in episodes or []
+             if ep.get("date") != formatted_date2 for fact in ep.get("audience_learned") or []]
+    if not facts:
+        return []
+    lowered = " ".join(f for _, f in facts) + " " + story_text
+    names = [{n for n in _names(f) if " " in n or not _has_word(n.lower(), lowered)} for _, f in facts]
+    counts = {}
+    for found in names:
+        for n in found:
+            counts[n] = counts.get(n, 0) + 1
+    rare = max(3, 0.05 * len(facts))
+    scored = []
+    for (date, fact), found in zip(facts, names):
+        shared = [n for n in found if counts[n] <= rare and _has_word(n, story_text)]
+        if shared:
+            scored.append((sum(1.0 / counts[n] for n in shared), date, fact))
+    best = sorted(scored, key=lambda s: -s[0])[:limit]
+    lines = []
+    for _, date, fact in sorted(best, key=lambda s: s[1]):
+        d = edition.key_date(date)
+        when = f"{d:%B} {d.day}" if d else date
+        if edition.key_edition(date) == edition.EVENING:
+            when += ", evening edition"
+        lines.append(f"- {when}: {fact}")
+    return lines
 
 
 def continuation_context_template(episodes, formatted_date2):
@@ -183,6 +245,10 @@ def segments_writer(stories, formatted_date2, voices_list, formatted_date, arc_c
                         reporter_name=reporter_name,
                     )
                     print_and_write(f'Injected {kind} context for slot {slot} (arc: {arc.get("slug", "?")})')
+                    aired = earlier_facts(episodes, story_text, formatted_date2) if kind == "update" else []
+                    if aired:
+                        segment_script_prompt += SEGMENT_SCRIPT_EARLIER_FACTS.format(facts="\n".join(aired))
+                        print_and_write(f'Listed {len(aired)} earlier fact(s) the audience heard for slot {slot}')
 
         quality_records = []
         selected_script = None
