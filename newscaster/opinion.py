@@ -246,9 +246,10 @@ def write_opinion(key, formatted_date):
     record = build_research_record(key, SLOT, chosen.get("topic", ""), None, [], followups)
     with open(f"segment_summaries/{key}_segment{SLOT}_research.json", "w", encoding="utf-8") as f:
         json.dump(record, f, ensure_ascii=False, indent=2)
+    # No teaser here: the intro already summarizes the piece, and Grace said it twice (Alex, 2026-11-09)
     handoff = ("Grace: It's Sunday, so in place of our main stories we turn to our opinion section. Today's piece was "
                "written by an AI model from sourced research, and it doesn't necessarily reflect the views "
-               f"of Alex or of this program. {teaser}")
+               "of Alex or of this program.")
     with open(f"output_scripts/{key}_segment_{SLOT}.txt", "w", encoding="utf-8") as f:
         f.write(handoff + "\n" + "\n".join(f"Opinion: {p}" for p in paragraphs) + "\n")
     title = re.sub(r"\s*,\s*", " — ", title)       # the uploader splits this file on commas

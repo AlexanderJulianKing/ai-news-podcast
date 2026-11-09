@@ -116,6 +116,7 @@ def test_the_writer_leaves_a_script_the_voices_and_the_fact_check_can_use(tmp_pa
     lines = [l for l in (tmp_path / "output_scripts/2026_10_25_segment_0.txt").read_text().split("\n") if l.strip()]
     assert lines[0].startswith("Grace:") and "opinion" in lines[0].lower()
     assert "doesn't necessarily reflect the views of Alex" in lines[0]    # Alex's disclaimer, read by Grace
+    assert lines[0].endswith("of this program.")                    # no second summary: the intro already gave one
     assert len(lines) > 2 and all(l.startswith("Opinion: ") for l in lines[1:])
     assert not opinion.banned_phrases("\n".join(lines[1:]))        # the "Here is my argument" tic was rewritten
     assert "thirty-five" not in "\n".join(lines)                    # a claim the self-check flagged was fixed
