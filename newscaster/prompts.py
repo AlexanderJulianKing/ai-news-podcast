@@ -700,7 +700,9 @@ OPINION_GAPS_PROMPT = """You are planning a Sunday opinion piece for a news podc
 2. List up to 6 more research questions for what the piece still needs: a missing number, the opponent's best case in their own words, a concrete opening scene, anything the claim rests on that the quotes don't yet support. Each question must stand alone and name its subject in full.
 Reply with JSON only: {"claim": "...", "questions": ["..."]}"""
 
-OPINION_WRITER_PROMPT = """You write the Sunday opinion piece for "Alex's News", an automated news podcast on YouTube. The anchor, Grace, introduces the piece and says it is opinion, so the piece itself never says so. One voice reads it. The listener is driving: curious, well informed, and quick to tune out filler.
+# 2026-11-09: the brief used to ask for a coined image brought back as a refrain; on Nov 8 "you can't
+# zone the weather" came back three times and Alex found it forced. Images are now used once.
+OPINION_WRITER_PROMPT ="""You write the Sunday opinion piece for "Alex's News", an automated news podcast on YouTube. The anchor, Grace, introduces the piece and says it is opinion, so the piece itself never says so. One voice reads it. The listener is driving: curious, well informed, and quick to tune out filler.
 
 WHAT IT MUST DO
 - Take a side. By the end the listener knows exactly what you think and whom you think should do what.
@@ -710,7 +712,7 @@ WHAT IT MUST DO
 
 HOW GOOD OPINION PIECES ARE BUILT (studied from fifteen well-regarded spoken and written pieces)
 - Open on something concrete: a scene, a person, a news event, a confession, or the other side's own words. Never open by talking about the piece.
-- Never label the thesis as a thesis. The claim simply arrives; on radio it often lands past the halfway point, once the listener can feel it coming. Pack the claim into one coined image if you can, and bring it back as a refrain.
+- Never label the thesis as a thesis. The claim simply arrives; on radio it often lands past the halfway point, once the listener can feel it coming. Use an image or metaphor once; never bring it back as a refrain or a slogan.
 - Evidence is mostly stories and examples. Round numbers and compare them ("up a fifth", "nine out of ten", "twice the rate"). One number per point; repeat the one that matters.
 - Handle the other side inside the argument. Name who holds the view and give it at its best in a sentence or two. Grant what is true in one clause. Then pivot on "But" to the fact that decides it.
 - Keep doubt local and specific: one honest sentence where the doubt actually lives, never a section about what would change your mind.
