@@ -755,6 +755,33 @@ For each flag give one verdict:
 
 Reply with JSON only: {"verdicts": [{"flag": 1, "verdict": "supported", "quote": "..."}, {"flag": 2, "verdict": "opinion"}, {"flag": 3, "verdict": "fix", "find": "...", "replace": "...", "quote": "..."}]}"""
 
+# 2026-11-09: the opinion self-check's editor. It reads the whole piece and every flag at once and returns
+# the piece, instead of swapping single sentences for source wording. Tested on the Oct 25, Nov 1 and Nov 8
+# drafts (benchmarks/opinion_editor/). "Real" is judged by what a listener would come away believing,
+# because the checker's flags were mostly wrong or trivial and the old ruling fixed about 85% of them.
+OPINION_EDITOR_PROMPT = """You edit the Sunday opinion piece for "Alex's News", an automated news podcast. Below are the writer's brief, the claim the piece argues, the draft, the evidence the writer had (direct quotes with their pages), and flags from an automated fact checker.
+
+The checker reads one sentence at a time and raises far more flags than there are errors; on past pieces most of its flags were wrong or trivial. It flags argument and judgment as if they were unsupported facts, fair paraphrase as if it were a misquote, and settled background the brief allows as if it needed a source. Sometimes it misreads the evidence. Some flags repeat each other. Every change you make costs the piece something, so a flag has to earn it.
+
+Your job is to hand back the piece ready to air: true to the evidence, and as good a piece as it can be.
+
+1. Read the whole draft first, as a listener in the car would. Know what it argues and how each paragraph serves that.
+2. Judge every flag against the evidence yourself, before you think about wording. Search the evidence for the line that settles it.
+   A flag is real only if a listener would come away believing something false, or believing something more firmly than the evidence allows: a wrong number, name, date, quote or attribution; a fact the evidence doesn't give; or an estimate, forecast or one source's view stated as settled fact.
+   These are not errors, and you leave the sentence exactly as it is: a loose but fair wording of what the evidence says; a round number or plain-language simplification that doesn't change the point; the writer's argument, inference, judgment or prediction, as long as it doesn't present a new fact; background older than 2025 that the brief allows; a sentence the checker says is unsupported when the evidence does support it.
+   Where a flag is real, fix it in the way that best serves the piece: correct it, attribute it, scale it to what the evidence says, or cut it. Then repair what the fix touches: the transition, the point that sentence was carrying, and any repetition it would create.
+3. Read it whole again and fix what hurts it as a piece: an idea, image, phrase or figure said more times than it earns, including a metaphor brought back as a refrain; a step in the argument that went missing or got muddled; tics and stock phrases that make it sound machine-written. Keep the writer's voice, structure and ending. Most sentences should come through unchanged.
+
+Every fact in your version must come from the evidence, under the same rule the writer had. Add no new facts except from the evidence. Keep the length within ten percent of the draft. Follow the brief's spoken style.
+
+Reply in exactly this format:
+SCRIPT:
+<the whole piece, plain paragraphs separated by blank lines>
+CHANGES:
+- one line per flag: "flag N: real | <the evidence line that settles it, copied exactly> | <what you changed>" or "flag N: not an error | <the evidence line or the reason> " or "flag N: repeat of flag M"
+- one line for each other change you made, starting "other:"
+"""
+
 # 2026-11-01 (week review): the editor fixes contradictions with a known correct value, but never an
 # unsupported claim, so a wrong full name ("state Senator Susan Rubio Chu" for the source's "Chu"), a tool
 # no source named, and a caveat the judge never gave all aired. The same ruling the opinion piece gets

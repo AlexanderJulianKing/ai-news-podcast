@@ -139,12 +139,12 @@ def _user_content(user_prompt):
 
 
 def claude(user_prompt, model_to_use="claude-sonnet-4-20250514", system_prompt='You are an intelligent assistant.',
-           include_usage=False, effort="high"):
+           include_usage=False, effort="high", max_tokens=32000):
     """One logical attempt against the Anthropic API.
 
     Raises a typed LLMError on failure; the router decides whether to retry or fall back.
     """
-    max_output_tokens = 32000
+    max_output_tokens = max_tokens
     thinking = True
 
     try:

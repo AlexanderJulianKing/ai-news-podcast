@@ -142,6 +142,11 @@ ROUNDUP_BED_ASSETS = "theme_song/elsewhere/elsewhere_assets.npz"
 # "miles better" than Chirp3-HD on 2026-10-22); Chirp3-HD Schedar if Gemini fails.
 OPINION_SUNDAY_ENABLED = True
 OPINION_HISTORY_PATH = "stories_chosen/opinion_history.json"
+# Whole-piece editor for the self-check (2026-11-09; replays in benchmarks/opinion_editor/). At extra-high
+# effort Opus thinks for ~30-45k tokens, past the usual 32k output cap. About $1 a piece. Off = sentence ruling.
+OPINION_EDITOR_ENABLED = True
+OPINION_EDITOR_EFFORT = "xhigh"
+OPINION_EDITOR_MAX_TOKENS = 96000
 OPINION_TTS_MODEL = "gemini-3.8-flash-lite-tts"   # Gemini API only; not on the Cloud TTS API
 OPINION_VOICE = "Schedar"
 OPINION_FALLBACK_VOICE = "en-US-Chirp3-HD-Schedar"

@@ -63,9 +63,19 @@ replaces the two main stories, and the roundup follows as usual.
      based on 15 well-regarded opinion pieces, and the AI tics are ones Alex
      flagged in the first samples.
   6. A self-check runs the faithfulness pass twice against the writer's own quotes.
-     Opus then rules on each flag: supported (quoting the evidence), opinion, or a
-     whole-sentence fix, which code applies. Most flags are false alarms. In the
-     rehearsal, about 9 of 11 came from the checker missing a quote that was there.
+     Most flags are false alarms or trivial. Since 2026-11-09 one Opus call at
+     extra-high effort (`OPINION_EDITOR_PROMPT`, mode `opinion_editor`, 96k output
+     cap, no backup model) reads the whole piece with every flag and returns the
+     edited piece. A flag counts only if a listener would come away believing
+     something false; the editor also cuts repetition and refrains. The pass then
+     rereads just the sentences the editor wrote, and flags there get one more
+     round. If the editor fails or returns a piece more than 15% off in length,
+     the old sentence ruling runs instead: supported, opinion, or a whole-sentence
+     fix that code applies. Switch: `OPINION_EDITOR_ENABLED`. Why: the old ruling
+     marked about 85% of flags "fix", and on Nov 8 that hedged the thesis and said
+     one idea three times. Replayed on three Sundays, the editor fixed 9 of 11 real
+     errors, left most false alarms alone and caught three errors that had aired
+     (`benchmarks/opinion_editor/`). It costs about $1 a piece.
 
   Each stage is saved in `segment_summaries/<key>_opinion_state.json`, so a retry
   doesn't pay twice.
@@ -383,7 +393,7 @@ the show.
     and code checks the line is there. A plain cut needs no quote.
 
   The verdicts go to `logs/fact_finder_edits.jsonl` as `sourcing_ruling` records.
-  The opinion piece gets the same ruling while it is written. Switch:
+  The opinion piece is edited whole instead while it is written (see above). Switch:
   `FACT_FINDER_SOURCING_RULING_ENABLED`.
 
   Why: the review of the week of Oct 22-29 found unsupported specifics that aired,

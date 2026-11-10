@@ -91,6 +91,10 @@ def _select_primary(mode, grounding, url_context):
                          'reasoning': _config.STANDARD_REASONING_EFFORT},
         }
 
+    if mode == 'opinion_editor' and not needs_tools:   # rewrites a whole piece: no other model stands in
+        return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL, 'effort': _config.OPINION_EDITOR_EFFORT,
+                'max_tokens': _config.OPINION_EDITOR_MAX_TOKENS, 'no_fallback': True}
+
     if mode == 'routine' and not needs_tools:
         return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL, 'effort': _config.ROUTINE_EFFORT}
 
@@ -169,7 +173,8 @@ def _dispatch(spec, user_prompt, system_prompt):
         )
 
     if provider == 'anthropic':
-        return claude(user_prompt, model, system_prompt, include_usage=True, effort=spec.get('effort', 'high'))
+        return claude(user_prompt, model, system_prompt, include_usage=True, effort=spec.get('effort', 'high'),
+                      max_tokens=spec.get('max_tokens', 32000))
 
     if provider == 'openrouter':
         return get_openrouter_response(
@@ -302,6 +307,8 @@ def get_llm_response(user_prompt, system_prompt='You are an intelligent assistan
     try:
         return _call_with_retry(primary, user_prompt, system_prompt, call_id=call_id, phase="primary")
     except (LLMRetriesExhaustedError, LLMAuthError) as e:
+        if primary.get('no_fallback'):
+            raise
         backup = primary.get('fallback')
         if backup:   # a mode with its own backup (haiku -> Luna) tries it before the general one
             print_and_write(f"LLM-FALLBACK [{primary['provider']}/{primary['model']} → {backup['provider']}/{backup['model']}]: {e}")

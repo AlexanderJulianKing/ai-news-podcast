@@ -9,7 +9,8 @@ Stages, each saved to segment_summaries/<key>_opinion_state.json so a retry does
   2. research: the tool-using researcher answers them (quotes checked on the page);
   3. gaps: Opus revises the claim to fit the evidence and asks follow-ups, which are researched;
   4. draft: Opus writes the piece from that evidence alone; banned AI-isms are rewritten;
-  5. self-check: the faithfulness pass reads the piece against those quotes, and Opus fixes or keeps each flag.
+  5. self-check: the faithfulness pass reads the piece against those quotes, and Opus edits the whole piece
+     with every flag in view (extra-high effort); new sentences are checked once more.
 The evidence is saved as slot 0's research record, so the usual fact check and editor run on it.
 """
 import glob
@@ -23,7 +24,8 @@ from newscaster import config as _config
 from newscaster import edition
 from newscaster.llm import get_llm_response
 from newscaster.logging import print_and_write
-from newscaster.prompts import (OPINION_GAPS_PROMPT as GAPS_PROMPT, OPINION_OVERRIDE_PROMPT as OVERRIDE_PROMPT,
+from newscaster.prompts import (OPINION_EDITOR_PROMPT as EDITOR_PROMPT, OPINION_GAPS_PROMPT as GAPS_PROMPT,
+                                OPINION_OVERRIDE_PROMPT as OVERRIDE_PROMPT,
                                 OPINION_PITCH_PROMPT as PITCH_PROMPT, OPINION_REVISE_PROMPT as REVISE_PROMPT,
                                 OPINION_SOURCING_PROMPT as SOURCING_PROMPT, OPINION_WRITER_PROMPT as WRITER_PROMPT)
 from newscaster.rag.indexer import build_research_record
@@ -163,11 +165,9 @@ def _norm(text):
     return " ".join(re.findall(r"[a-z0-9$%]+", (text or "").lower().replace("\u2019", "'")))
 
 
-def self_check(script, evidence):
-    """Run the faithfulness pass against the writer's own evidence; Opus rules on each flag
-    (review.rule_on_flags: quotes and whole-sentence fixes, checked by code). Returns (script, audit)."""
+def _check(script, evidence):
     # The checker finds different things on each run (9 and 15 flags on one script, 2026-10-23), so
-    # two runs are merged. Most flags are false alarms; the ruling sorts them out.
+    # two runs are merged. Most flags are false alarms; the editor sorts them out.
     with ThreadPoolExecutor(max_workers=2) as pool:
         runs = list(pool.map(lambda _: faithfulness_flags(script, evidence), range(2)))
     flags, seen = [], set()
@@ -176,7 +176,71 @@ def self_check(script, evidence):
         if span not in seen:
             seen.add(span)
             flags.append(flag)
-    return rule_on_flags(script, evidence, flags, SOURCING_PROMPT, label="opinion self-check")
+    return flags
+
+
+def _edit_whole(script, evidence, flags, claim):
+    """One extra-high-effort Opus call: the whole piece, every flag, the evidence -> (piece, change log).
+    Raises ValueError on a reply that isn't a usable piece."""
+    numbered = "\n".join(f"{i}. {f}" for i, f in enumerate(flags, 1))
+    reply = get_llm_response(f"THE WRITER'S BRIEF:\n{WRITER_PROMPT}\n\nCLAIM: {claim}\n\nDRAFT:\n{script}\n\n"
+                             f"EVIDENCE:\n{evidence}\n\nFLAGS:\n{numbered}",
+                             system_prompt=EDITOR_PROMPT, mode="opinion_editor")
+    m = re.search(r"SCRIPT:\s*\n(.*?)(?:\n\s*CHANGES:\s*\n(.*))?\s*$", reply or "", re.S)
+    if not m:
+        raise ValueError(f"editor reply has no SCRIPT: {(reply or '')[:200]!r}")
+    piece = extract_producer_notes(m.group(1), where="opinion editor").strip()
+    before, after = len(script.split()), len(piece.split())
+    if not 0.85 * before <= after <= 1.15 * before:
+        raise ValueError(f"editor returned {after} words for a {before}-word draft")
+    return piece, (m.group(2) or "").strip()
+
+
+def _on_new_text(flags, old):
+    """Flags whose quoted wording isn't in the old script: they point at sentences the editor wrote."""
+    old_norm, out = _norm(old), []
+    for flag in flags:
+        spans = re.findall(r"[“\"](.+?)[”\"]", flag)
+        # split the checker's quotes at ellipses and its own "[with]" insertions
+        parts = [_norm(p) for s in spans for p in re.split(r"\.\.\.|…|/|\[[^\]]*\]", s) if len(_norm(p)) > 12]
+        if parts and any(p not in old_norm for p in parts):
+            out.append(flag)
+    return out
+
+
+def self_check(script, evidence, claim=""):
+    """Check the piece against the writer's own evidence and have Opus edit it whole. Returns (script, audit).
+
+    The faithfulness pass flags it; one Opus call at extra-high effort judges every flag and returns the
+    piece (OPINION_EDITOR_PROMPT). The pass then rereads only the sentences the editor wrote, and any flag
+    there gets one more round. If the editor fails, the sentence-by-sentence ruling runs instead.
+    """
+    flags = _check(script, evidence)
+    if not flags or not _config.OPINION_EDITOR_ENABLED:
+        new, audit = rule_on_flags(script, evidence, flags, SOURCING_PROMPT, label="opinion self-check")
+        return new, dict(audit, editor="sentence-ruling", editor_failed=None)
+    try:
+        edited, changes = _edit_whole(script, evidence, flags, claim)
+    except Exception as exc:
+        print_and_write(f"OPINION editor failed ({exc!r:.200}); falling back to the sentence ruling")
+        new, audit = rule_on_flags(script, evidence, flags, SOURCING_PROMPT, label="opinion self-check")
+        return new, dict(audit, editor="sentence-ruling", editor_failed=repr(exc)[:300])
+    audit = {"editor": "whole-piece", "editor_failed": None, "flags": flags, "changes": changes,
+             "new_text_flags": [], "second_round": None}
+    print_and_write(f"OPINION editor: {len(flags)} flag(s) judged, {len(script.split())} -> {len(edited.split())} words")
+    late = _on_new_text(_check(edited, evidence), script)
+    if late:
+        audit["new_text_flags"] = late
+        print_and_write(f"OPINION editor: {len(late)} flag(s) on sentences it wrote; one more round")
+        try:
+            edited, audit["second_round"] = _edit_whole(edited, evidence, late, claim)
+        except Exception as exc:
+            print_and_write(f"OPINION editor second round failed ({exc!r:.200}); keeping the first edit")
+            audit["second_round"] = f"failed: {exc!r:.300}"
+    found = [p for p in banned_phrases(edited) if p not in banned_phrases(script)]
+    if found:
+        print_and_write(f"OPINION editor introduced banned phrases {found}")
+    return edited, audit
 
 
 def write_opinion(key, formatted_date):
@@ -239,7 +303,7 @@ def write_opinion(key, formatted_date):
 
     # Check the piece against the quotes its writer saw (the later fact check reads far more text, and
     # its editor fixes contradictions but never cuts an unsupported claim or a wrong attribution).
-    script, state["self_check"] = self_check(script, evidence)
+    script, state["self_check"] = self_check(script, evidence, claim=state["claim"])
     save()
 
     paragraphs = _paragraphs(script)

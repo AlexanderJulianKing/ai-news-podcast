@@ -83,6 +83,12 @@ def _fake_llm(prompt, system_prompt=None, mode=None, **_):
         return f"TITLE: Pay for antibiotics like a fire department\nTEASER: Why we should pay drugmakers to wait.\nSCRIPT:\n{body}"
     if system_prompt == opinion.REVISE_PROMPT:
         return prompt.split("SCRIPT:\n", 1)[1].replace("Here is my argument. ", "")
+    if system_prompt == opinion.EDITOR_PROMPT:
+        assert mode == "opinion_editor" and "1. FLAG: thirty-five thousand" in prompt and "more than 35,000 people die" in prompt
+        draft = prompt.split("DRAFT:\n", 1)[1].split("\n\nEVIDENCE:\n", 1)[0]
+        fixed = draft.replace("The CDC counts more than thirty-five thousand deaths a year",
+                              "The CDC counts tens of thousands of deaths a year")
+        return f"SCRIPT:\n{fixed}\nCHANGES:\n- flag 1: real | more than 35,000 people die | rounded the figure"
     if system_prompt == opinion.SOURCING_PROMPT:
         assert "1. FLAG: thirty-five thousand" in prompt and "more than 35,000 people die" in prompt
         assert "2. FLAG" not in prompt
@@ -193,10 +199,80 @@ def test_the_fact_check_sees_the_relevant_evidence_when_the_sources_run_long():
     assert "could add $1,000 a month" in seen["p"] and len(seen["p"]) < 170000
 
 
-def test_a_fix_that_would_leave_a_sentence_fragment_is_skipped():
+def test_a_fix_that_would_leave_a_sentence_fragment_is_skipped(monkeypatch):
+    monkeypatch.setattr(opinion._config, "OPINION_EDITOR_ENABLED", False)    # this tests the fallback ruling
     script = "The caps are highest where permits are slowest. Prices rose."
     reply = json.dumps({"verdicts": [{"flag": 1, "verdict": "fix", "find": "where permits are", "replace": "in big counties"}]})
     with patch.object(opinion, "faithfulness_flags", return_value=["FLAG: permits — unsupported"]), \
          patch.object(review, "get_llm_response", return_value=reply):
         out, audit = opinion.self_check(script, "evidence")
     assert out == script and len(audit["skipped"]) == 1
+
+
+# 2026-11-09: the self-check used to swap single sentences for quote-backed wording, one flag at a time,
+# and Opus ruled "fix" on about 85% of flags. On Nov 8 that hedged the thesis and said one idea three
+# times. Replayed on three Sundays, a whole-piece editor at extra-high effort fixed 9 of 11 real errors,
+# left most false alarms alone and caught three errors that had aired (benchmarks/opinion_editor/).
+DRAFT = ("Morgan County voted almost nine to one. Price works like weather. The auction sets one price.\n\n"
+         "Commissions hold the power to change that price. You can't zone the weather.")
+EDITED = ("Morgan County voted about seven to one. Price works like weather. The auction sets one price.\n\n"
+          "Commissions hold the tools that reach that price. Phantom demand leaves before the auction sees it.")
+
+
+def _editor_reply(script):
+    return f"SCRIPT:\n{script}\nCHANGES:\n- flag 1: real | quote | fixed\n- flag 2: not an error | supported"
+
+
+def test_the_editor_rewrites_the_piece_whole_with_every_flag_in_view():
+    flags = ["FLAG: \u201cCommissions hold the power to change that price\u201d \u2014 the source says they don't set it",
+             "FLAG: \u201cThe auction sets one price\u201d \u2014 prices vary by zone"]
+    calls = []
+
+    def editor(prompt, system_prompt=None, mode=None, **_):
+        calls.append((prompt, system_prompt, mode))
+        return _editor_reply(EDITED)
+    with patch.object(opinion, "faithfulness_flags", side_effect=lambda s, e: flags if s == DRAFT else []), \
+         patch.object(opinion, "get_llm_response", side_effect=editor), \
+         patch.object(review, "get_llm_response", side_effect=AssertionError("no sentence-swap ruling")):
+        out, audit = opinion.self_check(DRAFT, "evidence", claim="Commissions, not towns")
+    assert out == EDITED
+    prompt, system, mode = calls[0]
+    assert len(calls) == 1 and system == opinion.EDITOR_PROMPT and mode == "opinion_editor"
+    assert "1. FLAG: \u201cCommissions" in prompt and "2. FLAG: \u201cThe auction" in prompt   # all flags in one call
+    assert "CLAIM: Commissions, not towns" in prompt and DRAFT in prompt and "evidence" in prompt
+    assert audit["editor"] == "whole-piece" and "flag 2: not an error" in audit["changes"]
+
+
+def test_flags_on_sentences_the_editor_wrote_get_one_more_round():
+    first = ["FLAG: \u201cCommissions hold the power to change that price\u201d \u2014 overclaims"]
+    after = ["FLAG: \u201cPhantom demand leaves before the auction sees it\u201d \u2014 not in the sources",
+             "FLAG: \u201cThe auction sets one price\u201d \u2014 prices vary by zone",    # the writer's, already judged
+             "FLAG: \u201cMorgan County voted \u2026 [by] almost nine to one\u201d \u2014 88% is about 7 to 1"]
+    final = EDITED.replace("Phantom demand leaves before the auction sees it.", "Less phantom demand reaches the auction.")
+    replies, prompts = [_editor_reply(EDITED), _editor_reply(final)], []
+
+    def editor(prompt, system_prompt=None, mode=None, **_):
+        prompts.append(prompt)
+        return replies[len(prompts) - 1]
+    checks = {DRAFT: first, EDITED: after, final: []}
+    with patch.object(opinion, "faithfulness_flags", side_effect=lambda s, e: checks[s]), \
+         patch.object(opinion, "get_llm_response", side_effect=editor):
+        out, audit = opinion.self_check(DRAFT, "evidence")
+    assert out == final and len(prompts) == 2
+    second_flags = prompts[1].split("FLAGS:\n", 1)[1]
+    assert "Phantom demand" in second_flags and "The auction sets one price" not in second_flags
+    assert "nine to one" not in second_flags
+    assert EDITED in prompts[1]
+
+
+def test_a_failed_or_mangled_edit_falls_back_to_the_sentence_ruling():
+    flags = ["FLAG: \u201cCommissions hold the power to change that price\u201d \u2014 overclaims"]
+    ruling = json.dumps({"verdicts": [{"flag": 1, "verdict": "fix", "find": "Commissions hold the power to change that price.",
+                                       "replace": "", "quote": ""}]})
+    for reply in (RuntimeError("Opus down"), _editor_reply("Morgan County voted."), "no script here"):
+        with patch.object(opinion, "faithfulness_flags", return_value=flags), \
+             patch.object(opinion, "get_llm_response", side_effect=[reply] if isinstance(reply, Exception) else [reply]), \
+             patch.object(review, "get_llm_response", return_value=ruling):
+            out, audit = opinion.self_check(DRAFT, "evidence")
+        assert "Commissions hold the power" not in out and "almost nine to one" in out   # the ruling's cut, nothing else
+        assert audit["editor"] == "sentence-ruling" and audit["editor_failed"]
