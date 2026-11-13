@@ -25,6 +25,29 @@ def extract_producer_notes(text, where=""):
     return clean.strip()
 
 
+def drop_repeated_answer(text, where=""):
+    """Drop paragraphs that repeat an earlier one (same opening 80 characters, or the same short line).
+
+    2026-11-12 pm: the roundup writer returned its whole answer twice (header, four stories, notes),
+    and both copies aired; the first such case in 290 roundups. Keeps the first copy of each paragraph.
+    """
+    parts = re.split(r"(\n[ \t]*\n\s*)", text or "")
+    seen, dropped = set(), 0
+    pieces = [("", parts[0])] + [(parts[i], parts[i + 1]) for i in range(1, len(parts) - 1, 2)]
+    kept = []
+    for sep, para in pieces:
+        norm = re.sub(r"\W+", " ", para.lower()).strip()
+        key = norm[:80] if len(norm.split()) >= 8 else norm
+        if key and key in seen:
+            dropped += 1
+            continue
+        seen.add(key)
+        kept.append(sep + para)
+    if dropped:
+        print_and_write(f"REPEATED TEXT [{where}]: dropped {dropped} paragraph(s) that repeated earlier ones")
+    return "".join(kept).strip()
+
+
 
 def text_cleaner(text):
     text = text.replace("\u2019", "'")

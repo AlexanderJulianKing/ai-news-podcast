@@ -254,3 +254,18 @@ def test_same_event_reply_must_be_numbers_only():
     # a stray number inside an explanation must not drop candidate 1
     with pytest.raises(ValueError):
         _parse_overview_repeat_numbers("4, 5 (5 is the $1 billion cuts)", 7)
+
+
+def test_roundup_writer_output_said_twice_keeps_one_copy():
+    # 2026-11-12 pm: the roundup writer returned its whole answer twice and both copies aired.
+    from newscaster.text_utils import drop_repeated_answer
+    once = ("here are some other headlines:\n\n"
+            "Democrat Scott Colom has won Mississippi's U.S. Senate race, narrowly defeating the Republican incumbent.\n\n\n"
+            "Existing-home sales in the United States fell to their lowest level in sixteen years, as mortgage costs bit.")
+    assert drop_repeated_answer(once + "\n\n" + once) == once
+    # the second copy can drift a little; a repeated story is still a repeat
+    drifted = once.replace("sixteen years, as mortgage costs bit.", "sixteen years.\n\nOne new story at the end of it all, said only once here.")
+    assert drop_repeated_answer(once + "\n\n" + drifted).count("Scott Colom") == 1
+    assert "One new story" in drop_repeated_answer(once + "\n\n" + drifted)
+    # a normal roundup is untouched
+    assert drop_repeated_answer(once) == once

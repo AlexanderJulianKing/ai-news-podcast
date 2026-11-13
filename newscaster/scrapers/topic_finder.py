@@ -10,7 +10,7 @@ from datetime import date, datetime
 import newscaster.config as _config
 from newscaster import edition, opinion
 from newscaster.logging import print_and_write
-from newscaster.text_utils import _grounded_response_needs_retry, extract_producer_notes
+from newscaster.text_utils import _grounded_response_needs_retry, drop_repeated_answer, extract_producer_notes
 from newscaster.prompts import (
     FOLLOW_UP_PROMPT_TEMPLATE,
     CHALLENGING_FOLLOW_UP_PROMPT_TEMPLATE,
@@ -1154,6 +1154,7 @@ def topic_finder(formatted_date):
                                      system_prompt=overview_anchor_prompt(), mode='standard')
 
     overview_text = extract_producer_notes(overview_text.replace("*", ""), where=f"{formatted_date2} roundup")
+    overview_text = drop_repeated_answer(overview_text, where=f"{formatted_date2} roundup")   # 2026-11-12 pm aired twice
     print_and_write('\noverview3:', overview_text)
 
     # --- Extract arc tags before stripping ---
