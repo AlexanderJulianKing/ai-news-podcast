@@ -10,7 +10,7 @@ from newscaster.llm.router import get_llm_response
 # Table of (mode, grounding, url_context) -> expected primary provider
 ROUTING_CASES = [
     # (mode, grounding, url_context, expected_provider)
-    ('light', False, False, 'google'),
+    ('light', False, False, 'anthropic'),   # Haiku 5.5 since 2026-11-12
     ('light', True, False, 'google'),
     ('light', False, True, 'google'),
     ('standard', True, False, 'google'),
@@ -46,7 +46,7 @@ def test_routing(mode, grounding, url_context, expected_provider):
             assert result == 'gemini_response'
         elif expected_provider == 'anthropic':
             mock_claude.assert_called_once()
-            assert mock_claude.call_args[0][1] == 'claude-opus-5-5'
+            assert mock_claude.call_args[0][1] == ('claude-haiku-5-5' if mode == 'light' else 'claude-opus-5-5')
             mock_gemini.assert_not_called()
             mock_openrouter.assert_not_called()
             assert result == 'claude_response'
@@ -117,3 +117,9 @@ def test_tagger_routes_to_sol_medium():
         assert get_llm_response('test prompt', mode='tagger') == 'ok'
     assert mock_openrouter.call_args.args[1] == 'openai/gpt-6.1-sol'
     assert mock_openrouter.call_args.args[3] == 'medium'
+
+
+def test_light_jobs_go_to_haiku_with_a_backup():
+    from newscaster.llm.router import _select_primary
+    spec = _select_primary('light', False, False)
+    assert spec['model'] == _config.HAIKU_MODEL and spec.get('fallback')

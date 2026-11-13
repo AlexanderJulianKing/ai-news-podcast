@@ -84,7 +84,7 @@ def _select_primary(mode, grounding, url_context):
     if mode == 'heavy' and not needs_tools:
         return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL}
 
-    if mode == 'haiku' and not needs_tools:
+    if mode in ('haiku', 'light') and not needs_tools:   # light: Haiku 5.5 instead of Gemini Flash-Lite since 2026-11-12
         return {
             'provider': 'anthropic', 'model': _config.HAIKU_MODEL, 'effort': _config.HAIKU_EFFORT,
             'fallback': {'provider': 'openrouter', 'model': _config.STANDARD_MODEL, 'name': 'GPT-6 Luna (standard)',

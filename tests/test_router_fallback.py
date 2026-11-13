@@ -75,7 +75,7 @@ def test_malformed_response_is_treated_as_retryable():
     side_effects = [LLMMalformedResponseError("text=None")] * 3 + ['ok']
     with patch('newscaster.llm.router.gemini', side_effect=side_effects) as mock_g, \
          _patch_no_sleep():
-        assert get_llm_response('p', mode='light') == 'ok'
+        assert get_llm_response('p', mode='light', grounding=True) == 'ok'
         assert mock_g.call_count == 4
 
 
@@ -83,5 +83,5 @@ def test_fallback_uses_configured_model():
     with patch('newscaster.llm.router.gemini', side_effect=LLMTimeoutError("nope")), \
          patch('newscaster.llm.router.get_openrouter_response', return_value='ok') as mock_or, \
          _patch_no_sleep():
-        get_llm_response('p', mode='light')
+        get_llm_response('p', mode='light', grounding=True)
         assert mock_or.call_args.args[1] == _config.FALLBACK_MODEL

@@ -52,7 +52,8 @@ def _chunks(text):
 
 def _client():
     from google import genai
-    return genai.Client(api_key=_config.GOOGLE_GENAI_API_KEY)
+    from newscaster.llm.google_client import client_kwargs
+    return genai.Client(**client_kwargs())
 
 
 def _render(client, text):

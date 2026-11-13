@@ -50,7 +50,7 @@ DEFAULT_K_VALUES = (1, 3, 5, 6, 10)
 
 # Production retrieval defaults, for the threshold-sensitivity readout.
 PROD_TOP_K = 6
-PROD_MIN_SIM = 0.65
+PROD_MIN_SIM = 0.76   # = config.RAG_MIN_SIM; was 0.65 under gemini-embedding-2 (before 2026-11-12)
 
 
 # --------------------------------------------------------------------------- #

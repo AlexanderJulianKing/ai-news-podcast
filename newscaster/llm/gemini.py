@@ -4,6 +4,7 @@ from google.genai import errors as genai_errors
 from google.genai.types import Tool, GenerateContentConfig
 
 import newscaster.config as _config
+from newscaster.llm.google_client import client_kwargs
 from newscaster.llm.errors import (
     LLMMalformedResponseError,
     LLMTransportError,
@@ -24,7 +25,7 @@ def gemini(user_prompt, system_prompt='You are an intelligent assistant.', model
         tools.append(Tool(url_context=types.UrlContext))
 
     try:
-        client = genai.Client(api_key=_config.GOOGLE_GENAI_API_KEY)
+        client = genai.Client(**client_kwargs())
         response = client.models.generate_content(
             model=model,
             contents=user_prompt,

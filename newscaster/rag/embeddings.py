@@ -8,6 +8,7 @@ from google.genai import types
 from google.genai import errors as genai_errors
 
 import newscaster.config as _config
+from newscaster.llm.google_client import client_kwargs
 from newscaster.llm.errors import LLMMalformedResponseError, classify
 
 
@@ -21,7 +22,7 @@ def embed_texts(texts, *, task_type="RETRIEVAL_DOCUMENT", model=None, dimension=
     model = model or _config.EMBED_MODEL
     dimension = dimension or _config.EMBED_DIM
     try:
-        client = genai.Client(api_key=_config.GOOGLE_GENAI_API_KEY)
+        client = genai.Client(**client_kwargs())
         response = client.models.embed_content(
             model=model,
             contents=list(texts),

@@ -58,6 +58,13 @@ FALLBACK_REASONING_EFFORT = "low"
 
 # --- LLM mode routing ---
 LIGHT_MODEL = "gemini-3.1-flash-lite"
+# Gemini goes through Vertex AI on the Cloud project that bills Chirp, not the AI Studio key, whose
+# prepaid credit ran out ~2026-10-26 (Alex, 2026-11-12: no separate prepaid balance). The light jobs
+# moved to Haiku 5.5 the same day; LIGHT_MODEL is only the catch-all for unknown modes now.
+GEMINI_VIA_VERTEX = True
+VERTEX_PROJECT = "newscaster1"
+VERTEX_LOCATION = "global"           # the Gemini 3.x models are only served from "global"
+GOOGLE_CLOUD_CREDENTIALS = "newscaster1-03dc16232821.json"   # service account, also used by Chirp
 # GPT-6 Luna replaced Gemma 4 31B (standard) and GLM 5.2 (advanced) on 2026-09-23, after a blind
 # pairwise test on 107 real production inputs (benchmarks/tier_swap/): better on research answers
 # and the faithfulness check, about 13x cheaper than GLM, a little dearer than Gemma.
@@ -110,10 +117,15 @@ SEARCH_AUDIT_LOG_ENABLED = True
 SOURCE_HUNTER_AUDIT_LOG_ENABLED = True
 
 # --- RAG / embeddings tunables ---
-EMBED_MODEL = "gemini-embedding-2"   # verified current; space incompatible with -001
+# 2026-11-12: gemini-embedding-001, because Vertex AI won't serve gemini-embedding-2 to the project
+# (404 in every region tried); the index was re-embedded with -001 the same day.
+EMBED_MODEL = "gemini-embedding-001"
 EMBED_DIM = 1536                     # pinned; changing requires a full re-embed
 RAG_TOP_K = 6                        # chunks retrieved per refine
-RAG_MIN_SIM = 0.65                   # cosine floor; below -> inject nothing (tune empirically)
+# Cosine floor; below -> inject nothing. 0.65 under gemini-embedding-2 let 2.6% of different-story
+# chunk pairs through; 0.76 under -001 lets 2.4% through and keeps more same-story pairs (74% vs 67%).
+# Calibrated on the 2,264-chunk index, 2026-11-12.
+RAG_MIN_SIM = 0.76
 RAG_AUGMENT_ENABLED = False          # gates the retrieve-then-refine pass
 
 # --- Agentic selected-story research ---

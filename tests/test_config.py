@@ -61,7 +61,7 @@ def test_init_with_valid_file(tmp_path, monkeypatch):
 def test_rag_constants_present():
     """RAG tunables are module-level constants, available without init()."""
     import newscaster.config as cfg
-    assert cfg.EMBED_MODEL == "gemini-embedding-2"
+    assert cfg.EMBED_MODEL == "gemini-embedding-001"   # since 2026-11-12 (Vertex AI)
     assert cfg.EMBED_DIM == 1536
     assert cfg.RAG_TOP_K == 6
     assert isinstance(cfg.RAG_MIN_SIM, float)

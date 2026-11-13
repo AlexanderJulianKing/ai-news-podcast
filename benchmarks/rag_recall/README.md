@@ -2,7 +2,7 @@
 
 Measures how well the Newscaster retrieval memory (`newscaster/rag/`) actually
 finds relevant chunks. The retriever is from-scratch: Gemini embeddings
-(`gemini-embedding-2`, 1536-d) stored as float32 blobs in SQLite, retrieved by
+(`gemini-embedding-001` on Vertex AI since 2026-11-12, before that `gemini-embedding-2`; 1536-d) stored as float32 blobs in SQLite, retrieved by
 brute-force cosine in NumPy (`newscaster/rag/store.py`).
 
 This exists for two reasons: (1) to verify retrieval works, and (2) because

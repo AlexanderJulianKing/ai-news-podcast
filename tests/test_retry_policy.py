@@ -20,14 +20,14 @@ def _patch_no_sleep():
 
 def test_succeeds_on_first_attempt_no_retry():
     with patch('newscaster.llm.router.gemini', return_value='ok') as mock_g:
-        assert get_llm_response('p', mode='light') == 'ok'
+        assert get_llm_response('p', mode='light', grounding=True) == 'ok'
         assert mock_g.call_count == 1
 
 
 def test_retries_until_success():
     side_effects = [LLMTimeoutError("t1"), LLMTimeoutError("t2"), 'ok']
     with patch('newscaster.llm.router.gemini', side_effect=side_effects) as mock_g, _patch_no_sleep():
-        assert get_llm_response('p', mode='light') == 'ok'
+        assert get_llm_response('p', mode='light', grounding=True) == 'ok'
         assert mock_g.call_count == 3
 
 
@@ -36,7 +36,7 @@ def test_exhausts_retries_then_falls_back_to_openrouter():
     with patch('newscaster.llm.router.gemini', side_effect=LLMTimeoutError("nope")) as mock_g, \
          patch('newscaster.llm.router.get_openrouter_response', return_value='fallback_ok') as mock_or, \
          _patch_no_sleep():
-        result = get_llm_response('p', mode='light')
+        result = get_llm_response('p', mode='light', grounding=True)
         assert result == 'fallback_ok'
         assert mock_g.call_count == _config.MAX_RETRIES
         assert mock_or.call_count == 1
@@ -47,7 +47,7 @@ def test_auth_error_falls_back_immediately_without_retrying():
     with patch('newscaster.llm.router.gemini', side_effect=LLMAuthError("bad key")) as mock_g, \
          patch('newscaster.llm.router.get_openrouter_response', return_value='fallback_ok') as mock_or, \
          _patch_no_sleep():
-        result = get_llm_response('p', mode='light')
+        result = get_llm_response('p', mode='light', grounding=True)
         assert result == 'fallback_ok'
         assert mock_g.call_count == 1
         assert mock_or.call_count == 1
@@ -59,7 +59,7 @@ def test_bad_request_does_not_retry_or_fall_back():
          patch('newscaster.llm.router.get_openrouter_response') as mock_or, \
          _patch_no_sleep():
         with pytest.raises(LLMBadRequestError):
-            get_llm_response('p', mode='light')
+            get_llm_response('p', mode='light', grounding=True)
         assert mock_g.call_count == 1
         mock_or.assert_not_called()
 
@@ -69,7 +69,7 @@ def test_both_primary_and_fallback_exhausted_raises_exhausted():
          patch('newscaster.llm.router.get_openrouter_response', side_effect=LLMTimeoutError("or-fail")), \
          _patch_no_sleep():
         with pytest.raises(LLMRetriesExhaustedError):
-            get_llm_response('p', mode='light')
+            get_llm_response('p', mode='light', grounding=True)
 
 
 def test_backoff_uses_retry_after_for_rate_limit():
