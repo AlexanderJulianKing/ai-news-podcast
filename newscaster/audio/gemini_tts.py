@@ -8,6 +8,11 @@ Found while auditioning (2026-10-22/23):
   noise after every paragraph (Alex heard them). decode() reads only the samples.
 - About one paragraph in ten comes out garbled (its transcript matched its text at 0.39-0.67 in
   the rehearsal). Each render is transcribed and compared with its text, and redone if it's off.
+- 2026-11-15: the voice also ad-libs. "So, Watanabe filed a complaint." aired after a paragraph that
+  ends "stop being a cry baby"; a whole-text match of 0.91 passed it. In 24 test renders, 3 added a
+  sentence (match 0.85-0.87, all passing) and 4 read the paragraph twice (0.63-0.67). So a render
+  that adds 3 or more words in one place is rejected too. Numbers are left out of the comparison,
+  since the transcriber writes "2024" for "twenty twenty-four".
 """
 import difflib
 import io
@@ -93,14 +98,40 @@ def _wav_bytes(x, sr):
     return buf.getvalue()
 
 
-def _match(client, x, text, rate=_RATE):
-    """How closely a transcript of the render matches its text (1.0 = word for word)."""
+_NUMBER_WORDS = set("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen "
+                    "sixteen seventeen eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety "
+                    "hundred thousand million billion trillion point percent oh".split())
+
+
+def _words(s):
+    return [w for w in re.findall(r"[a-z0-9']+", (s or "").lower().replace("’", "'"))
+            if w not in _NUMBER_WORDS and not re.fullmatch(r"\d+(?:st|nd|rd|th|s)?", w)]
+
+
+def check_transcript(text, heard):
+    """(ok, match, added words) for a transcript of a render. ok: it matches the text at 0.85 or better
+    (1.0 = word for word) and adds no run of 3+ words the text doesn't have."""
+    a, b = _words(text), _words(heard)
+    sm = difflib.SequenceMatcher(None, a, b)
+    # the longest stretch the transcript has beyond the text (a replace counts only its surplus words)
+    extra, added = 0, []
+    for op, i1, i2, j1, j2 in sm.get_opcodes():
+        if op in ("insert", "replace") and (j2 - j1) - (i2 - i1) > extra:
+            extra, added = (j2 - j1) - (i2 - i1), b[j1:j2]
+    return sm.ratio() >= 0.85 and extra < 3, sm.ratio(), added if extra >= 3 else []
+
+
+def _transcribe(client, x, rate=_RATE):
     from google.genai import types
-    reply = client.models.generate_content(model=_config.OPINION_TTS_CHECK_MODEL, contents=[
-        types.Part.from_bytes(data=_wav_bytes(x, rate), mime_type="audio/wav"),
-        "Transcribe this audio verbatim. Write numbers as words. Output only the transcript."])
-    words = lambda s: re.findall(r"[a-z']+", (s or "").lower().replace("’", "'"))
-    return difflib.SequenceMatcher(None, words(text), words(reply.text)).ratio()
+    for attempt in range(3):
+        try:
+            return client.models.generate_content(model=_config.OPINION_TTS_CHECK_MODEL, contents=[
+                types.Part.from_bytes(data=_wav_bytes(x, rate), mime_type="audio/wav"),
+                "Transcribe this audio verbatim. Write numbers as words. Output only the transcript."]).text
+        except Exception as exc:     # Vertex AI answers 429 when busy (2026-11-15); wait and try again
+            if attempt == 2 or "429" not in str(exc):
+                raise
+            time.sleep(15 * (attempt + 1))
 
 
 def speak(text, filename):
@@ -109,23 +140,23 @@ def speak(text, filename):
     client = _client()
     parts = []
     for chunk in _chunks(text):
-        best, best_score = None, -1.0
-        for attempt in range(3):
+        best = None
+        for attempt in range(4):
             x, rate = _render(client, chunk)
             try:
-                score = _match(client, x, chunk, rate)
+                heard = _transcribe(client, x, rate)
             except Exception as exc:
                 print_and_write(f"Opinion voice: transcript check skipped ({exc!r:.120})")
-                best, best_score = (x, rate), 1.0
+                best = (x, rate)
                 break
-            if score > best_score:
-                best, best_score = (x, rate), score
-            if score >= 0.85:
+            ok, score, added = check_transcript(chunk, heard)
+            if ok:
+                best = (x, rate)
                 break
-            print_and_write(f"Opinion voice: transcript matched {score:.2f} on try {attempt + 1} "
-                            f"({chunk[:60]!r}...)")
-        if best_score < 0.75:
-            raise RuntimeError(f"Gemini garbled a passage on every try (best match {best_score:.2f})")
+            print_and_write(f"Opinion voice: try {attempt + 1} rejected, match {score:.2f}"
+                            + (f", added {' '.join(added[:12])!r}" if added else "") + f" ({chunk[:60]!r}...)")
+        if best is None:
+            raise RuntimeError("Gemini misread a passage on every try")
         x, rate = best
         # to 48 kHz by linear interpolation, so these lines splice cleanly with the Chirp3-HD ones
         t = np.arange(int(len(x) * _OUT_RATE / rate)) * (rate / _OUT_RATE)

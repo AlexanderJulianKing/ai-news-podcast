@@ -797,6 +797,12 @@ def write_opinion_scripts(formatted_date, formatted_date2, formatted_date3):
             break
         except Exception as e:
             print_and_write(f"OPINION FAILURE (attempt {attempt}/2): {e!r:.300}")
+    if piece is not None:
+        # gather indexed the day before the piece was researched, so its research goes in now
+        try:
+            print_and_write(f"Indexed {index_day(formatted_date2)} research chunks for the opinion piece")
+        except Exception as e:
+            print_and_write(f"RAG index_day failed for the opinion piece: {e}; continuing")
     if piece is None:
         print_and_write("OPINION FAILURE: airing the roundup without an opinion piece")
         with open('episode_titles/{}.txt'.format(formatted_date2), 'w', encoding='utf-8') as f:

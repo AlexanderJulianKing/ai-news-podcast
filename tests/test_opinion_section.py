@@ -160,6 +160,33 @@ def test_gemini_audio_is_read_as_a_wav_file_not_as_raw_samples():
     assert rate == 24000 and len(raw) == len(samples)
 
 
+_WATANABE = ("In a federal detention center in Hawaii, a man named Watanabe came out of a gang fight with his back badly "
+             "hurt. He told the officer on duty, a man named Nielsen, that the pain was a ten out of ten, and he asked to "
+             "go to a hospital. By Watanabe's account, Nielsen said he wasn't going anywhere and told him to stop being a cry baby.")
+
+
+def test_the_voice_check_rejects_added_words_and_accepts_spoken_numbers():
+    # 2026-11-15: the voice added "So, Watanabe filed a complaint." and it aired; the old check scored it 0.91 (pass)
+    aired = _WATANABE.replace("a cry baby.", "a crybaby. So, Watanabe filed a complaint.")
+    assert not gemini_tts.check_transcript(_WATANABE, aired)[0]
+    assert not gemini_tts.check_transcript(_WATANABE, _WATANABE + " " + _WATANABE)[0]      # read twice
+    assert gemini_tts.check_transcript(_WATANABE, _WATANABE.replace("cry baby", "crybaby"))[0]
+    spoken = "Governments paid about ninety-nine point nine eight percent of the money in twenty twenty-four."
+    assert gemini_tts.check_transcript(spoken, "Governments paid about 99.98% of the money in 2024.")[0]
+
+
+def test_an_opinion_sunday_indexes_the_pieces_research(tmp_path, monkeypatch):
+    # The day's index runs during gather, before the piece is researched: Sunday research never reached it
+    monkeypatch.chdir(tmp_path)
+    pipeline._ensure_output_dirs()
+    with patch.object(opinion, "write_opinion", return_value={"title": "T", "teaser": "t"}), \
+         patch.object(pipeline, "index_day", return_value=12) as index_day, \
+         patch.object(pipeline, "get_daily_temp", return_value="sunny"), \
+         patch.object(pipeline, "opinion_intro", return_value=("i1", "i2")):
+        pipeline.write_opinion_scripts("November 15, 2026", "2026_11_15", "November 15")
+    index_day.assert_called_once_with("2026_11_15")
+
+
 def test_opinion_voice_falls_back_to_chirp_schedar_when_gemini_fails(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     asked = {}
