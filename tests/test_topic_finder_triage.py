@@ -2,7 +2,6 @@ from newscaster.dedup import build_headline_arc_map
 from newscaster.prompts import LEDGER_REPETITION_REMOVER_TEMPLATE, REPETITION_REMOVER_TEMPLATE
 from newscaster.scrapers.topic_finder import (
     _merge_shortlists,
-    _parse_tier1_scores,
     _restore_triage_arc_tags,
 )
 
@@ -36,15 +35,25 @@ def test_merge_shortlists_dedupes_arc_tags_and_punctuation():
     assert merged == ["[UPDATE: abc] California DMV data sharing", "Another California story"]
 
 
-def test_parse_tier1_scores_sorts_highest_first():
-    response = """
-SCORE: 5 | HEADLINE: Lower story | REASON: smaller
-SCORE: 9 | HEADLINE: Higher story | REASON: bigger
-"""
+def test_triage_scores_numbered_lines_and_keeps_the_original_wording():
+    # 2026-11-15: the model used to retype every headline with its score (~10k output tokens, $0.19 a
+    # call) and dropped tags and "[date] (link)" suffixes on the way. Now it returns "N: score" lines.
+    from unittest.mock import patch
+    from newscaster import prompts
+    from newscaster.scrapers import topic_finder
+    cuba = "Trump considers military operation against Cuba [Nov 13, 2026 07:56 AM] (https://www.dropsitenews.com/p/x)"
+    faa = "[UPDATE: faa_ground_stop] The FAA ended the nationwide ground stop that paralyzed U.S. air travel."
+    rain = "Atmospheric rivers brought rain to the Pacific Northwest."
+    sent = {}
 
-    parsed = _parse_tier1_scores(response)
-
-    assert [item["headline"] for item in parsed] == ["Higher story", "Lower story"]
+    def fake(user, system_prompt=None, mode=None, **_):
+        sent.update(user=user, mode=mode)
+        return "3: 9\n1: 7\n2: 4\n2: 1\n99: 10"            # a repeat and an out-of-range number are ignored
+    with patch.object(topic_finder, "get_llm_response", side_effect=fake):
+        scored = topic_finder._triage(f"NPR:\n{faa}\n{rain}\nDrop Site News:\n{cuba}", prompts.TIER1_TRIAGE_PROMPT)
+    assert sent["mode"] == "triage" and f"1. {faa}" in sent["user"]          # section headers get no number
+    assert sent["user"].startswith("NPR:\n1. ") and "Drop Site News:\n3. " in sent["user"]
+    assert [(s["score"], s["headline"]) for s in scored] == [(9, cuba), (7, faa), (4, rain)]
 
 
 def test_restore_triage_arc_tags_after_model_strips_them():

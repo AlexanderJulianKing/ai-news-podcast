@@ -5,15 +5,12 @@ from newscaster import config as cfg
 from newscaster import prompts
 from newscaster.llm import claude as claude_mod
 from newscaster.llm import router
-from newscaster.scrapers.topic_finder import _parse_tier1_scores
 
 
-def test_triage_asks_for_scores_without_justifications():
+def test_triage_asks_for_numbers_and_scores_only():
     for prompt in (prompts.TIER1_TRIAGE_PROMPT, prompts.TIER1_CALIFORNIA_TRIAGE_PROMPT):
         assert "one-sentence justification" not in prompt
-        assert "single dash" in prompt
-    parsed = _parse_tier1_scores("SCORE: 8 | HEADLINE: Fed cuts rates | REASON: -")
-    assert parsed == [{"score": 8, "headline": "Fed cuts rates", "reason": "-"}]
+        assert "N: X" in prompt and "Do not repeat the headline" in prompt
 
 
 def test_routine_mode_is_opus_at_medium_effort():

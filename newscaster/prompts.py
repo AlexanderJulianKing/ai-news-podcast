@@ -337,10 +337,10 @@ TIER1_TRIAGE_PROMPT = """Rate each headline below on a scale of 1-10 for newswor
 - Accountability: Does it reveal corruption, illegality, or betrayal of public trust by powerful actors?
 - Frontier capability and control: Does it report a verified first in what a technology can do (attested by formal verification, peer review, an independent evaluator, or a prize body, not the developer's own claim or a benchmark score), or a developer losing control of a system it built? Score these as you would a major institutional event.
 
-For each headline, output exactly one line in this format:
-SCORE: X | HEADLINE: Y | REASON: Z
+The headlines are numbered. For each numbered headline, output exactly one line in this format:
+N: X
 
-Where X is the numeric score (1-10), Y is the headline repeated verbatim, and Z is a single dash (-). Do not write a justification. Sort from highest to lowest score."""
+Where N is the headline's number and X is the numeric score (1-10). Do not repeat the headline and do not write a justification. Sort from highest to lowest score."""
 
 
 TIER1_CALIFORNIA_TRIAGE_PROMPT = """Rate each headline below on a scale of 1-10 for relevance to an average person in California.
@@ -354,10 +354,10 @@ Use these criteria:
 
 Do NOT rank a foreign-only story highly unless the headline states a concrete California or U.S. domestic impact. Do NOT rank a generic national political fight highly unless it has a clear everyday-life or California-specific consequence.
 
-For each headline, output exactly one line in this format:
-SCORE: X | HEADLINE: Y | REASON: Z
+The headlines are numbered. For each numbered headline, output exactly one line in this format:
+N: X
 
-Where X is the numeric score (1-10), Y is the headline repeated verbatim, and Z is a single dash (-). Do not write a justification. Sort from highest to lowest score."""
+Where N is the headline's number and X is the numeric score (1-10). Do not repeat the headline and do not write a justification. Sort from highest to lowest score."""
 
 
 TIER2_RESEARCH_PROMPT = """You are a newsroom researcher preparing a background brief on {date}.
