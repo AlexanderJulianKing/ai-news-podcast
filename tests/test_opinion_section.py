@@ -81,6 +81,8 @@ def _fake_llm(prompt, system_prompt=None, mode=None, **_):
                 + "The CDC counts more than thirty-five thousand deaths a year. "
                 + "Hospitals keep the newest drugs locked away. " * 40)
         return f"TITLE: Pay for antibiotics like a fire department\nTEASER: Why we should pay drugmakers to wait.\nSCRIPT:\n{body}"
+    if system_prompt == opinion.REVIEWER_PROMPT:
+        return json.dumps({"notes": []})
     if system_prompt == opinion.REVISE_PROMPT:
         return prompt.split("SCRIPT:\n", 1)[1].replace("Here is my argument. ", "")
     if system_prompt == opinion.EDITOR_PROMPT:
@@ -303,3 +305,57 @@ def test_a_failed_or_mangled_edit_falls_back_to_the_sentence_ruling():
             out, audit = opinion.self_check(DRAFT, "evidence")
         assert "Commissions hold the power" not in out and "almost nine to one" in out   # the ruling's cut, nothing else
         assert audit["editor"] == "sentence-ruling" and audit["editor_failed"]
+
+
+# --- Review loop (2026-11-15): a fresh reviewer reads the finished piece; the writer answers its notes ---
+
+_PIECE = ("One observer told NPR that only one plaintiff win survived appeal in twenty years.\n\n"
+          "Congress should pass the bill.")
+
+
+def test_the_writer_revises_until_a_fresh_reviewer_finds_nothing_blocking(monkeypatch):
+    monkeypatch.setattr(opinion._config, "OPINION_REVIEW_MAX_ROUNDS", 3)
+    seen, researched = [], []
+
+    def fake_llm(prompt, system_prompt=None, mode=None, **_):
+        if system_prompt == opinion.REVIEWER_PROMPT:
+            seen.append(prompt)
+            assert "CLAIM" not in prompt                      # the reviewer starts fresh: the piece and the evidence only
+            if "One observer" in prompt.split("PIECE:\n", 1)[1]:
+                return json.dumps({"notes": [
+                    {"n": 1, "severity": "blocking", "quote": "One observer told NPR",
+                     "problem": "unnamed source", "suggestion": "name them or cut it"},
+                    {"n": 2, "severity": "optional", "quote": "Congress should pass the bill.",
+                     "problem": "flat ending", "suggestion": "sharper"}]})
+            return json.dumps({"notes": [{"n": 1, "severity": "optional", "quote": "x", "problem": "y", "suggestion": "z"}]})
+        if system_prompt == opinion.REVISER_PROMPT:
+            if "Professor Jane Roe" not in prompt:
+                return "LOOKUPS:\n- Who told NPR that only one Bivens plaintiff win survived appeal in twenty years?"
+            return ("SCRIPT:\nProfessor Jane Roe told NPR that only one plaintiff win survived appeal in twenty years.\n\n"
+                    "Congress should pass the bill.\nRESPONSES:\n- note 1: fixed | named her\n- note 2: declined | the plain ending fits")
+        raise AssertionError(system_prompt[:60])
+
+    def fake_research(question, formatted_date):
+        researched.append(question)
+        return {"answer": 'FINDINGS:\n- "Professor Jane Roe told NPR..." [https://npr.org/x]',
+                "sources": [{"title": "NPR", "url": "https://npr.org/x", "excerpt": "Professor Jane Roe"}]}
+
+    followups = [{"question": "q", "answer": "FINDINGS: ...", "source_hunter_sources": [{"url": "u"}]}]
+    with patch.object(opinion, "get_llm_response", side_effect=fake_llm), \
+         patch.object(opinion, "research_with_tools", side_effect=fake_research):
+        piece, audit = opinion.review_loop(_PIECE, followups, "Pass the Bivens Act.", "November 15, 2026")
+    assert "Professor Jane Roe told NPR" in piece and "One observer" not in piece
+    assert researched and "Who told NPR" in researched[0]
+    assert len(followups) == 2                                 # the lookup joins the evidence the fact check reads
+    assert audit["stopped"] == "no blocking notes" and len(audit["rounds"]) == 2
+    assert "the plain ending fits" in seen[1]                  # a declined note, and why, reaches the next reviewer
+
+
+def test_the_review_loop_stops_at_its_backstop(monkeypatch):
+    monkeypatch.setattr(opinion._config, "OPINION_REVIEW_MAX_ROUNDS", 2)
+    note = json.dumps({"notes": [{"n": 1, "severity": "blocking", "quote": "Congress", "problem": "p", "suggestion": "s"}]})
+    revised = "SCRIPT:\n" + _PIECE + "\nRESPONSES:\n- note 1: fixed | done"
+    with patch.object(opinion, "get_llm_response",
+                      side_effect=lambda p, system_prompt=None, **_: note if system_prompt == opinion.REVIEWER_PROMPT else revised):
+        piece, audit = opinion.review_loop(_PIECE, [], "claim", "November 15, 2026")
+    assert audit["stopped"] == "backstop: 2 rounds" and len(audit["rounds"]) == 2

@@ -1,0 +1,17 @@
+You are judging two versions of the same spoken opinion piece for an automated news podcast. One voice reads it aloud to a listener who is driving: curious, well informed, and quick to tune out. The piece is supposed to take a side.
+
+Files in this directory:
+- A.txt and B.txt: the two versions. They are in random order; nothing about the letters means anything.
+- evidence.txt: the research the writer had (questions, answers, and direct quotes with their source pages). Every 2025-2026 fact in the piece is supposed to come from it; older settled background is allowed without a source.
+
+Read both versions in full, and check facts against evidence.txt (search it). Your own knowledge ends before most of these events, so never call a 2025-2026 fact wrong unless the evidence shows it wrong.
+
+For each version, list:
+1. Factual problems: a statement the evidence contradicts, or a 2025-2026 fact the evidence doesn't contain, or a wrong attribution. Quote the sentence and the evidence line.
+2. Unnamed or vague sources ("one observer", "someone quoted", "experts say") where the evidence names the person or naming matters.
+3. Passages a listener could misunderstand or lose track in.
+
+Then decide which version you would rather put on air, or call it a tie if the difference wouldn't matter to a listener. Name the differences that decided it.
+
+Reply with JSON only, nothing else:
+{"A": {"factual": ["..."], "unnamed": ["..."], "confusing": ["..."]}, "B": {"factual": [], "unnamed": [], "confusing": []}, "winner": "A" | "B" | "tie", "confidence": "low" | "medium" | "high", "deciding_differences": ["..."]}

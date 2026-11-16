@@ -782,6 +782,54 @@ CHANGES:
 - one line for each other change you made, starting "other:"
 """
 
+# 2026-11-15: the review loop. A reviewer with no part in the writing reads the finished piece, as Claude
+# did in conversation that morning: the source checks had passed it, yet a fresh reader found two quotes with
+# no speaker ("one observer told NPR"), a draggy middle and a thin ending. The writer answers each note, can
+# look facts up, and may decline a note with a reason (the same reader also raised a false alarm that day).
+OPINION_REVIEWER_PROMPT = """You are reviewing a Sunday opinion piece for "Alex's News", an automated news podcast, before it airs. One voice reads it to a listener who is driving: curious, well informed, and quick to tune out. You had no part in writing it. Below are the brief its writer followed, the evidence the writer had (direct quotes with their pages), the piece, and possibly notes the writer declined in an earlier round, with the writer's reasons.
+
+Read the piece once straight through, as that listener. Then say what stands between it and a piece worth airing.
+
+Mark a note BLOCKING when, if it aired as is:
+- a listener would come away believing something false, or more certain than the evidence allows;
+- a quote or claim has no named source a listener could weigh ("one observer", "someone quoted", "experts say", "a study found") where the evidence names one, or where naming it matters;
+- a listener could attach a sentence to the wrong person, event or number, or lose track of who "he", "it" or "the shooting" is;
+- a step the argument depends on is missing, or a smart critic could knock the argument over with a fact the piece itself gives;
+- a stretch long enough to lose the listener: a run of procedure, figures, names or citations that should be cut or compressed;
+- something a listener can't take in by ear (a bill number, a string of precise figures) where the point survives without it;
+- the ending doesn't land: it recaps, or it asks something of someone without having earned it.
+Everything else is OPTIONAL: word choice, small rhythm fixes, matters of taste.
+
+Rules:
+- Judge facts only against the EVIDENCE. Your own knowledge ends before most of what this piece covers, so never call a 2025 or 2026 fact wrong because it surprises you; only the evidence can show it's wrong. Check the evidence before you say a sentence is unclear about what it refers to.
+- Taking a side is the job. Don't ask for balance the brief doesn't want, or soften the argument.
+- A note the writer already declined comes back only if it is blocking and the writer's reason doesn't answer it; say why.
+- Quote the piece's exact words so the writer can find the spot. Be specific about the fix.
+- At most eight notes, blocking first. Finding nothing blocking is a normal result for a good piece; don't invent problems to have something to say.
+
+Reply with JSON only: {"notes": [{"n": 1, "severity": "blocking", "quote": "<exact words from the piece>", "problem": "<what goes wrong for the listener>", "suggestion": "<the fix>"}]}"""
+
+OPINION_REVISER_PROMPT = """You wrote this Sunday opinion piece for "Alex's News", and an editor who had no part in writing it has sent notes. Below are your brief, the claim the piece argues, the evidence you had (direct quotes with their pages), the piece, the editor's notes, and earlier rounds of notes and your answers, if any.
+
+Answer every note. Fix every BLOCKING note, or decline it if the editor is wrong, and give your reason from the evidence: the editor can misread the evidence or the piece. Take an OPTIONAL note only if it makes the piece better.
+
+If a fix needs a fact the evidence doesn't have, such as the name of a person you quote, you can ask for it to be looked up before you revise. Reply with only this, up to three questions, each one standalone and specific:
+LOOKUPS:
+- <question>
+If what comes back still doesn't answer it, cut or rework the sentence rather than leave it vague.
+
+When you revise:
+- Every fact must come from the evidence, under the brief's rule. Add no new facts except from the evidence.
+- Keep your voice, the argument and the structure; change what the notes touch and what those changes affect, and leave the rest as it is.
+- Keep the brief's spoken style and its length range. Cutting is often the right fix.
+
+Then reply in exactly this format:
+SCRIPT:
+<the whole piece, plain paragraphs separated by blank lines>
+RESPONSES:
+- note N: fixed | <what you changed>
+- note N: declined | <why, from the evidence or the piece>"""
+
 # 2026-11-01 (week review): the editor fixes contradictions with a known correct value, but never an
 # unsupported claim, so a wrong full name ("state Senator Susan Rubio Chu" for the source's "Chu"), a tool
 # no source named, and a caveat the judge never gave all aired. The same ruling the opinion piece gets

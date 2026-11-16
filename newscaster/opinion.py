@@ -11,12 +11,16 @@ Stages, each saved to segment_summaries/<key>_opinion_state.json so a retry does
   4. draft: Opus writes the piece from that evidence alone; banned AI-isms are rewritten;
   5. self-check: the faithfulness pass reads the piece against those quotes, and Opus edits the whole piece
      with every flag in view (extra-high effort); new sentences are checked once more.
+  6. review loop: a fresh Opus reviewer reads the finished piece; the writer answers its notes, looking
+     facts up when it needs to, until a reviewer finds nothing blocking (a backstop ends runaways).
+     New sentences then get the faithfulness check once.
 The evidence is saved as slot 0's research record, so the usual fact check and editor run on it.
 """
 import glob
 import json
 import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
@@ -27,6 +31,7 @@ from newscaster.logging import print_and_write
 from newscaster.prompts import (OPINION_EDITOR_PROMPT as EDITOR_PROMPT, OPINION_GAPS_PROMPT as GAPS_PROMPT,
                                 OPINION_OVERRIDE_PROMPT as OVERRIDE_PROMPT,
                                 OPINION_PITCH_PROMPT as PITCH_PROMPT, OPINION_REVISE_PROMPT as REVISE_PROMPT,
+                                OPINION_REVIEWER_PROMPT as REVIEWER_PROMPT, OPINION_REVISER_PROMPT as REVISER_PROMPT,
                                 OPINION_SOURCING_PROMPT as SOURCING_PROMPT, OPINION_WRITER_PROMPT as WRITER_PROMPT)
 from newscaster.rag.indexer import build_research_record
 from newscaster.research_tools import research_with_tools
@@ -243,6 +248,116 @@ def self_check(script, evidence, claim=""):
     return edited, audit
 
 
+def _review_notes(piece, evidence, declined):
+    """A fresh reviewer's notes on the piece: it sees the brief, the evidence and the piece, never the claim
+    or the writing history, plus notes the writer declined earlier and why."""
+    prior = "\n".join(f"- on {d['quote']!r}: {d['problem']} -- the writer declined: {d['reason']}" for d in declined)
+    reply = get_llm_response(f"THE WRITER'S BRIEF:\n{WRITER_PROMPT}\n\nEVIDENCE:\n{evidence}\n\nPIECE:\n{piece}\n\n"
+                             f"NOTES THE WRITER DECLINED EARLIER:\n{prior or 'None.'}",
+                             system_prompt=REVIEWER_PROMPT, mode="heavy")
+    return [n for n in (_json(reply).get("notes") or []) if isinstance(n, dict)]
+
+
+def _revise(piece, evidence, claim, notes, history, lookups_done):
+    user = (f"THE BRIEF:\n{WRITER_PROMPT}\n\nCLAIM: {claim}\n\nEVIDENCE:\n{evidence}\n\nPIECE:\n{piece}\n\n"
+            f"EDITOR'S NOTES:\n{json.dumps(notes, ensure_ascii=False, indent=1)}\n\nEARLIER ROUNDS:\n{history or 'None.'}")
+    if lookups_done:
+        user += "\n\nWhat you asked to look up is now in the evidence (the last entries). Revise now; no more lookups."
+    return get_llm_response(user, system_prompt=REVISER_PROMPT, mode="heavy")
+
+
+def _lookups(reply):
+    if "SCRIPT:" in (reply or "") or "LOOKUPS:" not in (reply or ""):
+        return []
+    block = reply.split("LOOKUPS:", 1)[1]
+    return [q.strip() for q in re.findall(r"^\s*[-*\d.)]+\s*(.+)$", block, re.M) if q.strip()][:3]
+
+
+def _parse_revision(reply, before):
+    m = re.search(r"SCRIPT:\s*\n(.*?)\n\s*RESPONSES:\s*\n(.*)$", reply or "", re.S)
+    if not m:
+        raise ValueError(f"reviser reply not in SCRIPT/RESPONSES form: {(reply or '')[:200]!r}")
+    piece = "\n\n".join(_paragraphs(extract_producer_notes(m.group(1), where="opinion reviser")))
+    if not 0.7 * len(before.split()) <= len(piece.split()) <= 1.15 * len(before.split()):
+        raise ValueError(f"reviser returned {len(piece.split())} words for a {len(before.split())}-word piece")
+    return piece, m.group(2).strip()
+
+
+def review_loop(script, followups, claim, formatted_date):
+    """Fresh reviewer -> writer, until a reviewer finds nothing blocking. Returns (piece, audit).
+
+    The backstop (OPINION_REVIEW_MAX_ROUNDS, OPINION_REVIEW_MAX_SECONDS) only ends runaways. Lookups the
+    writer asks for are appended to followups, so the fact check and the research record see them. A
+    failed call ends the loop and keeps the last good version.
+    """
+    max_rounds = getattr(_config, "OPINION_REVIEW_MAX_ROUNDS", 3)
+    deadline = time.time() + getattr(_config, "OPINION_REVIEW_MAX_SECONDS", 1500)
+    audit, declined, history = {"rounds": [], "stopped": None}, [], ""
+    for n in range(1, max_rounds + 1):
+        if time.time() > deadline:
+            audit["stopped"] = "backstop: time"
+            break
+        try:
+            notes = _review_notes(script, _evidence(followups), declined)
+        except Exception as exc:
+            audit["stopped"] = f"reviewer failed: {exc!r:.200}"
+            break
+        blocking = [x for x in notes if str(x.get("severity", "")).lower() == "blocking"]
+        rnd = {"round": n, "notes": notes}
+        audit["rounds"].append(rnd)
+        print_and_write(f"OPINION review round {n}: {len(blocking)} blocking, {len(notes) - len(blocking)} optional"
+                        + "".join(f" | {x.get('problem', '')[:90]}" for x in blocking))
+        if not blocking:
+            audit["stopped"] = "no blocking notes"
+            break
+        try:
+            reply = _revise(script, _evidence(followups), claim, notes, history, lookups_done=False)
+            questions = _lookups(reply)
+            if questions:
+                rnd["lookups"] = questions
+                print_and_write(f"OPINION review: the writer looks up {questions}")
+                followups.extend(_research(questions, formatted_date))
+                reply = _revise(script, _evidence(followups), claim, notes, history, lookups_done=True)
+            script, responses = _parse_revision(reply, script)
+        except Exception as exc:
+            audit["stopped"] = f"writer failed: {exc!r:.200}"
+            print_and_write(f"OPINION review: {audit['stopped']}; keeping the last version")
+            break
+        rnd["responses"] = responses
+        rnd["piece_after"] = script        # to tell later whether the later rounds help
+        by_n = {str(x.get("n")): x for x in notes}
+        for num, reason in re.findall(r"note\s*(\d+):\s*declined\s*\|\s*(.+)", responses, re.I):
+            x = by_n.get(num, {})
+            declined.append({"quote": x.get("quote", ""), "problem": x.get("problem", ""), "reason": reason.strip()})
+        history += (f"ROUND {n} NOTES:\n{json.dumps(notes, ensure_ascii=False)}\nYOUR ANSWERS:\n{responses}\n\n")
+    else:
+        audit["stopped"] = f"backstop: {max_rounds} rounds"
+    print_and_write(f"OPINION review: stopped after {len(audit['rounds'])} round(s): {audit['stopped']}")
+    return script, audit
+
+
+def reviewed(script, followups, claim, formatted_date):
+    """The review loop, then the faithfulness check on the sentences it changed (one editor round).
+    Any failure keeps the piece as it came in."""
+    before = script
+    try:
+        script, audit = review_loop(script, followups, claim, formatted_date)
+        if script != before:
+            evidence = _evidence(followups)
+            late = _on_new_text(_check(script, evidence), before)
+            audit["new_text_flags"] = late
+            if late:
+                print_and_write(f"OPINION review: {len(late)} flag(s) on revised sentences; one editor round")
+                script, audit["new_text_edit"] = _edit_whole(script, evidence, late, claim)
+        found = [p for p in banned_phrases(script) if p not in banned_phrases(before)]
+        if found:
+            print_and_write(f"OPINION review introduced banned phrases {found}")
+        return script, audit
+    except Exception as exc:
+        print_and_write(f"OPINION review failed ({exc!r:.200}); airing the piece as it was")
+        return before, {"failed": repr(exc)[:300]}
+
+
 def write_opinion(key, formatted_date):
     """Write the opinion segment (slot 0), its research record, the episode title and the history entry."""
     state_path = f"segment_summaries/{key}_opinion_state.json"
@@ -305,6 +420,10 @@ def write_opinion(key, formatted_date):
     # its editor fixes contradictions but never cuts an unsupported claim or a wrong attribution).
     script, state["self_check"] = self_check(script, evidence, claim=state["claim"])
     save()
+    if getattr(_config, "OPINION_REVIEW_ENABLED", False):
+        script, state["review"] = reviewed(script, followups, state["claim"], formatted_date)
+        state["followups"] = followups
+        save()
 
     paragraphs = _paragraphs(script)
     record = build_research_record(key, SLOT, chosen.get("topic", ""), None, [], followups)

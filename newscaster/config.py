@@ -159,6 +159,14 @@ OPINION_HISTORY_PATH = "stories_chosen/opinion_history.json"
 OPINION_EDITOR_ENABLED = True
 OPINION_EDITOR_EFFORT = "xhigh"
 OPINION_EDITOR_MAX_TOKENS = 96000
+# Review loop (2026-11-15): a fresh Opus reviewer reads the finished piece and the writer answers its notes,
+# until a reviewer finds nothing blocking. Replayed on the four aired Sundays (benchmarks/opinion_review/): a
+# blind GPT-6 Astra judge preferred the new version 4 of 4 (high confidence); factual problems 15 -> 6, unnamed
+# sources 11 -> 2. No piece converged: all four ran the 3 rounds (~$2.4-3.1, 11-14 min each). Off = the piece
+# airs after the self-check.
+OPINION_REVIEW_ENABLED = True
+OPINION_REVIEW_MAX_ROUNDS = 3
+OPINION_REVIEW_MAX_SECONDS = 1500
 OPINION_TTS_MODEL = "gemini-3.8-flash-lite-tts"   # Gemini API only; not on the Cloud TTS API
 OPINION_VOICE = "Schedar"
 OPINION_FALLBACK_VOICE = "en-US-Chirp3-HD-Schedar"
