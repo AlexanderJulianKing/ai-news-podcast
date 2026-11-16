@@ -996,7 +996,7 @@ def topic_finder(formatted_date):
     # before it is ever researched, and nothing downstream recovers it. It is one call over the
     # whole headline list, so the upgrade costs ~one Opus call per day.
     print_and_write('TIER 1: Triaging headlines')
-    tier1_response = get_llm_response(all_headlines, system_prompt=TIER1_TRIAGE_PROMPT, mode='heavy')
+    tier1_response = get_llm_response(all_headlines, system_prompt=TIER1_TRIAGE_PROMPT, mode='triage')
     print_and_write('Tier 1 raw response:', tier1_response)
 
     scored = _parse_tier1_scores(tier1_response)
@@ -1025,7 +1025,7 @@ def topic_finder(formatted_date):
         tier1_california_response = get_llm_response(
             all_headlines,
             system_prompt=TIER1_CALIFORNIA_TRIAGE_PROMPT,
-            mode='heavy',
+            mode='triage',
         )
         print_and_write('Tier 1 California raw response:', tier1_california_response)
         california_scored = _parse_tier1_scores(tier1_california_response)

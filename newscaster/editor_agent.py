@@ -37,6 +37,19 @@ _MAX_CORPUS = 260000   # was 140,000, then 200,000 (2026-10-17); in the week to 
 _MIN_KEEP_RATIO = 0.6  # discard the whole edit set if the result is shorter than this fraction
 
 
+# 2026-11-15: the sourcing ruling (review.rule_on_flags) reads the same sources for the same script about
+# a minute after this editor. A cache matches only when the request is identical from its start, system
+# prompt included, so both send this system prompt and the sources first, and their own instructions
+# after the marker. The ruling then pays 5% of the input price for the sources instead of 100%.
+EVIDENCE_SYSTEM = ("You check the scripts of a daily news podcast against the sources its newsroom read. "
+                   "The sources come first; your task and the script follow them.")
+
+
+def evidence_opening(evidence):
+    """The cached opening both calls share: the sources, then the 5-minute cache marker."""
+    return f"SOURCE MATERIAL:\n{evidence or '(none provided)'}\n\n---{CACHE_BREAK_5M}"
+
+
 @dataclass
 class Edit:
     find: str        # exact span copied from the script
@@ -130,15 +143,16 @@ def _propose_edits(script: str, report: str, corpus: str, already: list[Edit]) -
             "\n\nALREADY APPLIED THIS RUN (do not repeat these, and note the script now reflects them):\n"
             + done
         )
-    # The evidence and the report stay the same across this script's rounds; the script changes
-    # as edits land. Cache the first part for 5 minutes (rounds come minutes apart; 2026-10-18).
+    # The sources stay the same across this script's rounds and the ruling that follows; cache them for
+    # 5 minutes (rounds come minutes apart; 2026-10-18). See EVIDENCE_SYSTEM.
     prompt = (
-        f"SOURCE MATERIAL:\n{(corpus or '(none provided)')[:_MAX_CORPUS]}\n\n---\n\n"
-        f"FACT-FINDER REPORT (flags):\n{report}{CACHE_BREAK_5M}"
+        evidence_opening((corpus or "")[:_MAX_CORPUS])
+        + f"YOUR TASK:\n{_PROPOSE_SYSTEM}\n\n---\n\n"
+        f"FACT-FINDER REPORT (flags):\n{report}\n\n---\n\n"
         f"SCRIPT:\n{script}{already_note}\n\n---\n\n"
         "Return the JSON of factual-discrepancy edits, or {\"edits\": []}."
     )
-    raw = get_llm_response(prompt, system_prompt=_PROPOSE_SYSTEM, mode="routine")
+    raw = get_llm_response(prompt, system_prompt=EVIDENCE_SYSTEM, mode="routine")
     data = extract_json(raw, want=dict)
     edits: list[Edit] = []
     for item in data.get("edits") or []:

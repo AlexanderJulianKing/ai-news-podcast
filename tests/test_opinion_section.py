@@ -91,7 +91,7 @@ def _fake_llm(prompt, system_prompt=None, mode=None, **_):
         fixed = draft.replace("The CDC counts more than thirty-five thousand deaths a year",
                               "The CDC counts tens of thousands of deaths a year")
         return f"SCRIPT:\n{fixed}\nCHANGES:\n- flag 1: real | more than 35,000 people die | rounded the figure"
-    if system_prompt == opinion.SOURCING_PROMPT:
+    if opinion.SOURCING_PROMPT in prompt:                      # the sentence ruling (its task follows the sources)
         assert "1. FLAG: thirty-five thousand" in prompt and "more than 35,000 people die" in prompt
         assert "2. FLAG" not in prompt
         return json.dumps({"verdicts": [{"flag": 1, "verdict": "fix",

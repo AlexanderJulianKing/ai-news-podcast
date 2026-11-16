@@ -185,3 +185,17 @@ def test_build_map_reads_side_covered_tags_alongside_the_others():
 def test_recover_side_covered_pick_after_tier3_strips_the_tag():
     m = build_headline_arc_map("* **[SIDE-COVERED: ai_safety_cyberattacks]** Trump downplays AI regulation\n")
     assert recover_arc_for_headline("Trump downplays AI regulation", m) == ("SIDE-COVERED", "ai_safety_cyberattacks")
+
+
+def test_the_tagger_sees_each_story_topic_in_brief():
+    # 2026-11-15: topics held whole research write-ups (up to 5,500 characters); the tagger's arc log was
+    # ~108k tokens, about $0.46 a run. Topics cut to 300 characters agreed with full ones on 98.0% of 711
+    # verdicts (two full runs: 98.7%).
+    from datetime import date
+    ledger = {"arcs": {"ukraine_war": {"topic": "FINDINGS: " + "Zelenskyy met allies in Kyiv. " * 200,
+                                       "last_covered": date.today().strftime("%Y_%m_%d"),
+                                       "audience_state": "knows about the drone strikes"}}}
+    context = format_arcs_for_dedup(ledger)
+    topic = context.split("Topic: ", 1)[1].split(" | Last covered:", 1)[0]
+    assert len(topic) <= 303 and topic.startswith("FINDINGS: Zelenskyy met allies")
+    assert "knows about the drone strikes" in context            # what the audience knows stays whole

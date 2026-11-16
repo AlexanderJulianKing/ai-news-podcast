@@ -77,6 +77,9 @@ HEAVY_MODEL = "claude-opus-5-5"
 # controller, the AI-watch filter and the fact-check editor's proposals. Triage,
 # Tier 3 picks and segment scripts stay on "heavy" (effort high). 2026-10-02.
 ROUTINE_EFFORT = "medium"
+# Headline triage (Tier 1 and 1B, 2026-11-15): replayed on 10 real calls, low effort matched a high run's
+# shortlist as often as a second high run did; ~15% cheaper. Its ~10k output tokens are the scored list.
+TRIAGE_EFFORT = "low"
 # Router mode "haiku": article summaries and the background-fact check (2026-10-10).
 # Blind tests on real calls, judged by Opus subagents and by Codex (GPT-6 Astra):
 # summaries Haiku 11-0 / 12-3, fact check 3-0 / 3-0 (rest ties). The judges split along

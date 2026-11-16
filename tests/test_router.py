@@ -123,3 +123,11 @@ def test_light_jobs_go_to_haiku_with_a_backup():
     from newscaster.llm.router import _select_primary
     spec = _select_primary('light', False, False)
     assert spec['model'] == _config.HAIKU_MODEL and spec.get('fallback')
+
+
+def test_headline_triage_runs_on_opus_at_low_effort():
+    # 2026-11-15 replay of 10 triage calls: low effort matched a high run's shortlist as often as a second
+    # high run did (national top 10: 0.76 vs 0.76), for ~15% less. The output is the scored list itself.
+    from newscaster.llm import router
+    spec = router._select_primary("triage", False, False)
+    assert spec["provider"] == "anthropic" and spec["model"] == "claude-opus-5-5" and spec["effort"] == "low"

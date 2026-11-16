@@ -769,8 +769,11 @@ def rule_on_flags(script: str, evidence: str, flags: list[str], system_prompt: s
         return script, audit
     numbered = "\n".join(f"{i}. {f}" for i, f in enumerate(flags, 1))
     try:
-        reply = get_llm_response(f"FLAGS:\n{numbered}\n\nEVIDENCE:\n{evidence}\n\nSCRIPT:\n{script}",
-                                 system_prompt=system_prompt, mode="routine")
+        from newscaster.editor_agent import EVIDENCE_SYSTEM, evidence_opening
+        # Same opening as the copy editor's call on this script, so the sources come from its cache
+        reply = get_llm_response(evidence_opening(evidence) + f"YOUR TASK:\n{system_prompt}\n\n---\n\n"
+                                 f"FLAGS:\n{numbered}\n\nSCRIPT:\n{script}",
+                                 system_prompt=EVIDENCE_SYSTEM, mode="routine")
         m = re.search(r"\{.*\}", reply or "", re.S)
         verdicts = (json.loads(m.group(0)) if m else {}).get("verdicts") or []
     except Exception as exc:

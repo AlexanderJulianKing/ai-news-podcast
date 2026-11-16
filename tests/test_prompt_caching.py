@@ -70,11 +70,23 @@ def test_five_minute_cache_marker_for_short_repeat_windows(monkeypatch):
     assert "<<<" not in seen["p"] and "EVIDENCE" in seen["p"] and "SCRIPT" in seen["p"]
 
 
-def test_editor_caches_evidence_and_report_but_not_the_changing_script(monkeypatch):
-    from newscaster import editor_agent
+def test_the_sourcing_ruling_reads_the_editors_cached_evidence(monkeypatch):
+    # 2026-11-15: the copy editor and then the sourcing ruling each read the same ~50k tokens of a
+    # script's sources, about a minute apart. A cache only matches when everything from the start of
+    # the request (system prompt included) is identical, so both send the same system prompt and the
+    # same sources first, with their own instructions after the cache marker.
+    from newscaster import editor_agent, review
     from newscaster.llm.claude import CACHE_BREAK_5M
-    sent = {}
-    monkeypatch.setattr(editor_agent, "get_llm_response", lambda p, **k: sent.setdefault("p", p) or '{"edits": []}')
-    editor_agent._propose_edits("THE SCRIPT", "FLAG: x", "SOURCE: CNBC — https://cnbc.com\nfacts", [])
-    stable, changing = sent["p"].split(CACHE_BREAK_5M)
-    assert "SOURCE: CNBC" in stable and "FLAG: x" in stable and "THE SCRIPT" in changing
+    sent = []
+    monkeypatch.setattr(editor_agent, "get_llm_response",
+                        lambda p, system_prompt=None, **k: sent.append((system_prompt, p)) or '{"edits": []}')
+    monkeypatch.setattr(review, "get_llm_response",
+                        lambda p, system_prompt=None, **k: sent.append((system_prompt, p)) or '{"verdicts": []}')
+    evidence = "SOURCE: CNBC — https://cnbc.com\nfacts"
+    editor_agent._propose_edits("THE SCRIPT", "FLAG: x", evidence, [])
+    review.rule_on_flags("THE SCRIPT", evidence, ["FLAG: x"], review.SOURCING_PROMPT, label="t")
+    (sys1, p1), (sys2, p2) = sent
+    assert sys1 == sys2
+    assert p1.split(CACHE_BREAK_5M)[0] == p2.split(CACHE_BREAK_5M)[0] and "SOURCE: CNBC" in p1.split(CACHE_BREAK_5M)[0]
+    assert "copy editor" in p1.split(CACHE_BREAK_5M)[1] and "THE SCRIPT" in p1.split(CACHE_BREAK_5M)[1]
+    assert review.SOURCING_PROMPT in p2.split(CACHE_BREAK_5M)[1] and "FLAG: x" in p2.split(CACHE_BREAK_5M)[1]

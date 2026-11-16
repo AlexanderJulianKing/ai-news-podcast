@@ -95,6 +95,9 @@ def _select_primary(mode, grounding, url_context):
         return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL, 'effort': _config.OPINION_EDITOR_EFFORT,
                 'max_tokens': _config.OPINION_EDITOR_MAX_TOKENS, 'no_fallback': True}
 
+    if mode == 'triage' and not needs_tools:   # the headline ratings: Opus writes a scored list, low effort is enough
+        return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL, 'effort': _config.TRIAGE_EFFORT}
+
     if mode == 'routine' and not needs_tools:
         return {'provider': 'anthropic', 'model': _config.HEAVY_MODEL, 'effort': _config.ROUTINE_EFFORT}
 

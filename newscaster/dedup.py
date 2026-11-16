@@ -67,6 +67,9 @@ def prune_ledger(ledger: dict) -> dict:
     return ledger
 
 
+_TOPIC_CHARS = 300
+
+
 def format_arcs_for_dedup(ledger: dict, window_days: int = 14) -> str:
     """Format active arcs for the repetition remover prompt."""
     today = date.today()
@@ -79,7 +82,11 @@ def format_arcs_for_dedup(ledger: dict, window_days: int = 14) -> str:
         if last_date is None or (today - last_date).days > window_days:
             continue
         audience_state = arc.get("audience_state", "")
-        topic = arc.get("topic", "")
+        # Topics often hold a whole research write-up (up to 5,500 characters); the tagger needs only what
+        # the story is (2026-11-15: the log was ~108k tokens; cut to 300 characters it tagged the same).
+        topic = " ".join(str(arc.get("topic", "")).split())
+        if len(topic) > _TOPIC_CHARS:
+            topic = topic[:_TOPIC_CHARS].rsplit(" ", 1)[0] + "..."
         recent_main = []
         for episode in arc.get("episodes") or []:
             if episode.get("coverage") != "main":
