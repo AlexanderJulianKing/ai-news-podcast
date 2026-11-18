@@ -36,6 +36,61 @@ def check_clipping(filename):
     return clip_pct > _CLIP_PCT_LIMIT, clip_pct
 
 
+_BURST_MAX_S = 0.6        # a glitch longer than this is left to the gain fallback
+_BURST_OVER_SPEECH_DB = 12
+_BURST_MIN_FLATNESS = 0.15   # static is spectrally flat; voiced speech sits near 0.02-0.05
+
+
+def silence_burst(filename):
+    """Mute a short burst of clipped static, if that is what the clipping is.
+
+    On 2026-11-17 (pm) Chirp rendered 0.3 s of full-scale static before one of Ethan's lines on all
+    three tries, and turning the whole line down 3 dB left it on air, 20 dB above his voice. Silences
+    the clipped stretch (widened to where the level falls back toward speech) only when it is short,
+    far louder than the line's speech, and noise-like rather than voiced. Returns (start_s, end_s)
+    of the muted stretch, or None when the file was left alone."""
+    import numpy as np
+    with wave.open(filename, 'r') as w:
+        if w.getsampwidth() != 2 or w.getnchannels() != 1:
+            return None
+        sr = w.getframerate()
+        params = w.getparams()
+        x = np.frombuffer(w.readframes(w.getnframes()), '<i2').astype(np.float64) / 32768
+    hop = int(0.05 * sr)
+    n = len(x) // hop
+    if n < 10:
+        return None
+    clipped = np.where(np.abs(x) >= _CLIP_THRESHOLD)[0]
+    if len(clipped) == 0:
+        return None
+    level = 20 * np.log10(np.sqrt((x[:n * hop].reshape(n, hop) ** 2).mean(1)) + 1e-9)
+    voiced = level[level > -45]
+    if len(voiced) == 0:
+        return None
+    speech = float(np.median(voiced))
+    a, b = clipped[0] // hop, min(clipped[-1] // hop, n - 1)
+    while a > 0 and level[a - 1] > speech + 6:
+        a -= 1
+    while b < n - 1 and level[b + 1] > speech + 6:
+        b += 1
+    start, end = a * hop, (b + 1) * hop
+    if (end - start) / sr > _BURST_MAX_S or level[a:b + 1].max() < speech + _BURST_OVER_SPEECH_DB:
+        return None
+    spectrum = np.abs(np.fft.rfft(x[start:end] * np.hanning(end - start))) + 1e-12
+    if np.exp(np.mean(np.log(spectrum))) / np.mean(spectrum) < _BURST_MIN_FLATNESS:
+        return None
+    fade = min(int(0.01 * sr), start, len(x) - end)
+    y = x.copy()
+    y[start:end] = 0
+    if fade:
+        y[start - fade:start] *= np.linspace(1, 0, fade)
+        y[end:end + fade] *= np.linspace(0, 1, fade)
+    with wave.open(filename, 'w') as w:
+        w.setparams(params)
+        w.writeframes((np.clip(y, -1, 1) * 32767).astype('<i2').tobytes())
+    return start / sr, end / sr
+
+
 def normalize_audio(filename, headroom_db=3.0):
     """Reduce peak level of a WAV file to avoid clipping."""
     audio = AudioSegment.from_wav(filename)
@@ -189,6 +244,11 @@ def google_speak(name, text, filename):
             except Exception as e:
                 print_and_write(f"Re-synthesis attempt {attempt} failed: {e}")
                 time.sleep(5)
+        if is_clipped:
+            burst = silence_burst(filename)
+            if burst:
+                print_and_write(f"Silenced a burst of static at {burst[0]:.2f}-{burst[1]:.2f}s in {filename}")
+                is_clipped, clip_pct = check_clipping(filename)
         if is_clipped:
             print_and_write(f"Clipping persists after retries, normalizing {filename}")
             normalize_audio(filename)
