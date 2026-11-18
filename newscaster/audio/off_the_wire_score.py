@@ -8,6 +8,7 @@ and a one-bar button: the taps over F sliding down to the final E minor chord.
 Everything here is data plus numpy, so it runs on the Pi. Pitches are MIDI numbers (60 = middle C).
 Bar events are (pos16, dur16, [pitches], velocity, articulation), articulation '>' accent, '.' staccato.
 The day's variation comes from a random generator seeded with the date, so a date always gives the same intro.
+Since 2026-11-17 the right hand's top notes form one stepwise melody per 8-bar phrase (see the end of the file).
 """
 
 import numpy as np
@@ -108,7 +109,7 @@ def _arc(phrase):
     return ARC[phrase] if phrase < len(ARC) else ARC[1 + (phrase - 1) % (len(ARC) - 1)]
 
 
-def groove(n, seed):
+def _groove0(n, seed):
     """Bars 1..n-1 of the groove (bar 0 is the logo bar). Each bar: chord, LH/RH events, the patterns used, phrase."""
     rng = np.random.default_rng(seed)
     out, last, prev = [], {}, None
@@ -185,12 +186,13 @@ def plan(d1, d2):
     return n, s1, pause, s1 + d1 + pause + d2
 
 
-def arrange(n, s1, v_end, breaks, seed):
+def _arrange0(n, s1, v_end, breaks, seed):
     """All notes of the day's intro as (start_s, end_s, pitch, velocity), plus the fills placed and the groove bars.
     breaks: [(t0, t1)] sentence breaks on the intro timeline, where the right hand may answer the host."""
     rng = np.random.default_rng(seed + 1)
-    bars = groove(n, seed)
+    bars = _groove0(n, seed)
     notes, fills, used, last_kind = [], [], set(), None
+    part = ['fixed']
 
     def add(t_bar, p16, d16, ms, v, a, hand, crush=False, ring=0.0):
         t0 = t_bar + p16 / 4 * BEAT
@@ -200,16 +202,17 @@ def arrange(n, s1, v_end, breaks, seed):
         for m in ms:
             vel = v + (8 if a == '>' else 0) + ((9 if m == top else -8) if hand == 'RH' and len(ms) > 1 else 0)
             s = max(0.0, t0 + dt)
-            notes.append((s, s + dur, int(m), int(np.clip(vel + rng.normal(0, 2.5), 18, 124))))
+            notes.append((s, s + dur, int(m), int(np.clip(vel + rng.normal(0, 2.5), 18, 124)), hand, part[0]))
         if crush:                              # a quick crush into the top note from a half step below
             s = max(0.0, t0 + dt - 0.045)
-            notes.append((s, s + 0.04, int(top - 1), int(np.clip(v - 6, 18, 110))))
+            notes.append((s, s + 0.04, int(top - 1), int(np.clip(v - 6, 18, 110)), hand, part[0]))
 
     for hand in ('RH', 'LH'):
         for e in PICKUP[hand]:
             add(T0 - BAR, *e, hand)
         for e in LOGO[hand]:
             add(T0, *e, hand)
+    part[0] = 'groove'
     for k, bar in enumerate(bars, start=1):
         t_bar = T0 + k * BAR
         ans = None
@@ -235,6 +238,7 @@ def arrange(n, s1, v_end, breaks, seed):
             for (q, d, m, v) in fig:
                 if ans[0] + q < 16:
                     add(t_bar, ans[0] + q, d, m if isinstance(m, list) else [m], v - 8, '' if d > 1 else '.', 'RH')
+    part[0] = 'fixed'
     for hand in ('RH', 'LH'):
         for e in TURN[hand]:
             add(T0 + n * BAR, *e, hand)
@@ -274,3 +278,211 @@ def all_pitches():
 def long_pitches():
     """Pitches that must ring for seconds (the button's final chord)."""
     return sorted({m for hand in BUTTON.values() for (p, _, ms, _, _) in hand if p >= 8 for m in ms})
+
+
+# --- the right hand: "The Singing Top Line" (designed by Claude Fable 5.2, chosen by Alex 2026-11-17) -----------
+# Before 2026-11-17 each bar's voicing was picked at random, so the top note jumped about (38% steps, 20% leaps
+# past a fourth). Now the top notes form one slow melody (top_line) and each chord is built under its note.
+# The left hand and the fixed parts (pickup, logo, turn, button) are the original score's, note for note:
+# groove/arrange above are kept as _groove0/_arrange0 and replayed, and the new right hand draws from its own
+# random generators, so it cannot shift a single bass note.
+_RH_OK = (62, 64, 66, 67, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83)   # right-hand pitches already in the bank
+_TONE_PC = {'Em': {4, 7, 11, 2}, 'A': {9, 1, 4}, 'C': {4, 7, 11}, 'D': {2, 6, 9}, 'B7': {11, 3, 6, 9}}     # notes a line may rest on
+_POOL_PC = {'Em': {6, 7, 11, 2, 9}, 'A': {9, 11, 1, 4, 6}, 'C': {4, 6, 7, 11}, 'D': {4, 6, 9, 11, 2}, 'B7': {9, 11, 3, 6}}   # notes under a top note
+_DEFN_PC = {'Em': {7, 2}, 'A': {1}, 'C': {4, 11}, 'D': {6}, 'B7': {3, 9}}                                 # the notes that name the chord
+
+
+def _tones(chord, lo=62, hi=83):
+    return [p for p in _RH_OK if p % 12 in _TONE_PC[chord] and lo <= p <= hi]
+
+
+def _near(pitches, target, up=True):
+    """The pitch nearest target; ties go up (brighter) unless up is False."""
+    return min(pitches, key=lambda q: (abs(q - target), -q if up else q))
+
+
+def _voicing(chord, top, nlow):
+    """A chord under a chosen top note: up to nlow colour notes, at least a minor third below the top so the
+    top sings, with a chord-naming note first. Every note is in the bank; the span stays within an octave."""
+    cands = [p for p in _RH_OK if p % 12 in _POOL_PC[chord] and top - 11 <= p <= top - 3]
+    pick = sorted([p for p in cands if p % 12 in _DEFN_PC[chord]], reverse=True)[:1]
+    for p in sorted(cands, reverse=True):
+        if len(pick) >= nlow:
+            break
+        if p not in pick:
+            pick.append(p)
+    return sorted(pick) + [int(top)]
+
+
+def _windows(n, s1, v_end, breaks):
+    """Which bars get to answer the host, and where: {bar: (start16, end16)}. Same rule as the current arrange()."""
+    used, wins = set(), {}
+    for k in range(1, n):
+        t_bar = T0 + k * BAR
+        for bi, (a0, a1) in enumerate(breaks):
+            if bi in used or not (s1 + 0.5 < a0 and a1 < v_end - 0.3):
+                continue
+            s16 = max(0, int(np.ceil((a0 + 0.06 - t_bar) / (BEAT / 4))))
+            e16 = min(16, int(np.floor((a1 + 0.25 - t_bar) / (BEAT / 4))))
+            if e16 - s16 >= 3:
+                wins[k] = (s16, e16)
+                used.add(bi)
+                break
+    return wins
+
+
+def _arrange_new(n, s1, v_end, breaks, seed, bars, wins, fill_fn, extras=None):
+    """Left hand and fixed parts from the current score (replayed exactly); the right hand from bars[...]['RH'],
+    with fill_fn(k, room16) -> (kind, [(pos16, dur16, pitch or [pitches], velocity)]) in the host's breaks."""
+    old, _, _ = _arrange0(n, s1, v_end, breaks, seed)
+    notes = [(s, e, m, v) for (s, e, m, v, hand, part) in old if hand == 'LH' or part == 'fixed']
+    rng = np.random.default_rng([seed, 2])
+    fills = []
+
+    def add(t_bar, p16, d16, ms, v, a, crush=False):
+        t0 = t_bar + p16 / 4 * BEAT
+        dur = d16 / 4 * BEAT * (0.5 if a == '.' else 0.92)
+        dt = rng.normal(0, 0.004) + (0.006 if p16 % 2 == 0 else 0)
+        top = max(ms)
+        for m in ms:
+            vel = v + (8 if a == '>' else 0) + ((9 if m == top else -8) if len(ms) > 1 else 0)
+            s = max(0.0, t0 + dt)
+            notes.append((s, s + dur, int(m), int(np.clip(vel + rng.normal(0, 2.5), 18, 124))))
+        if crush and top - 1 in _RH_OK:
+            s = max(0.0, t0 + dt - 0.045)
+            notes.append((s, s + 0.04, int(top - 1), int(np.clip(v - 6, 18, 110))))
+
+    for k, bar in enumerate(bars, start=1):
+        t_bar = T0 + k * BAR
+        ans = wins.get(k)
+        events = list(bar['RH']) + list((extras or {}).get(k, []))
+        for (p16, d16, ms, v, a, crush) in events:
+            if ans and ans[0] - 1 <= p16 < ans[1]:
+                continue
+            add(t_bar, p16, d16, ms, v, a, crush)
+        if ans:
+            kind, fig = fill_fn(k, ans[1] - ans[0])
+            fills.append((round(t_bar + ans[0] / 4 * BEAT, 2), bar['chord'], kind))
+            for (q, d, m, v) in fig:
+                if ans[0] + q < 16:
+                    add(t_bar, ans[0] + q, d, m if isinstance(m, list) else [m], v - 8, '' if d > 1 else '.')
+    return notes, fills, bars
+
+
+# The chord stabs and their funk rhythms stay, but the top note of each chord is no longer picked at random:
+# it is one slow melody that moves by step from bar to bar, climbs to one high point in each 8-bar phrase and
+# comes back down. Passing notes and pickups walk the line into the next bar, a grace note marks an arrival
+# from below, and in the host's breaks a short run carries the line to where it is going next.
+_B_TOPS = {'Em': [67, 71, 74, 76, 78, 79], 'A': [69, 71, 73, 76, 78, 81], 'C': [67, 71, 74, 76, 78, 79],
+           'D': [69, 71, 74, 76, 78, 81], 'B7': [69, 71, 75, 78, 79, 81]}
+_B_SCL_PC = {'Em': {4, 6, 7, 9, 11, 2}, 'A': {9, 11, 1, 2, 4, 6}, 'C': {0, 2, 4, 6, 7, 9, 11}, 'D': {2, 4, 6, 7, 9, 11, 1},
+             'B7': {11, 0, 3, 4, 6, 7, 9}}
+_B_CEILING = [78, 79, 81]                                # per phrase: the line's highest allowed note (F#5, G5, A5)
+
+
+def _b_scale(chord):
+    return [p for p in _RH_OK if p % 12 in _B_SCL_PC[chord]]
+
+
+def _b_jump_cost(d):
+    d = abs(d)
+    return 1.2 if d == 0 else 0.0 if d <= 2 else 0.6 if d == 3 else 0.9 if d == 4 else 2.0 if d == 5 else 2.0 + 1.5 * (d - 5)
+
+
+def top_line(n, seed):
+    """The top note for bars 1..n-1: the cheapest path through each chord's notes, where steps are free, leaps
+    cost more, a note may repeat once but not twice, and straying from the phrase's arch costs a little. A dash
+    of date-seeded noise makes each day's line its own."""
+    rng = np.random.default_rng([seed, 21])
+    shapes, prev_pk = {}, None                            # per phrase: low point, climb, and the bar of the high point
+    for p in range((n - 1) // 8 + 1):
+        pk = prev_pk = int(rng.choice([q for q in (0, 3, 4, 5, 6, 7) if q != prev_pk and not (p == 0 and q == 0)]))
+        shapes[p] = (int(rng.choice([69, 71] if p == 0 else [69, 71, 73])), int(rng.choice([5, 7] if p == 0 else [6, 8, 10])), pk)
+    best = {(74, 0): (0.0, [])}                           # the logo bar's stabs have D5 on top
+    for i in range(1, n):
+        chord, p, x = PHRASE[i % 8], i // 8, i % 8
+        (base, amp, pk), cap = shapes[p], _B_CEILING[min(p, 2)]
+        target = base + amp * (x / pk if x <= pk and pk else 1 - 0.8 * (x - pk) / max(1, 7 - pk))   # pk 0: start high and come down; 7: climb all the way
+        new = {}
+        for top in [q for q in _B_TOPS[chord] if q <= cap]:
+            here = 0.35 * abs(top - target) + rng.uniform(0, 1.6)
+            for (prev, rep), (cost, path) in best.items():
+                if top == prev and rep:
+                    continue
+                c = cost + here + _b_jump_cost(top - prev)
+                key = (top, 1 if top == prev else 0)
+                if key not in new or c < new[key][0]:
+                    new[key] = (c, path + [top])
+        best = new
+    return min(best.values(), key=lambda cp: cp[0])[1]
+
+
+def groove(n, seed):
+    """Bars 1..n-1. Left hand and stab rhythms: exactly the current ones. Right hand: chords built under top_line()."""
+    bars = _groove0(n, seed)
+    rng = np.random.default_rng([seed, 22])
+    tops = top_line(n, seed)
+    for k, bar in enumerate(bars):
+        chord, phrase = bar['chord'], bar['phrase']
+        lt, rt, _ = bar['tags']
+        arc = _arc(phrase)
+        top, prev = tops[k], (tops[k - 1] if k else 74)
+        nxt = tops[k + 1] if k + 1 < len(tops) else None
+        nlow = 2 if phrase == 0 else 3
+        pos = RH_T[rt]
+        sc = _b_scale(chord)
+        d_next = (nxt - top) if nxt is not None else 0
+        pickup = rt != 'stop' and max(pos) < 13 and abs(d_next) >= 5
+        passing = len(pos) >= 3 and abs(d_next) >= 3 and not pickup
+        crushed = False
+        RH = []
+        for j, p in enumerate(pos):
+            t = top
+            if passing and j == len(pos) - 1:          # the last stab leans one scale step toward the next bar's note
+                side = [q for q in sc if (top < q < nxt) or (nxt < q < top)]
+                t = _near(side, top) if side else top
+            vel = 60 + arc['vel'] + (6 if p % 4 == 2 else 0) + (14 if rt == 'stop' else 0) + int(rng.integers(-3, 4))
+            crush = bool(j == 0 and top > prev and not crushed and rng.random() < min(1.0, 1.5 * arc['crush']))
+            crushed = crushed or crush
+            RH.append((p, 2 if rt in ('sparse', 'stop') else 1, _voicing(chord, t, nlow), vel, '.', crush))
+        if pickup:                                       # two single notes walk the gap to the next bar's note
+            way = 1 if d_next > 0 else -1
+            j0 = sc.index(_near(sc, nxt))
+            walk = [sc[int(np.clip(j0 - way * s, 0, len(sc) - 1))] for s in (2, 1)]
+            RH += [(14, 1, [walk[0]], 58, '.', False), (15, 1, [walk[1]], 64, '.', False)]
+        bar['RH'], bar['tags'] = RH, (lt, rt, top)
+    return bars
+
+
+def arrange(n, s1, v_end, breaks, seed):
+    bars = groove(n, seed)
+    wins = _windows(n, s1, v_end, breaks)
+    tops = [b['tags'][2] for b in bars]
+    rng = np.random.default_rng([seed, 23])
+    state = dict(last=None)
+
+    def fill(k, room):
+        """A run that carries the line on: it ends on the chord note nearest the NEXT bar's top note, coming from
+        the side the line is on now. 'run' goes straight there, 'over' runs one note past it and settles back,
+        'arp' skips along the chord."""
+        chord = bars[k - 1]['chord']
+        cur, nxt = tops[k - 1], (tops[k] if k < len(tops) else 76)
+        goal = _near([q for q in _B_TOPS[chord] if q != cur], nxt)
+        count = int(np.clip(room, 3, 5))
+        kinds = ['run', 'arp'] + (['over'] if count >= 3 else [])
+        kinds = [x for x in kinds if x != state['last']] or kinds
+        kind = str(rng.choice(kinds))
+        state['last'] = kind
+        way = 1 if cur <= goal else -1
+        seq = _b_scale(chord) if kind != 'arp' else sorted(set(_B_TOPS[chord]) | set(_tones(chord)))
+        g = seq.index(goal)
+        if not 0 <= g - way * (count - 1) < len(seq):
+            way = -way
+        line = [seq[int(np.clip(g - way * (count - 1 - j), 0, len(seq) - 1))] for j in range(count)]
+        if kind == 'over':                               # ...run up to the note, hop past it, then settle back onto it
+            line = [seq[int(np.clip(g - way * (count - 2 - j), 0, len(seq) - 1))] for j in range(count - 2)]
+            line += [seq[int(np.clip(g + way, 0, len(seq) - 1))], goal]
+        last_dur = int(np.clip(room - (count - 1), 2, 3))
+        return kind, [(j, 1, m, 62 + 3 * j) for j, m in enumerate(line[:-1])] + [(count - 1, last_dur, line[-1], 80)]
+
+    return _arrange_new(n, s1, v_end, breaks, seed, bars, wins, fill)

@@ -121,3 +121,25 @@ def test_pipeline_falls_back_to_the_classic_intro(monkeypatch):
     monkeypatch.setattr(config, 'OFF_THE_WIRE_INTRO_ENABLED', False, raising=False)
     pipeline.make_intro('2026_09_25')
     assert calls == [('classic', '2026_09_25')]
+
+
+def test_the_left_hand_is_note_for_note_the_original():
+    """2026-11-17: Alex likes the left hand as it is; the new top line must not move a single bass note.
+    _arrange0 is the original arrange(), kept so the left hand replays exactly. Right-hand notes are all >= 61."""
+    breaks = [(6.0, 6.7), (11.2, 12.0), (19.5, 20.1), (27.0, 27.9)]
+    for seed in (20261116, 20261117, 20250101, 20270704):
+        for n in (12, 17, 25):
+            new, _, _ = score.arrange(n, 1.2, n * score.BAR - 0.5, breaks, seed)
+            old, _, _ = score._arrange0(n, 1.2, n * score.BAR - 0.5, breaks, seed)
+            assert sorted(x for x in new if x[2] < 61) == sorted(o[:4] for o in old if o[4] == 'LH')
+
+
+def test_the_top_line_moves_by_step_and_never_leaps_past_a_fourth():
+    steps, moves = 0, 0
+    for seed in range(20261101, 20261131):
+        tops = [74] + score.top_line(22, seed)
+        for a, b in zip(tops, tops[1:]):
+            assert abs(b - a) <= 5
+            moves += 1
+            steps += abs(b - a) <= 2
+    assert steps / moves >= 0.75
